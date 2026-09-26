@@ -1,5 +1,7 @@
 # Démonstration Oria — nouveau HTC CN46V3M00284
 
+> Candidat préparé hors téléphone : voir [OFFLINE_PROGRESS.md](validation/OFFLINE_PROGRESS.md) avant installation. Les preuves qui suivent concernent les APK précédents. Le dernier appareil installé est CN4B53M00860 ; identifier à nouveau le téléphone au branchement. Les numéros ADB des exemples ci-dessous désignent la campagne historique CN46V3M00284 et ne doivent pas être réutilisés sans vérification.
+
 L’application livrée s’appelle **Oria**, s’ouvre directement sur Oria et conserve le package HTC autorisé. Deux onglets donnent accès à **Oria** pour l’assistance en direct et **Oria Lab** pour enregistrer une scène explicitement. **Diagnostic HTC** donne accès aux outils du starter. Les commandes de démarrage/arrêt restent visibles en bas, même lorsque l’aperçu portrait remplit le contenu.
 
 L’installation sur ce nouveau HTC U24 pro Android 14 a été autorisée après sauvegarde de l’APK d’origine et des fichiers privés accessibles, puis exécutée. VIVE Connect est resté installé au même emplacement. Les preuves et le verdict physique consolidé sont dans [la recette](validation/RECETTE.md). Les anciens résultats du téléphone CN4B53M00860 restent distincts.

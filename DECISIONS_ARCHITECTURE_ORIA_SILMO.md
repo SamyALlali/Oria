@@ -277,3 +277,20 @@ La demande utilisateur étend D17/D18 à toutes les occurrences dans la version 
 Cette décision remplace la conservation des identifiants internes prévue par D18. Après sauvegarde hors du projet, migration de cinq captures Android, sept caches Mac, cinq exports ZIP et des préférences audio ; UUID, images et événements conservés. Le format reste version 1 avec le marqueur `oria-lab-session`. Le lecteur ne prétend pas importer directement les originaux non migrés.
 
 Les noms étaient aussi présents dans les métadonnées du checkpoint et de l’ONNX. Leur modification change les empreintes de fichiers, mais 708 tenseurs PyTorch et le graphe ONNX sérialisé ont été vérifiés identiques. Le lecteur accepte exclusivement les deux empreintes validées de ce graphe. Aucune nouvelle performance numérique ou acoustique n’est déduite du renommage. Preuves et limites : `oria-htc/validation/ORIA_RENAMING.md`.
+
+
+## D20 — Suivi V2 expérimental, comparaison sans changer le défaut
+
+La scène auditée fournit deux contre-exemples de suivi : fragmentation sous rotation et transfert apparent de confirmation entre personnes. Une association géométrique conservatrice ajoute une prédiction de translation bornée et abandonne les identités ambiguës. Le seuil IoU reste inchangé. Les sessions, gardes de fraîcheur et transactions vocales restent contrôlées par le même moteur. Le mode `STABLE_RGB_V2` est opt-in ; `LEGACY_IOU` demeure la référence. Les essais ciblés et la contrepartie en fragmentation sont consignés dans `oria-htc/validation/TRACKING_V2.md`.
+
+## D21 — Gestion réversible des captures
+
+Le nom utilisateur est un sidecar facultatif `session-label.json`, version 1, avec `displayName` en NFC et 1 à 80 points Unicode après nettoyage commun Android/Mac. Les données capturées ne sont pas réécrites. Retirer signifie déplacer vers `.trash`, avec restauration possible ; cette opération ne libère pas d’espace. Aucun effacement automatique. Capture/export/mutations doivent être sérialisés, et l’export inclut le sidecar actuel.
+
+## D22 — Mode poche borné avant recette matérielle
+
+Option désactivée par défaut, service Android explicite avec notification et arrêt accessible, maintien CPU au plus 15 minutes, aucune reprise automatique après interruption. Oria Lab conserve son arrêt en arrière-plan. La destruction de l’Activity termine la perception. La compatibilité du flux HTC écran verrouillé, l’arrêt acoustique, les permissions et la consommation restent à prouver sur matériel. Cette préparation hors téléphone ne transforme pas ces points en succès. Voir `oria-htc/validation/OFFLINE_PROGRESS.md`.
+
+## D23 — A/B du même moteur et aperçu audio local
+
+Le laboratoire compare deux configurations Kotlin indépendantes sur les mêmes détections et horloges, avec la même règle de confirmation simulée. Les détections proviennent soit de l’enregistrement soit d’un unique calcul ONNX partagé entre les deux variantes. Les identités internes, changements de sélection et textes proposés sont distingués. La synthèse Mac avec gains 70/30 est un aperçu déclenché explicitement ; elle ne confirme aucune transaction du moteur et ne représente pas le son entendu dans les lunettes.

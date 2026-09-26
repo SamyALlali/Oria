@@ -12,7 +12,7 @@ private fun JsonObject.config(): RgbAlertConfig {
     val names = setOf("maxObservationAgeMs", "trackAssociationIou", "trackLostAfterMs", "confirmationSamples",
         "confidenceExitMargin", "minimumTrackingConfidence", "selectionHoldMs", "replacementScoreMargin",
         "repeatIntervalMs", "globalAnnouncementGapMs", "failureRetryGapMs", "voiceMemoryRetentionMs",
-        "maximumVoiceMemories", "maximumTracks")
+        "maximumVoiceMemories", "maximumTracks", "trackingMode")
     require(keySet().all { it in names }) { "Unknown policy parameter" }
     fun l(n: String, v: Long) = get(n)?.asLong ?: v
     fun i(n: String, v: Int) = get(n)?.asInt ?: v
@@ -24,7 +24,8 @@ private fun JsonObject.config(): RgbAlertConfig {
         f("replacementScoreMargin", d.replacementScoreMargin), l("repeatIntervalMs", d.repeatIntervalMs),
         l("globalAnnouncementGapMs", d.globalAnnouncementGapMs), l("failureRetryGapMs", d.failureRetryGapMs),
         l("voiceMemoryRetentionMs", d.voiceMemoryRetentionMs), i("maximumVoiceMemories", d.maximumVoiceMemories),
-        i("maximumTracks", d.maximumTracks))
+        i("maximumTracks", d.maximumTracks),
+        get("trackingMode")?.asString?.let { RgbTrackingMode.valueOf(it) } ?: d.trackingMode)
 }
 
 fun main() {

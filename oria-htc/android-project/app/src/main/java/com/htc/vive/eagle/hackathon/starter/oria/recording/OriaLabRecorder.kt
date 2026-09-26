@@ -20,6 +20,8 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.OutputStream
 import java.nio.ByteBuffer
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.ArrayDeque
 import java.util.UUID
 import java.util.zip.ZipEntry
@@ -38,6 +40,7 @@ data class OriaLabSession(
     val bytes: Long,
     val reason: String,
     val usableForReplay: Boolean = frames > 0,
+    val displayName: String? = null,
 )
 
 data class OriaLabRecorderState(
@@ -51,6 +54,10 @@ data class OriaLabRecorderState(
     val incomplete: Boolean = false,
     val detail: String = "Enregistrement désactivé",
     val savedSessions: List<OriaLabSession> = emptyList(),
+    val trashedSessions: List<OriaLabSession> = emptyList(),
+    val totalStorageBytes: Long = 0,
+    val trashBytes: Long = 0,
+    val storageBusy: Boolean = true,
 )
 
 /** Explicit opt-in capture. SDK/pixel callbacks never perform file I/O or wait for the writer. */
@@ -70,13 +77,16 @@ class OriaLabRecorder(context: Context) : Closeable {
     private val root = File(context.applicationContext.filesDir, "oria-lab")
     private val lock = Object()
     private val queue = ArrayDeque<Work>()
-    private val exportMutex = Mutex()
+    private val storageMutex = Mutex()
+    private val storage = OriaLabStorage(root)
     private val _state = MutableStateFlow(OriaLabRecorderState())
     val state: StateFlow<OriaLabRecorderState> = _state.asStateFlow()
     private var saved = emptyList<OriaLabSession>()
+    private var totalStorageBytes = 0L
+    private var trashStorageBytes = 0L
     private var active: Run? = null
     private var closed = false
-    private var exporting = false
+    private var storageBusy = true
     private val worker = Thread(::writerLoop, "oria-lab-writer").apply { start() }
 
     private class Run(val id: String, val directory: File, val metadata: JSONObject,
@@ -117,7 +127,7 @@ class OriaLabRecorder(context: Context) : Closeable {
         val videoSessionId = frozen.optLong("videoSessionId", Long.MIN_VALUE)
         if (videoSessionId == Long.MIN_VALUE) return false
         synchronized(lock) {
-            if (closed || exporting || active != null) return false
+            if (closed || storageBusy || active != null) return false
             val id = UUID.randomUUID().toString()
             val run = Run(id, File(root, id), frozen, System.currentTimeMillis(), now(), videoSessionId)
             active = run
@@ -227,31 +237,62 @@ class OriaLabRecorder(context: Context) : Closeable {
 
     fun sessions(): List<OriaLabSession> = synchronized(lock) { saved.toList() }
 
-    /** Private ZIP only. The UI explicitly chooses whether/where to export it through SAF. */
-    suspend fun export(sessionId: String): File = exportMutex.withLock {
-        val session = synchronized(lock) {
-            check(active == null) { "Terminer l’enregistrement avant l’export" }
-            (saved.firstOrNull { it.id == sessionId } ?: error("Session introuvable")).also { exporting = true }
-        }
-        try { withContext(Dispatchers.IO) {
-            val exports = File(root, "_exports").apply { check(mkdirs() || isDirectory) }
-            val destination = File(exports, "${session.id}.zip")
-            if (destination.isFile) return@withContext destination
-            check(exports.usableSpace >= session.bytes + MANIFEST_RESERVE * 2) { "Espace insuffisant pour le ZIP" }
-            val temporary = File(exports, "${session.id}.zip.part")
-            try {
-                ZipOutputStream(temporary.outputStream().buffered()).use { zip ->
-                    zip.setLevel(1)
-                    session.directory.walkTopDown().filter { it.isFile && !it.name.endsWith(".tmp") }.sortedBy { it.relativeTo(session.directory).path }.forEach { file ->
+    /** Mutations touch only a label sidecar or move the entire session; captured payloads stay intact. */
+    suspend fun renameSession(sessionId: String, displayName: String) = storageOperation {
+        storage.renameSession(sessionId, displayName)
+        loadSessions(recoverInterrupted = false)
+    }
+
+    suspend fun archiveSession(sessionId: String) = storageOperation {
+        storage.archiveSession(sessionId)
+        loadSessions(recoverInterrupted = false)
+    }
+
+    suspend fun restoreSession(sessionId: String) = storageOperation {
+        storage.restoreSession(sessionId)
+        loadSessions(recoverInterrupted = false)
+    }
+
+    /** The lease covers ZIP construction AND the caller's destination copy. */
+    suspend fun <T> withExport(sessionId: String, consume: suspend (File) -> T): T = storageOperation {
+        val session = synchronized(lock) { saved.firstOrNull { it.id == sessionId } ?: error("Capture introuvable") }
+        val exports = File(root, "_exports").apply { check(mkdirs() || isDirectory) }
+        val destination = File(exports, "${session.id}.zip")
+        check(exports.usableSpace >= session.bytes + MANIFEST_RESERVE * 2) { "Espace insuffisant pour le ZIP" }
+        val temporary = File(exports, "${session.id}.zip.part")
+        try {
+            // Rebuild instead of returning a stale ZIP after a display-name change.
+            ZipOutputStream(temporary.outputStream().buffered()).use { zip ->
+                zip.setLevel(1)
+                session.directory.walkTopDown()
+                    .onEnter { !Files.isSymbolicLink(it.toPath()) }
+                    .filter { it.isFile && !Files.isSymbolicLink(it.toPath()) && !it.name.endsWith(".tmp") }
+                    .sortedBy { it.relativeTo(session.directory).path }.forEach { file ->
                         zip.putNextEntry(ZipEntry(file.relativeTo(session.directory).invariantSeparatorsPath))
                         file.inputStream().use { it.copyTo(zip, 64 * 1024) }
                         zip.closeEntry()
                     }
-                }
-                check(temporary.renameTo(destination)) { "Impossible de finaliser le ZIP" }
-                destination
-            } catch (e: Exception) { temporary.delete(); throw e }
-        } } finally { synchronized(lock) { exporting = false } }
+            }
+            Files.move(temporary.toPath(), destination.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+            consume(destination)
+        } finally {
+            temporary.delete()
+            refreshStorageSizes()
+        }
+    }
+
+    /** For callers that only need a private archive. UI export must use withExport for its full copy. */
+    suspend fun export(sessionId: String): File = withExport(sessionId) { it }
+
+    private suspend fun <T> storageOperation(action: suspend () -> T): T = storageMutex.withLock {
+        synchronized(lock) {
+            check(!closed) { "Oria Lab est fermé" }
+            check(active == null && !storageBusy) { "Terminez la capture ou l’opération en cours" }
+            storageBusy = true
+            _state.value = _state.value.copy(storageBusy = true)
+        }
+        try { withContext(Dispatchers.IO) { action() } }
+        finally { synchronized(lock) { storageBusy = false; _state.value = _state.value.copy(storageBusy = false) } }
     }
 
     private fun reserve(bytes: Long, videoSessionId: Long, expected: Run? = null): Run? = synchronized(lock) {
@@ -302,11 +343,13 @@ class OriaLabRecorder(context: Context) : Closeable {
             run.id, run.packets, run.frames, run.bytes, run.queuedBytes,
             ((if (run.endedAtMs > 0) run.endedAtMs else now()) - run.originMs).coerceAtLeast(0),
             run.incompleteReason != null,
-            run.incompleteReason ?: if (run.accepting) "Capture explicite en cours · maximum 60 s" else "Finalisation : ${run.stopReason}", saved)
+            run.incompleteReason ?: if (run.accepting) "Capture explicite en cours · maximum 60 s" else "Finalisation : ${run.stopReason}", saved,
+            _state.value.trashedSessions, totalStorageBytes + run.bytes, trashStorageBytes, storageBusy)
     }
 
     private fun writerLoop() {
-        loadSessions()
+        try { loadSessions(recoverInterrupted = true) }
+        finally { synchronized(lock) { storageBusy = false; _state.value = _state.value.copy(storageBusy = false) } }
         while (true) {
             var work: Work? = null
             var finishing: Run? = null
@@ -386,8 +429,10 @@ class OriaLabRecorder(context: Context) : Closeable {
         }
         try { writeManifest(run, if (run.incompleteReason == null) "complete" else "incomplete") }
         catch (e: Exception) { synchronized(lock) { run.incompleteReason = run.incompleteReason ?: "manifest_failed: ${e.message}" } }
-        val session = OriaLabSession(run.id, run.directory, run.epochMs, (run.endedAtMs - run.originMs).coerceAtLeast(0),
-            run.incompleteReason == null, run.packets, run.frames, run.bytes, run.incompleteReason ?: run.stopReason)
+        loadSessions(recoverInterrupted = false)
+        val session = saved.firstOrNull { it.id == run.id } ?: OriaLabSession(run.id, run.directory, run.epochMs,
+            (run.endedAtMs - run.originMs).coerceAtLeast(0), run.incompleteReason == null,
+            run.packets, run.frames, run.bytes, run.incompleteReason ?: run.stopReason)
         synchronized(lock) {
             saved = (listOf(session) + saved).distinctBy { it.id }.sortedByDescending { it.startedAtEpochMs }
             active = null
@@ -395,7 +440,8 @@ class OriaLabRecorder(context: Context) : Closeable {
                 session.id, session.packets, session.frames, session.bytes, 0, session.durationMs, !session.complete,
                 if (!session.complete) "Capture incomplète : ${session.reason}"
                 else if (!session.usableForReplay) "Capture terminée sans image exploitable : ${run.stopReason}"
-                else "Capture sauvegardée : ${run.stopReason}", saved)
+                else "Capture sauvegardée : ${run.stopReason}", saved, _state.value.trashedSessions,
+                totalStorageBytes, trashStorageBytes, storageBusy)
             lock.notifyAll()
         }
     }
@@ -419,32 +465,57 @@ class OriaLabRecorder(context: Context) : Closeable {
         check(temporary.renameTo(File(run.directory, "manifest.json"))) { "Manifest rename failed" }
     }
 
-    private fun loadSessions() {
-        val loaded = mutableListOf<OriaLabSession>()
-        root.listFiles()?.filter { it.isDirectory && !it.name.startsWith("_") }?.forEach { directory ->
-            try {
+    private fun loadSessions(recoverInterrupted: Boolean) {
+        fun load(directory: File, recover: Boolean): OriaLabSession {
+            val label = runCatching {
+                val file = File(directory, OriaLabStorage.LABEL_FILE)
+                check(file.length() <= 4096 && !Files.isSymbolicLink(file.toPath()))
+                val json = JSONObject(file.readText())
+                check(json.getInt("schemaVersion") == 1)
+                OriaLabStorage.normalizeDisplayName(json.getString("displayName"))
+            }.getOrNull()
+            return try {
                 val file = File(directory, "manifest.json")
                 check(file.isFile) { "manifest_missing" }
                 val json = JSONObject(file.readText())
-                if (json.optString("status") == "recording") {
+                check(json.getString("sessionId") == directory.name) { "session_id_mismatch" }
+                if (recover && json.optString("status") == "recording") {
                     json.put("status", "incomplete").put("incompleteReason", "process_interrupted_before_finalization")
                         .put("stopReason", "process_interrupted").put("endedAtMonotonicMs", JSONObject.NULL)
                     file.writeText(json.toString(2))
                 }
                 val counts = json.optJSONObject("counts") ?: JSONObject()
-                loaded += OriaLabSession(json.getString("sessionId"), directory, json.optLong("startedAtEpochMs"),
+                OriaLabSession(directory.name, directory, json.optLong("startedAtEpochMs"),
                     json.optLong("durationMs"), json.optString("status") == "complete", counts.optLong("packets"),
-                    counts.optLong("frames"), directory.walkTopDown().filter { it.isFile }.sumOf { it.length() },
-                    if (!json.isNull("incompleteReason")) json.optString("incompleteReason") else json.optString("stopReason"))
+                    counts.optLong("frames"), OriaLabStorage.bytesIn(directory),
+                    if (!json.isNull("incompleteReason")) json.optString("incompleteReason") else json.optString("stopReason"),
+                    displayName = label)
             } catch (e: Exception) {
                 // Keep damaged captures visible/exportable for diagnosis, never claim completeness.
-                loaded += OriaLabSession(directory.name, directory, directory.lastModified(), 0, false, 0, 0,
-                    directory.walkTopDown().filter { it.isFile }.sumOf { it.length() }, "invalid_manifest: ${e.message}")
+                OriaLabSession(directory.name, directory, directory.lastModified(), 0, false, 0, 0,
+                    OriaLabStorage.bytesIn(directory), "invalid_manifest: ${e.message}", displayName = label)
             }
         }
+        val loaded = storage.sessionDirectories().map { load(it, recoverInterrupted) }.sortedByDescending { it.startedAtEpochMs }
+        val trashed = storage.sessionDirectories(inTrash = true).map { load(it, false) }.sortedByDescending { it.startedAtEpochMs }
+        val total = storage.totalBytes()
+        val trash = storage.trashBytes()
         synchronized(lock) {
-            saved = loaded.sortedByDescending { it.startedAtEpochMs }
-            if (active != null) publishLocked() else _state.value = _state.value.copy(savedSessions = saved)
+            saved = loaded
+            totalStorageBytes = total
+            trashStorageBytes = trash
+            _state.value = _state.value.copy(savedSessions = saved, trashedSessions = trashed,
+                totalStorageBytes = total, trashBytes = trash)
+        }
+    }
+
+    private fun refreshStorageSizes() {
+        val total = storage.totalBytes()
+        val trash = storage.trashBytes()
+        synchronized(lock) {
+            totalStorageBytes = total
+            trashStorageBytes = trash
+            _state.value = _state.value.copy(totalStorageBytes = total, trashBytes = trash)
         }
     }
 

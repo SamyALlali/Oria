@@ -21,6 +21,8 @@ import com.htc.vive.eagle.hackathon.starter.oria.audio.BluetoothSpeechBackend
 import com.htc.vive.eagle.hackathon.starter.oria.audio.SpeechDelivery
 import com.htc.vive.eagle.hackathon.starter.oria.audio.SpeechPan
 import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabPhase
+import com.htc.vive.eagle.hackathon.starter.oria.lifecycle.PocketSessionPolicy
+import com.htc.vive.eagle.hackathon.starter.oria.lifecycle.PocketSessionService
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import java.io.Closeable
@@ -37,6 +39,7 @@ data class OriaUiState(
     val modelReady: Boolean = false,
     val modelLoading: Boolean = true,
     val xnnpack: Boolean = true,
+    val trackingMode: RgbTrackingMode = RgbTrackingMode.LEGACY_IOU,
     val status: String = "Chargement du modèle…",
     val audio: String = "Voix à tester sur les lunettes",
     val audioBusy: Boolean = false,
@@ -61,6 +64,11 @@ data class OriaUiState(
     val rotation: Int = 0,
     val mirrored: Boolean = false,
     val orientationVerified: Boolean = false,
+    val pocketEnabled: Boolean = false,
+    val pocketPreparing: Boolean = false,
+    val pocketActive: Boolean = false,
+    val pocketStatus: String = "Désactivé · garder l’application ouverte",
+
 )
 
 /** All policy/audio mutations live on Main. Pixels/inference run on one owned worker. */
@@ -69,7 +77,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val traceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val worker = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
-    private val engine = RgbAlertEngine()
+    private var engine = RgbAlertEngine()
     // Preserve unresolved-delivery state across compatible updates, including the Oria rename.
     private val audioPersistence = appContext.getSharedPreferences("oria_audio_delivery", Context.MODE_PRIVATE)
     private val previousUncertainDelivery = audioPersistence.getBoolean("delivery_pending_or_unknown", false)
@@ -270,6 +278,14 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         loadModel(true)
     }
 
+    fun setTrackingMode(mode: RgbTrackingMode) {
+        if (closed || _state.value.running || _state.value.pocketPreparing ||
+            _state.value.audioBusy || _state.value.audioUnknown || oriaLabState.value.storageBusy) return
+        engine = RgbAlertEngine(engine.config.copy(trackingMode = mode))
+        _state.update { it.copy(trackingMode = mode) }
+        trace("tracking_mode_changed", "trackingMode" to mode.name)
+    }
+
     fun loadModel(xnnpack: Boolean) {
         if (closed || _state.value.running || modelJob?.isActive == true) return
         _state.update { it.copy(modelReady = false, modelLoading = true, xnnpack = xnnpack, status = "Chargement du modèle…") }
@@ -307,6 +323,25 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
 
     fun disconnect() { stop("Déconnexion"); manager.disconnect() }
 
+    fun setPocketMode(enabled: Boolean) {
+        if (_state.value.running || _state.value.pocketPreparing) return
+        _state.update { it.copy(pocketEnabled = enabled,
+            pocketStatus = if (enabled) "Expérimental · prochain démarrage, 15 minutes maximum" else "Désactivé · garder l’application ouverte") }
+    }
+    fun pocketServicePreparing() { _state.update { it.copy(pocketPreparing = true, pocketActive = false,
+        pocketStatus = "Préparation du mode poche · garder Oria visible") } }
+    fun pocketServiceReady() { _state.update { it.copy(pocketPreparing = false, pocketActive = true,
+        pocketStatus = "Mode poche actif · arrêt disponible dans la notification") } }
+    fun reportPocketError(reason: String) { _state.update { it.copy(pocketPreparing = false, pocketActive = false, pocketStatus = reason) } }
+    fun canContinueInBackground(): Boolean {
+        val live = _state.value
+        return PocketSessionPolicy.canContinue(PocketSessionService.isReadyFor(this), live.running,
+            live.connected, live.simulator,
+            oriaLabState.value.phase in setOf(OriaLabPhase.RECORDING, OriaLabPhase.FINALIZING),
+            PocketSessionService.elapsedMs())
+    }
+
+
     /** Explicit user action only. Restart the stream so its H.264 headers belong to the capture. */
     fun startOriaLab() {
         if (closed || !manager.isConnected() || !_state.value.modelReady ||
@@ -321,14 +356,30 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     fun stopOriaLab() { stop("Oria Lab arrêté · finalisation de la capture") }
 
     suspend fun exportOriaLab(sessionId: String, destination: Uri) = withContext(Dispatchers.IO) {
-        val archive = manager.oriaLabRecorder.export(sessionId)
-        val output = appContext.contentResolver.openOutputStream(destination, "w")
-            ?: error("Impossible d’ouvrir l’emplacement choisi")
-        output.use { sink -> archive.inputStream().use { source -> source.copyTo(sink) } }
+        manager.oriaLabRecorder.withExport(sessionId) { archive ->
+            val output = appContext.contentResolver.openOutputStream(destination, "w")
+                ?: error("Impossible d’ouvrir l’emplacement choisi")
+            output.use { sink -> archive.inputStream().use { source -> source.copyTo(sink) } }
+        }
+    }
+
+    suspend fun renameOriaLab(sessionId: String, name: String) {
+        check(!closed && !_state.value.running && !_state.value.pocketPreparing) { "Arrêtez la perception avant de renommer une capture" }
+        manager.oriaLabRecorder.renameSession(sessionId, name)
+    }
+
+    suspend fun archiveOriaLab(sessionId: String) {
+        check(!closed && !_state.value.running && !_state.value.pocketPreparing) { "Arrêtez la perception avant de retirer une capture" }
+        manager.oriaLabRecorder.archiveSession(sessionId)
+    }
+
+    suspend fun restoreOriaLab(sessionId: String) {
+        check(!closed && !_state.value.running && !_state.value.pocketPreparing) { "Arrêtez la perception avant de restaurer une capture" }
+        manager.oriaLabRecorder.restoreSession(sessionId)
     }
 
     fun start() {
-        if (closed || _state.value.running || !manager.isConnected() || !_state.value.modelReady) return
+        if (closed || _state.value.running || !manager.isConnected() || !_state.value.modelReady || oriaLabState.value.storageBusy) return
         val id = ++generation
         startedAt = now(); streamStartedAt = 0L; lastFrameAt = 0L; lastAcceptedObservationAt = 0L
         latencies.clear(); allInferenceLatencies.clear()
@@ -338,7 +389,8 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
             preprocessMs = 0.0, inferenceMs = 0.0, detections = emptyList(), preview = null) }
         localSpeech.setSessionActive(_state.value.voiceBackend == OriaVoiceBackend.BLUETOOTH && !_state.value.simulator)
         trace("start", "policyAtMs" to startedAt, "rotation" to _state.value.rotation, "mirrored" to _state.value.mirrored,
-            "sampleIntervalMs" to ViveGlassKitManager.ORIA_SAMPLE_INTERVAL_MS)
+            "sampleIntervalMs" to ViveGlassKitManager.ORIA_SAMPLE_INTERVAL_MS,
+            "trackingMode" to engine.config.trackingMode.name, "pocketMode" to _state.value.pocketActive)
         startJob = scope.launch {
             try {
                 val started = manager.startOriaVideo(id, _state.value.rotation, _state.value.mirrored) { frame ->
@@ -360,6 +412,9 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     }
 
     fun stop(reason: String = "Session arrêtée") {
+        PocketSessionService.release(this, appContext)
+        _state.update { it.copy(pocketPreparing = false, pocketActive = false,
+            pocketStatus = if (it.pocketEnabled) "Mode poche arrêté · redémarrage manuel" else it.pocketStatus) }
         val stoppedSession = generation
         ++generation
         startJob?.cancel(); startJob = null
@@ -573,6 +628,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
             .put("voiceMemoryRetentionMs", config.voiceMemoryRetentionMs)
             .put("maximumVoiceMemories", config.maximumVoiceMemories)
             .put("maximumTracks", config.maximumTracks)
+            .put("trackingMode", config.trackingMode.name)
             .put("zoneLeftBoundary", 0.39).put("zoneRightBoundary", 0.61)
             .put("categories", JSONArray().apply { RgbCategory.entries.forEach { category ->
                 put(JSONObject().put("classId", category.classId).put("label", category.label)
@@ -682,6 +738,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
                 put(JSONObject().put("id", track.id).put("zone", track.zone.name)
                     .put("observedAtMs", track.observedAtMs).put("confirmed", track.confirmed)
                     .put("confirmationSamples", track.confirmationSamples)
+                    .put("associationStatus", track.associationStatus.name)
                     .put("visibleInLatestFrame", track.visibleInLatestFrame).put("detection", detectionJson(track.detection)))
             } }))
     }

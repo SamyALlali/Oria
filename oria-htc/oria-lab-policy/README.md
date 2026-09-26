@@ -1,6 +1,6 @@
 # Politique Oria sur Mac
 
-`run_policy.py` compile directement les trois fichiers Kotlin de `android-project/.../oria/core/` et un adaptateur JSONL. Le moteur n'est pas réécrit en Python. Le JDK et les dépendances Kotlin/Gson proviennent de l'outillage Android local ; aucune résolution réseau n'a lieu au lancement. Le cache change lorsque le code ou les dépendances changent.
+`run_policy.py` compile directement les fichiers Kotlin de `android-project/.../oria/core/` et un adaptateur JSONL. Le moteur n'est pas réécrit en Python. Le JDK et les dépendances Kotlin/Gson proviennent de l'outillage Android local ; aucune résolution réseau n'a lieu au lancement. Le cache change lorsque le code ou les dépendances changent. Les préparations simultanées sont verrouillées et le JAR est publié atomiquement.
 
 ```bash
 python3 oria-lab-policy/run_policy.py --build-only
@@ -19,4 +19,8 @@ Protocole version 1, une requête et une réponse par ligne. L'horloge est celle
 
 Un lecteur peut simuler une durée vocale pour comparer des réglages, à condition de l'indiquer. Une confirmation simulée ne prouve pas l'écoute réelle. Pour naviguer en arrière, recalculer la scène depuis son début ou consulter des résultats déjà calculés depuis le début : ne pas réinjecter une vieille image dans un moteur avancé.
 
-Les quatre tests exécutables couvrent confirmation et cooldown, direction, reproductibilité, rejet de résultats périmés et de callbacks d'une ancienne session, ainsi que validation des paramètres. Les tests complets du moteur restent ceux d'Android.
+Le paramètre `config.trackingMode` accepte `LEGACY_IOU` (défaut préservé) et `STABLE_RGB_V2` (expérimental). Une valeur inconnue est rejetée. Le mode V2 utilise une continuité géométrique prudente et réinitialise les confirmations ambiguës ; il ne reconnaît pas l'identité physique d'une personne. Le champ supplémentaire `tracks[].associationStatus` explique la dernière association : `NEW`, `LEGACY_IOU`, `UNAMBIGUOUS_IOU`, `MOTION_RECOVERY` ou `AMBIGUOUS_NEW`. Il est purement descriptif et ne modifie pas les coordonnées. Pour une piste non visible, il décrit sa dernière observation, pas une prédiction courante.
+
+Les six tests exécutables couvrent confirmation et cooldown, direction, reproductibilité, rejet de résultats périmés et de callbacks d'une ancienne session, validation des paramètres et des modes de suivi, ainsi que deux compilations simultanées avec cache vide. Les tests complets du moteur restent ceux d'Android.
+
+La [comparaison V2](../validation/TRACKING_V2.md) conserve les mêmes détections, horloges et règle de confirmation audio simulée pour les deux modes. Les événements audio réels ne sont jamais attribués au candidat.

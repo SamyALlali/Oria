@@ -60,7 +60,7 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                     ) {
                         Text(state.status, style = MaterialTheme.typography.bodySmall, maxLines = 2)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(onClick = onStart, enabled = state.connected && state.modelReady && !state.running,
+                            Button(onClick = onStart, enabled = state.connected && state.modelReady && !state.running && !state.pocketPreparing && !capture.storageBusy,
                                 modifier = Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Démarrer") }
                             OutlinedButton(onClick = { controller.stop() }, enabled = state.running,
                                 modifier = Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Arrêter") }
@@ -143,6 +143,18 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                         if (state.audioUnknown) Text("La voix est suspendue : une réponse HTC n’a pas pu être attribuée. La phrase déjà envoyée peut continuer.", color = Color(0xFFFFD4AB))
                     }
                 }
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(checked = state.pocketEnabled, onCheckedChange = controller::setPocketMode,
+                                enabled = !state.running && !state.pocketPreparing)
+                            Text("Mode poche · expérimental", Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
+                        }
+                        Text(state.pocketStatus, style = MaterialTheme.typography.bodySmall)
+                        Text("Continuer écran verrouillé pendant 15 minutes maximum. À valider sur HTC. Oria Lab s’arrête toujours en arrière-plan.",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = state.orientationVerified, onCheckedChange = controller::confirmOrientation)
                     Text("J’ai vérifié gauche / droite dans l’aperçu et le test vocal. Autoriser les annonces d’objets.", style = MaterialTheme.typography.bodyMedium)
@@ -184,6 +196,17 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                             label = { Text("HTC · diagnostic") })
                     }
                     Text("La voix HTC est réservée au diagnostic sans vidéo. La voix locale utilise la sortie Bluetooth VIVE détectée.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Text("Suivi des objets", fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Switch(checked = state.trackingMode == com.htc.vive.eagle.hackathon.starter.oria.core.RgbTrackingMode.STABLE_RGB_V2,
+                            enabled = !state.running && !state.pocketPreparing && !state.audioBusy && !state.audioUnknown,
+                            onCheckedChange = { controller.setTrackingMode(if (it)
+                                com.htc.vive.eagle.hackathon.starter.oria.core.RgbTrackingMode.STABLE_RGB_V2
+                                else com.htc.vive.eagle.hackathon.starter.oria.core.RgbTrackingMode.LEGACY_IOU) })
+                        Text("Suivi stable V2 · expérimental", Modifier.padding(start = 8.dp))
+                    }
+                    Text("Le suivi habituel reste activé par défaut. Comparez les deux modes dans Oria Lab avant un essai terrain.",
                         style = MaterialTheme.typography.bodySmall)
                     Text("Repère de la caméra", fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

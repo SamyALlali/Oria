@@ -4,6 +4,14 @@ Prototype du hackathon SILMO pour HTC VIVE Eagle : la caméra des lunettes trans
 
 Le prototype reprend notre modèle YOLO et des politiques portées depuis une base Swift. Le package autorisé reste `com.htc.vive.eagle.hackathon.starter`.
 
+## Évolution en préparation hors HTC
+
+La branche courante ajoute la gestion des captures, la comparaison A/B sur Mac, un suivi V2 facultatif et un mode poche expérimental. **Ce candidat n’a pas encore été installé ni essayé sur le téléphone.** Le suivi habituel reste activé par défaut et le mode poche désactivé. La release ci-dessous correspond à la version installée précédente. [Travaux, limites et recette restante](oria-htc/validation/OFFLINE_PROGRESS.md).
+
+Vérifié sur Mac : **71 tests Android, 25 tests Python, 6 tests de rejeu Kotlin**, régressions UI JavaScript et lint Android sans erreur. Aucun nouvel essai Bluetooth ou écran verrouillé.
+
+Pour produire le candidat et son manifeste sans téléphone : `python3 oria-htc/validation/build_offline.py`.
+
 ## Démarrer après un clone
 
 Prérequis Android : JDK 17 ou 21, SDK Android 36, Build Tools 36.0.0, accès aux dépôts Maven pour la première compilation. Les AAR HTC du starter sont inclus. Le checkpoint PyTorch et le modèle ONNX FP32 sont versionnés ; aucun réexport n’est nécessaire pour lancer l’application.
@@ -34,10 +42,10 @@ ml/.venv/bin/python oria-lab-desktop/launch.py
 
 Le lanceur **[Lancer Oria Lab.command](<oria-htc/oria-lab-desktop/Lancer Oria Lab.command>)** ouvre le laboratoire dans le navigateur. Importer un ZIP exporté depuis Oria Lab sur le téléphone, ou utiliser **[Récupérer depuis HTC.command](<oria-htc/oria-lab-transfer/Récupérer depuis HTC.command>)** avec un téléphone autorisé en USB. Aucune capture personnelle n’est incluse dans le dépôt. FFmpeg est facultatif pour la vidéo intégrale ; les PNG et le moteur de recalcul fonctionnent sans lui.
 
-## État vérifié
+## État vérifié de la version précédente
 
 - Build Oria : **51 tests JVM, 12 tests Mac et 4 tests de rejeu Kotlin réussis**, installé sur HTC U24 pro / Android 14.
-- Chaîne lunettes → inférence → annonces vocales démontrée sur ce téléphone avant le renommage.
+- Chaîne lunettes → inférence → annonces vocales démontrée sur CN46V3M00284 avant le renommage. Dernière installation sur CN4B53M00860 : lancement et modèle chargé vérifiés, sans nouvelle preuve vidéo/voix.
 - Gains PCM actuels : gauche **70/30**, droite **30/70**, centre **1/1**. L’écoute de ce nouveau mélange reste à confirmer ; la preuve humaine précédente concernait 100/0.
 - Audit d’une capture de 60 secondes : **164/164 décisions reproduites**, **240/240 détections ≥0,70 concordantes** entre téléphone et Mac. La parité brute échoue sur certaines lignes de très faible confiance ; des limites de suivi et des faux positifs restent documentés.
 

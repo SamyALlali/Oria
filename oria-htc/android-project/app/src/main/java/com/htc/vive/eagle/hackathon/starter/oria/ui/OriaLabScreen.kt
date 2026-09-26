@@ -51,10 +51,28 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
     var pendingExport by rememberSaveable { mutableStateOf<String?>(null) }
     var exporting by remember { mutableStateOf(false) }
     var exportStatus by remember { mutableStateOf("") }
+    var managing by remember { mutableStateOf(false) }
+    var managementStatus by remember { mutableStateOf("") }
+    var renameId by rememberSaveable { mutableStateOf<String?>(null) }
+    var renameText by rememberSaveable { mutableStateOf("") }
+    var renameError by remember { mutableStateOf<String?>(null) }
+    var archiveId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
     var frameIndex by rememberSaveable { mutableIntStateOf(0) }
     val recordingActive = recording.phase == OriaLabPhase.RECORDING
     val finalizing = recording.phase == OriaLabPhase.FINALIZING
+    val storageBusy = recording.storageBusy || exporting || managing || pendingExport != null
+    val canManage = !live.running && !recordingActive && !finalizing && !storageBusy
+    fun mutate(success: String, action: suspend () -> Unit) {
+        managing = true
+        managementStatus = "Mise à jour de la capture…"
+        scope.launch {
+            try { action(); managementStatus = success }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { managementStatus = "Opération interrompue : ${e.message}" }
+            finally { managing = false }
+        }
+    }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         val id = pendingExport
         pendingExport = null
@@ -94,7 +112,7 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                         Text(recording.detail.ifBlank { "Aucun enregistrement en cours" }, style = MaterialTheme.typography.bodySmall, maxLines = 2)
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Button(onClick = onRecord,
-                                enabled = live.connected && live.modelReady && !recordingActive && !finalizing && !exporting,
+                                enabled = live.connected && live.modelReady && !recordingActive && !finalizing && !storageBusy,
                                 modifier = Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Enregistrer une scène") }
                             OutlinedButton(onClick = controller::stopOriaLab,
                                 enabled = recordingActive || live.running,
@@ -153,23 +171,51 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                 Text("Captures enregistrées", style = MaterialTheme.typography.titleLarge)
                 Text("Le ZIP contient les fichiers de la session. Choisissez son emplacement avec le sélecteur Android ; aucun serveur n’est utilisé par Oria Lab.", style = MaterialTheme.typography.bodySmall)
                 if (live.running || recordingActive || finalizing) Text("Arrêtez la vidéo et attendez la finalisation avant de revoir ou exporter une capture.", style = MaterialTheme.typography.bodySmall)
-                if (exporting) LinearProgressIndicator(Modifier.fillMaxWidth())
+                Text("Espace occupé : ${mib(recording.totalStorageBytes)} Mio · corbeille : ${mib(recording.trashBytes)} Mio", style = MaterialTheme.typography.bodyMedium)
+                Text("Le total inclut les captures et les ZIP privés. Mettre à la corbeille conserve les données et ne libère pas d’espace.", style = MaterialTheme.typography.bodySmall)
+                if (storageBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (managementStatus.isNotBlank()) Text(managementStatus, style = MaterialTheme.typography.bodySmall)
                 if (exportStatus.isNotBlank()) Text(exportStatus, style = MaterialTheme.typography.bodySmall)
                 if (recording.savedSessions.isEmpty()) Text("Aucune capture finalisée pour le moment.")
                 recording.savedSessions.sortedByDescending { it.startedAtEpochMs }.forEach { session ->
                     Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
                         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(SimpleDateFormat("dd/MM HH:mm:ss", Locale.FRANCE).format(Date(session.startedAtEpochMs)), fontWeight = FontWeight.Bold)
+                            Text(session.displayName ?: sessionDate(session.startedAtEpochMs), fontWeight = FontWeight.Bold)
+                            if (session.displayName != null) Text(sessionDate(session.startedAtEpochMs), style = MaterialTheme.typography.bodySmall)
                             Text("${session.durationMs / 1000} s · ${session.frames} images · ${mib(session.bytes)} Mio")
                             Text(if (session.complete) "Finalisée · ${session.reason}" else "Incomplète · ${session.reason}", style = MaterialTheme.typography.bodySmall)
                             if (!session.usableForReplay) Text("Sans image exploitable pour le rejeu", style = MaterialTheme.typography.bodySmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 TextButton(onClick = { selectedSessionId = session.id; frameIndex = 0 },
-                                    enabled = !live.running && !recordingActive && !finalizing && !exporting) { Text("Revoir les images") }
+                                    enabled = canManage) { Text("Revoir les images") }
                                 OutlinedButton(onClick = {
                                     pendingExport = session.id
                                     exportLauncher.launch("OriaLab-${session.id}.zip")
-                                }, enabled = !live.running && !recordingActive && !finalizing && !exporting) { Text("Exporter ZIP") }
+                                }, enabled = canManage) { Text("Exporter ZIP") }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = {
+                                    renameId = session.id
+                                    renameText = session.displayName ?: sessionDate(session.startedAtEpochMs)
+                                    renameError = null
+                                }, enabled = canManage) { Text("Renommer") }
+                                TextButton(onClick = { archiveId = session.id }, enabled = canManage) { Text("Mettre à la corbeille") }
+                            }
+                        }
+                    }
+                }
+                if (recording.trashedSessions.isNotEmpty()) {
+                    HorizontalDivider()
+                    Text("Corbeille locale · ${recording.trashedSessions.size}", style = MaterialTheme.typography.titleLarge)
+                    Text("Les captures restent sur ce téléphone jusqu’à leur restauration. Aucune suppression automatique.", style = MaterialTheme.typography.bodySmall)
+                    recording.trashedSessions.forEach { session ->
+                        Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(session.displayName ?: sessionDate(session.startedAtEpochMs), fontWeight = FontWeight.Bold)
+                                Text("${session.durationMs / 1000} s · ${session.frames} images · ${mib(session.bytes)} Mio")
+                                OutlinedButton(onClick = {
+                                    mutate("Capture restaurée.") { controller.restoreOriaLab(session.id) }
+                                }, enabled = canManage) { Text("Restaurer") }
                             }
                         }
                     }
@@ -177,7 +223,7 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                 if (selectedSession != null) {
                     HorizontalDivider()
                     Text("Relecture · capture enregistrée", style = MaterialTheme.typography.titleLarge)
-                    Text(selectedSession.id, style = MaterialTheme.typography.bodySmall)
+                    Text(selectedSession.displayName ?: selectedSession.id, style = MaterialTheme.typography.bodySmall)
                     if (gallery.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                     if (gallery.error != null) Text(gallery.error!!, color = Color(0xFF9E2F1A))
                     if (!gallery.loading && gallery.frames.isEmpty()) Text("Aucune image PNG disponible dans cette capture.")
@@ -195,6 +241,43 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                     }
                 }
             }
+        }
+        renameId?.let { id ->
+            AlertDialog(onDismissRequest = { if (!managing) renameId = null },
+                title = { Text("Renommer la capture") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(value = renameText, onValueChange = { renameText = it; renameError = null },
+                            singleLine = true, label = { Text("Nom de la scène") }, enabled = !managing,
+                            supportingText = { Text(renameError ?: "De 1 à 80 caractères. Les images et données restent intactes.") },
+                            isError = renameError != null)
+                    }
+                },
+                confirmButton = { TextButton(onClick = {
+                    managing = true
+                    scope.launch {
+                        try {
+                            controller.renameOriaLab(id, renameText)
+                            renameId = null
+                            managementStatus = "Nom de la capture enregistré."
+                        } catch (e: CancellationException) { throw e }
+                        catch (e: Exception) { renameError = e.message ?: "Nom invalide" }
+                        finally { managing = false }
+                    }
+                }, enabled = canManage && renameText.isNotBlank()) { Text("Enregistrer") } },
+                dismissButton = { TextButton(onClick = { renameId = null }, enabled = !managing) { Text("Annuler") } })
+        }
+        archiveId?.let { id ->
+            val session = recording.savedSessions.firstOrNull { it.id == id }
+            AlertDialog(onDismissRequest = { archiveId = null },
+                title = { Text("Mettre à la corbeille ?") },
+                text = { Text("${session?.displayName ?: session?.let { sessionDate(it.startedAtEpochMs) } ?: "Cette capture"} sera retirée de la liste. Elle restera dans la corbeille locale et pourra être restaurée, avec toutes ses données.") },
+                confirmButton = { TextButton(onClick = {
+                    archiveId = null
+                    selectedSessionId = selectedSessionId.takeUnless { it == id }
+                    mutate("Capture conservée dans la corbeille locale.") { controller.archiveOriaLab(id) }
+                }, enabled = canManage) { Text("Mettre à la corbeille") } },
+                dismissButton = { TextButton(onClick = { archiveId = null }) { Text("Annuler") } })
         }
     }
 }
@@ -261,3 +344,5 @@ private fun loadGallery(directory: File): GalleryData = try {
 } catch (e: Exception) { GalleryData(error = "Relecture indisponible : ${e.message}") }
 
 private fun mib(bytes: Long): String = String.format(Locale.FRANCE, "%.1f", bytes / (1024.0 * 1024.0))
+
+private fun sessionDate(epochMs: Long): String = SimpleDateFormat("dd/MM HH:mm:ss", Locale.FRANCE).format(Date(epochMs))

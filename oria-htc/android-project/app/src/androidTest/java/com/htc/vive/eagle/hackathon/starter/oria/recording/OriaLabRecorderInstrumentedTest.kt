@@ -11,6 +11,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.htc.vive.eagle.hackathon.starter.oria.video.OriaVideoFrame
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.yield
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
@@ -135,6 +138,68 @@ class OriaLabRecorderInstrumentedTest {
         assertTrue(recorder.state.value.detail.contains("sans image"))
     }
 
+    @Test fun renamedCaptureExportsSidecarAndArchiveRestorePreserveEveryPayload() = fixture { recorder ->
+        assertTrue(recorder.start(metadata(401)))
+        recorder.recordEvent(JSONObject().put("type", "fixture").put("sessionId", 401))
+        recorder.stop("storage_fixture")
+        val session = awaitSaved(recorder)
+        val original = session.directory.walkTopDown().filter { it.isFile }
+            .associate { it.relativeTo(session.directory).path to it.readBytes().toList() }
+        runBlocking {
+            recorder.renameSession(session.id, "  Hall\t1  ")
+            assertEquals("Hall 1", recorder.sessions().single().displayName)
+            recorder.withExport(session.id) { zipFile ->
+                ZipFile(zipFile).use { zip ->
+                    val label = JSONObject(zip.getInputStream(zip.getEntry("session-label.json")).bufferedReader().use { it.readText() })
+                    assertEquals(1, label.getInt("schemaVersion"))
+                    assertEquals("Hall 1", label.getString("displayName"))
+                }
+                assertTrue(recorder.state.value.storageBusy)
+                assertFalse("A capture cannot start while the destination is still being copied", recorder.start(metadata(402)))
+            }
+            // A second export cannot silently reuse a ZIP containing the previous name.
+            recorder.renameSession(session.id, "Hall 2")
+            recorder.withExport(session.id) { zipFile ->
+                ZipFile(zipFile).use { zip ->
+                    val label = JSONObject(zip.getInputStream(zip.getEntry("session-label.json")).bufferedReader().use { it.readText() })
+                    assertEquals("Hall 2", label.getString("displayName"))
+                }
+            }
+            recorder.archiveSession(session.id)
+            assertTrue(recorder.sessions().isEmpty())
+            assertEquals(session.id, recorder.state.value.trashedSessions.single().id)
+            recorder.restoreSession(session.id)
+        }
+        val restored = recorder.sessions().single()
+        original.forEach { (path, bytes) -> assertEquals("Unchanged original $path", bytes, restored.directory.resolve(path).readBytes().toList()) }
+        assertEquals("Hall 2", restored.displayName)
+        assertTrue(recorder.state.value.trashedSessions.isEmpty())
+        assertFalse(recorder.state.value.storageBusy)
+    }
+
+    @Test fun mutationWaitsForFullExportLeaseAndActiveCaptureRejectsMutation() = fixture { recorder ->
+        assertTrue(recorder.start(metadata(501)))
+        recorder.stop("lease_fixture")
+        val session = awaitSaved(recorder)
+        runBlocking {
+            var rename: kotlinx.coroutines.Deferred<Unit>? = null
+            recorder.withExport(session.id) {
+                rename = async(start = CoroutineStart.UNDISPATCHED) { recorder.renameSession(session.id, "After export") }
+                yield()
+                assertFalse("Mutation remains queued until the destination consumer finishes", rename!!.isCompleted)
+                assertNull(recorder.sessions().single().displayName)
+            }
+            rename!!.await()
+            assertEquals("After export", recorder.sessions().single().displayName)
+            assertTrue(recorder.start(metadata(502)))
+            val failed = runCatching { recorder.archiveSession(session.id) }
+            assertTrue(failed.exceptionOrNull() is IllegalStateException)
+            assertTrue(session.directory.isDirectory)
+            recorder.stop("lease_fixture_done")
+        }
+        awaitSaved(recorder, previousId = session.id)
+    }
+
     private fun metadata(session: Long) = JSONObject().put("videoSessionId", session).put("source", "instrumented_synthetic")
     private fun frame(bitmap: Bitmap, session: Long, id: Long, at: Long) = OriaVideoFrame(
         bitmap, session, id, at, 123_456, 2, 2, 0, false, at + 1, 0.1)
@@ -159,7 +224,12 @@ class OriaLabRecorderInstrumentedTest {
             override fun getFilesDir(): File = directory
         }
         val recorder = OriaLabRecorder(context)
-        try { test(recorder) } finally {
+        try {
+            val readyDeadline = SystemClock.elapsedRealtime() + 10_000
+            while (recorder.state.value.storageBusy && SystemClock.elapsedRealtime() < readyDeadline) Thread.sleep(10)
+            assertFalse("Initial storage scan completed", recorder.state.value.storageBusy)
+            test(recorder)
+        } finally {
             recorder.stop("test_cleanup")
             if (recorder.state.value.phase in setOf(OriaLabPhase.RECORDING, OriaLabPhase.FINALIZING)) awaitSaved(recorder)
             recorder.close()

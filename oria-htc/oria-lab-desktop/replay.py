@@ -1,6 +1,7 @@
 """OriaLab v1 local session reader and exact PNG/ONNX replay. No model conversion."""
 from __future__ import annotations
 import hashlib
+import copy
 import json
 import math
 import os
@@ -15,6 +16,7 @@ import time
 import unicodedata
 import uuid
 import zipfile
+from contextlib import contextmanager
 
 ROOT = Path(__file__).resolve().parent.parent
 MODEL = ROOT / 'ml/exports/oria_silmo_fp32.onnx'
@@ -32,7 +34,48 @@ DEFAULT_STORAGE = Path.home() / 'Library/Application Support/Oria Lab/sessions'
 POLICY_FIELDS = {'maxObservationAgeMs', 'trackAssociationIou', 'trackLostAfterMs', 'confirmationSamples',
                  'confidenceExitMargin', 'minimumTrackingConfidence', 'selectionHoldMs', 'replacementScoreMargin',
                  'repeatIntervalMs', 'globalAnnouncementGapMs', 'failureRetryGapMs', 'voiceMemoryRetentionMs',
-                 'maximumVoiceMemories', 'maximumTracks'}
+                 'maximumVoiceMemories', 'maximumTracks', 'trackingMode'}
+
+
+def normalize_label(value):
+    if not isinstance(value, str):
+        raise ValueError('Le nom doit être un texte')
+    # Same sidecar contract as Android: NFC, Unicode whitespace, no invisible controls.
+    value = unicodedata.normalize('NFC', value)
+    value = ''.join(' ' if unicodedata.category(c) in ('Zs', 'Zl', 'Zp') or ord(c) in (*range(9, 14), *range(28, 32)) else c for c in value)
+    value = ''.join(c for c in value if unicodedata.category(c) not in ('Cc', 'Cf', 'Cs'))
+    value = ' '.join(part for part in value.split(' ') if part)
+    if not 1 <= len(value) <= 80:
+        raise ValueError('Le nom doit contenir de 1 à 80 caractères')
+    return value
+
+
+def atomic_json(path, value):
+    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent, prefix='.write-', delete=False) as output:
+        temporary = Path(output.name)
+        try:
+            json.dump(value, output, ensure_ascii=False, allow_nan=False)
+            output.flush()
+            os.fsync(output.fileno())
+        except BaseException:
+            temporary.unlink(missing_ok=True)
+            raise
+    try:
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def read_label(path):
+    path = safe_path(path, 'session-label.json')
+    if not path.exists():
+        return None
+    if path.stat().st_size > 4096:
+        raise ValueError('Nom de session trop volumineux')
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict) or data.get('schemaVersion') != 1:
+        raise ValueError('Format du nom de session invalide')
+    return normalize_label(data.get('displayName'))
 
 
 def sha256(path):
@@ -119,6 +162,7 @@ def normalize_detections(value):
 class Session:
     def __init__(self, path, identifier):
         self.path, self.id = Path(path), identifier
+        self.display_name = read_label(self.path)
         manifest_path = self.path / 'manifest.json'
         if not manifest_path.is_file() or manifest_path.stat().st_size > MAX_METADATA:
             raise ValueError('manifest.json v1 manquant ou invalide')
@@ -183,6 +227,21 @@ class Session:
         self.model_sha = self.manifest.get('metadata', {}).get('onnxSha256', self.manifest.get('metadata', {}).get('modelSha256'))
         self.recomputations = {}
         self.lock = threading.RLock()
+        self.busy = 0
+        self.archived = False
+
+    @contextmanager
+    def operation(self):
+        # A lease prevents a move while a worker is decoding, exporting or reading.
+        with self.lock:
+            if self.archived:
+                raise ValueError('Session dans la corbeille ; restaurez-la avant de l’ouvrir')
+            self.busy += 1
+        try:
+            yield self
+        finally:
+            with self.lock:
+                self.busy -= 1
 
     def index(self):
         frames = []
@@ -195,7 +254,7 @@ class Session:
                            'timeSeconds': (finite_number(f.get('receivedAtMs', f.get('observedAtMs')), self.origin) - self.origin) / 1000,
                            'width': f.get('width'), 'height': f.get('height'),
                            'hasInference': inference is not None, 'hasDecision': any(e.get('type') == 'decision' for e in events)})
-        return {'id': self.id, 'manifest': self.manifest, 'warnings': self.warnings,
+        return {'id': self.id, 'displayName': self.display_name, 'manifest': self.manifest, 'warnings': self.warnings,
                 'frames': frames, 'events': self.events, 'originMs': self.origin,
                 'modelSha256': self.model_sha, 'localModelSha256': MODEL_SHA,
                 'packetCount': len(self.packets),
@@ -226,7 +285,21 @@ class SessionStore:
         self.storage = Path(storage).expanduser().resolve()
         self.storage.mkdir(parents=True, exist_ok=True)
         self.sessions = {}
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
+        self.trash = self.storage / '.trash'
+        self.trash.mkdir(exist_ok=True)
+        if self.trash.is_symlink():
+            raise ValueError('Corbeille symbolique refusée')
+        self.import_slots = threading.BoundedSemaphore(2)
+
+    @contextmanager
+    def import_operation(self):
+        if not self.import_slots.acquire(blocking=False):
+            raise ValueError('Deux imports sont déjà en cours ; attendez leur fin')
+        try:
+            yield
+        finally:
+            self.import_slots.release()
 
     def get(self, identifier):
         if not isinstance(identifier, str) or not re_full_uuid(identifier):
@@ -234,10 +307,91 @@ class SessionStore:
         with self.lock:
             if identifier not in self.sessions:
                 p = self.storage / identifier
+                if p.is_symlink():
+                    raise ValueError('Session symbolique refusée')
                 if not (p / 'manifest.json').is_file():
                     raise KeyError('Session inconnue')
                 self.sessions[identifier] = Session(p, identifier)
             return self.sessions[identifier]
+
+    def library(self):
+        with self.lock:
+            result = []
+            for directory, archived in [(self.storage, False), (self.trash, True)]:
+                for path in sorted(directory.iterdir()):
+                    if not re_full_uuid(path.name) or not path.is_dir() or path.is_symlink():
+                        continue
+                    try:
+                        manifest = safe_path(path, 'manifest.json')
+                        if manifest.stat().st_size > MAX_METADATA:
+                            raise ValueError('Manifeste trop grand')
+                        data = json.loads(manifest.read_text())
+                        result.append({'id': path.name, 'displayName': read_label(path),
+                                       'captureId': data.get('sessionId'), 'status': data.get('status'),
+                                       'archived': archived, 'createdAt': data.get('startedAtWallClockMs', data.get('startedAtEpochMs'))})
+                    except (ValueError, OSError) as error:
+                        result.append({'id': path.name, 'archived': archived, 'error': str(error)})
+            return result
+
+    def rename(self, identifier, name):
+        name = normalize_label(name)
+        with self.lock:
+            session = self.get(identifier)
+            with session.lock:
+                if session.busy:
+                    raise ValueError('Session utilisée par un traitement ; attendez sa fin')
+                atomic_json(session.path / 'session-label.json', {'schemaVersion': 1, 'displayName': name})
+                session.display_name = name
+                return session.index()
+
+    def archive(self, identifier):
+        with self.lock:
+            session = self.get(identifier)
+            with session.lock:
+                if session.busy:
+                    raise ValueError('Session utilisée par un traitement ; attendez sa fin')
+                destination = self.trash / identifier
+                if destination.exists():
+                    raise ValueError('Une session de même identifiant existe dans la corbeille')
+                os.replace(session.path, destination)
+                session.archived = True
+                self.sessions.pop(identifier)
+                return {'id': identifier, 'archived': True}
+
+    def restore(self, identifier):
+        if not isinstance(identifier, str) or not re_full_uuid(identifier):
+            raise KeyError('Session inconnue')
+        with self.lock:
+            source = self.trash / identifier
+            if not source.is_dir() or source.is_symlink():
+                raise KeyError('Session absente de la corbeille')
+            destination = self.storage / identifier
+            if destination.exists():
+                raise ValueError('Une session active possède déjà cet identifiant')
+            Session(source, identifier)  # Validate before exposing it to readers.
+            os.replace(source, destination)
+            return self.get(identifier).index()
+
+    @contextmanager
+    def export(self, identifier):
+        session = self.get(identifier)
+        with session.operation(), tempfile.TemporaryDirectory(prefix='.export-', dir=self.storage) as tmp:
+            output = Path(tmp) / 'OriaLab-session.zip'
+            with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_STORED) as archive:
+                total = 0
+                files = sorted(p for p in session.path.rglob('*') if p.is_file())
+                if len(files) > MAX_FILES:
+                    raise ValueError('Session trop riche en fichiers')
+                for path in files:
+                    relative = path.relative_to(session.path).as_posix()
+                    safe_path(session.path, relative)
+                    if relative.startswith(('recompute-', 'comparison-', '.write-')) or relative == 'context-video.mp4':
+                        continue
+                    total += path.stat().st_size
+                    if total > MAX_UPLOAD:
+                        raise ValueError('Export supérieur à 1 Gio')
+                    archive.write(path, relative)
+            yield output
 
     def _finish(self, staging):
         roots = list(staging.rglob('manifest.json'))
@@ -292,6 +446,16 @@ class SessionStore:
             return self._finish(staging)
 
     def import_folder(self, source):
+        # A second import of a cached capture must not race its archive or rename.
+        path = Path(source).expanduser().resolve()
+        if path.is_relative_to(self.storage):
+            relative = path.relative_to(self.storage)
+            if relative.parts and re_full_uuid(relative.parts[0]):
+                with self.get(relative.parts[0]).operation():
+                    return self._import_folder(source)
+        return self._import_folder(source)
+
+    def _import_folder(self, source):
         source = Path(source).expanduser()
         if source.is_symlink() or not source.is_dir():
             raise ValueError('Dossier de session local invalide')
@@ -429,12 +593,14 @@ def export_context_video(session):
     if not destination.exists():
         # Annex-B has no original container PTS. This is explicitly a contextual 30fps remux,
         # never the PNG/YOLO timeline. Original bytes and packets.jsonl remain untouched.
-        result = subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-y', '-fflags', '+genpts',
-                                 '-r', '30', '-i', str(source), '-an', '-c:v', 'copy', '-movflags', '+faststart', str(destination)],
-                                capture_output=True, text=True, timeout=120)
-        if result.returncode:
-            destination.unlink(missing_ok=True)
-            raise ValueError('Remux vidéo impossible : ' + result.stderr[-1000:])
+        with tempfile.TemporaryDirectory(prefix='.context-video-', dir=session.path) as tmp:
+            candidate = Path(tmp) / 'context-video.mp4'
+            result = subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-y', '-fflags', '+genpts',
+                                     '-r', '30', '-i', str(source), '-an', '-c:v', 'copy', '-movflags', '+faststart', str(candidate)],
+                                    capture_output=True, text=True, timeout=120)
+            if result.returncode or not candidate.is_file() or not candidate.stat().st_size:
+                raise ValueError('Remux vidéo impossible : ' + result.stderr[-1000:])
+            os.replace(candidate, destination)
     return {'file': 'context-video.mp4', 'scope': 'Vidéo intégrale de contexte à horloge reconstruite 30 fps. Repère natif du flux ; timestamps packet/PNG non réattribués. Aucune boîte ou métrique YOLO appliquée à ces images.'}
 
 
@@ -473,6 +639,112 @@ class PolicyProcess:
         self.process.stderr.close()
 
 
+def policy_clock(session, frame):
+    original = session.inferences.get(frame_key(frame), {})
+    observed = finite_number(frame.get('receivedAtMs', frame.get('observedAtMs')))
+    decision = next((e for e in session.event_frames.get(frame_key(frame), []) if e.get('type') == 'decision'), {})
+    now = finite_number(decision.get('evaluatedAtMs', decision.get('atMs')))
+    if now is None:
+        now = finite_number(original.get('evaluatedAtMs'))
+    if now is None and observed is not None:
+        age = finite_number(original.get('resultAgeMs', original.get('ageMs')))
+        now = observed + age if age is not None else None
+    if now is None:
+        now = finite_number(original.get('atMs'))
+    return observed, now
+
+
+class PolicySimulation:
+    """Identical simulated transport contract for each independent A/B engine."""
+    def __init__(self, session, config, confirmation_ms):
+        self.session, self.config, self.confirmation_ms = session, config, confirmation_ms
+        self.process = PolicyProcess()
+        self.current_session = None
+        self.started = False
+        self.pending = None
+        self.last_now = 0
+        self.audio = []
+
+    def confirm_due(self, now):
+        if self.pending and self.pending['dueAtMs'] <= now:
+            reply = self.process.call({'type': 'confirmed', 'ticketId': self.pending['ticketId'], 'nowMs': self.pending['dueAtMs']})
+            self.audio.append({'type': 'simulated_confirmed', **self.pending, 'accepted': reply.get('accepted')})
+            self.pending = None
+
+    def frame(self, index, frame, detections, observed, now):
+        if now is None or observed is None:
+            return {'policy': {'skipped': True, 'reason': 'Horodatage résultat téléphone absent ; aucune fraîcheur inventée.'}}
+        video_id = int(frame.get('videoSessionId', frame.get('sessionId', 1)))
+        if video_id != self.current_session:
+            if self.started:
+                self.process.call({'type': 'stop', 'atMs': self.last_now})
+                if self.pending:
+                    self.audio.append({'type': 'simulated_cancelled', **self.pending, 'reason': 'video_session_changed'})
+            recorded_start = next((e for e in self.session.events if e.get('type') == 'start' and str(e.get('sessionId')) == str(video_id)), {})
+            start_at = finite_number(recorded_start.get('policyAtMs', recorded_start.get('atMs')), observed)
+            start = {'type': 'start', 'sessionId': video_id, 'atMs': int(start_at)}
+            if not self.started:
+                start['config'] = self.config
+            self.process.call(start)
+            self.started, self.current_session, self.pending = True, video_id, None
+        self.confirm_due(now)
+        value = self.process.call({'type': 'frame', 'requestId': str(index), 'sessionId': video_id,
+                                   'frameId': int(frame['frameId']), 'observedAtMs': int(observed),
+                                   'nowMs': int(now), 'detections': detections})
+        result = {'policy': value, 'policyClockMs': now}
+        self.last_now = now
+        alert = value.get('eligibleAlert')
+        if alert:
+            submitted = self.process.call({'type': 'submitted', 'alertId': alert['id'], 'nowMs': int(now)})
+            result['simulatedSubmission'] = submitted
+            if submitted.get('accepted'):
+                self.pending = {'ticketId': submitted['ticketId'], 'submittedAtMs': now,
+                                'dueAtMs': now + self.confirmation_ms, 'text': alert.get('text'),
+                                'zone': alert.get('zone'), 'frameIndex': index}
+                self.audio.append({'type': 'simulated_submitted', **self.pending})
+        return result
+
+    def finish(self):
+        if self.started:
+            end = finite_number(self.session.manifest.get('endedAtMonotonicMs'), self.last_now)
+            self.confirm_due(end)
+            self.process.call({'type': 'stop', 'atMs': int(end)})
+        return self.pending
+
+    def close(self):
+        self.process.close()
+
+
+def decision_signature(result):
+    """Compare observed behavior, not arbitrary per-run track or ticket identifiers."""
+    policy = result.get('policy', {})
+    if policy.get('skipped'):
+        return policy
+    evaluation = copy.deepcopy(policy.get('evaluation', {}))
+    for track in evaluation.get('tracks', []):
+        track.pop('associationStatus', None)
+        track.pop('id', None)
+    evaluation['tracks'] = sorted(evaluation.get('tracks', []), key=lambda value: json.dumps(value, sort_keys=True))
+    for name in ('selected', 'eligibleAlert'):
+        value = evaluation.get(name)
+        if value:
+            for key in ('id', 'trackId', 'sessionId', 'generation'):
+                value.pop(key, None)
+    return evaluation
+
+
+def changed_paths(left, right, prefix=''):
+    if isinstance(left, dict) and isinstance(right, dict):
+        output = []
+        for key in sorted(set(left) | set(right)):
+            name = f'{prefix}.{key}' if prefix else key
+            output += changed_paths(left.get(key), right.get(key), name)
+        return output
+    if isinstance(left, list) and isinstance(right, list) and len(left) == len(right):
+        return [p for i, (a, b) in enumerate(zip(left, right)) for p in changed_paths(a, b, f'{prefix}[{i}]')]
+    return [] if left == right else [prefix]
+
+
 def compare_recorded_raw(recorded, recalculated):
     """Strict original set-matching tolerances. No relaxation for CPU top-k differences."""
     import numpy as np
@@ -497,139 +769,187 @@ def compare_recorded_raw(recorded, recalculated):
 
 
 class ReplayJobs:
+    MAX_ACTIVE_JOBS = 4
+    MAX_RETAINED_JOBS = 16
+
     def __init__(self):
         self.detector = MacDetector()
         self.jobs = {}
         self.lock = threading.RLock()
         self.batch_lock = threading.Lock()
 
+    def _config(self, session, config):
+        if not isinstance(config, dict) or set(config) - POLICY_FIELDS:
+            raise ValueError('Paramètre métier inconnu ou invalide')
+        for key, value in config.items():
+            if key == 'trackingMode':
+                if value not in ('LEGACY_IOU', 'STABLE_RGB_V2'):
+                    raise ValueError('Mode de suivi inconnu')
+            elif isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1000000:
+                raise ValueError('Valeur de paramètre métier hors limites')
+        recorded = session.manifest.get('metadata', {}).get('policyConfig', {})
+        recorded = recorded if isinstance(recorded, dict) else {}
+        effective = {k: v for k, v in recorded.items() if k in POLICY_FIELDS}
+        effective.update(config)
+        return effective, sorted(set(recorded) - POLICY_FIELDS)
+
     def create(self, session, confirmation_ms=2000, config=None):
-        if not isinstance(confirmation_ms, int) or not 0 <= confirmation_ms <= 30000:
+        effective, ignored = self._config(session, config or {})
+        return self._create(session, confirmation_ms, {'kind': 'recompute', 'detectionSource': 'mac',
+                            'effectivePolicyConfig': effective, 'policyConfigOverride': config or {},
+                            'recordedNonConfigMetadataKeys': ignored})
+
+    def compare(self, session, confirmation_ms=2000, config_a=None, config_b=None, source='recorded'):
+        if source not in ('recorded', 'mac'):
+            raise ValueError('Source de détection inconnue')
+        a, ignored = self._config(session, config_a or {})
+        b, _ = self._config(session, config_b or {})
+        return self._create(session, confirmation_ms, {'kind': 'comparison', 'detectionSource': source,
+                            'configs': {'A': a, 'B': b}, 'recordedNonConfigMetadataKeys': ignored,
+                            'simulatedAudioByVariant': {'A': [], 'B': []}})
+
+    def _create(self, session, confirmation_ms, extra):
+        if isinstance(confirmation_ms, bool) or not isinstance(confirmation_ms, int) or not 0 <= confirmation_ms <= 30000:
             raise ValueError('Confirmation simulée : 0 à 30 000 ms')
-        if session.model_sha and session.model_sha not in {MODEL_SHA, METADATA_ONLY_MODEL_SHA}:
+        if extra['detectionSource'] == 'mac' and session.model_sha and session.model_sha not in {MODEL_SHA, METADATA_ONLY_MODEL_SHA}:
             raise ValueError('Le modèle enregistré diffère du modèle local : recalcul comparable refusé')
-        if config is not None and not isinstance(config, dict):
-            raise ValueError('Paramètres métier invalides')
-        if set(config or {}) - POLICY_FIELDS:
-            raise ValueError('Paramètre métier inconnu')
-        recorded_config = session.manifest.get('metadata', {}).get('policyConfig', {})
-        if not isinstance(recorded_config, dict):
-            recorded_config = {}
-        effective_config = {key: value for key, value in recorded_config.items() if key in POLICY_FIELDS}
-        effective_config.update(config or {})
         identifier = uuid.uuid4().hex
-        job = {'id': identifier, 'sessionId': session.id, 'state': 'queued', 'done': 0,
-               'total': len(session.frames), 'frames': {}, 'simulatedAudioEvents': [],
-               'confirmationDelayMs': confirmation_ms, 'policyConfigOverride': config or {},
-               'effectivePolicyConfig': effective_config,
-               'recordedNonConfigMetadataKeys': sorted(set(recorded_config) - POLICY_FIELDS),
-               'controllerGateAssumption': 'Simulation assumes confirmed orientation and available/unpaused voice. '
-                                           'Controller gates and real audio transport are not replayed.',
-               'scope': 'Recalcul CPU Mac des PNG ; horloge métier des résultats Android enregistrés. '
-                        'Confirmation vocale simulée configurable, aucun son émis. Le moteur Kotlin traite '
-                        'tout le replay dans l’ordre ; les déplacements dans la timeline relisent ses résultats.',
+        job = {'id': identifier, 'sessionId': session.id, 'captureId': session.manifest.get('sessionId'),
+               'state': 'queued', 'done': 0, 'total': len(session.frames), 'frames': {}, 'simulatedAudioEvents': [],
+               'confirmationDelayMs': confirmation_ms, 'cancelRequested': False,
+               'controllerGateAssumption': 'Orientation confirmed and available/unpaused voice assumed. Controller gates and real audio transport are not replayed.',
+               'scope': 'Moteur Kotlin, détections et horloges identiques entre A et B, transport vocal simulé. '
+                        'Aucun son ni retour matériel. Mémoire vierge au début de la capture.',
                'modelIdentity': ('RECORDED_MODEL_SHA_MISSING' if not session.model_sha else
                                  'MATCHED' if session.model_sha == MODEL_SHA else
-                                 'GRAPH_IDENTICAL_METADATA_RENAMED')}
-        with self.lock:
+                                 'GRAPH_IDENTICAL_METADATA_RENAMED' if session.model_sha == METADATA_ONLY_MODEL_SHA else
+                                 'RECORDED_DETECTIONS_ONLY'), **extra}
+        with self.lock, session.lock:
+            if session.archived:
+                raise ValueError('Session dans la corbeille')
+            if sum(j['state'] in ('queued', 'running') for j in self.jobs.values()) >= self.MAX_ACTIVE_JOBS:
+                raise ValueError('Trop de traitements actifs ; attendez ou annulez un traitement')
+            while len(self.jobs) >= self.MAX_RETAINED_JOBS:
+                oldest = next((k for k, j in self.jobs.items() if j['state'] not in ('queued', 'running')), None)
+                if oldest is None:
+                    raise ValueError('Limite de traitements atteinte')
+                del self.jobs[oldest]
+            session.busy += 1
             self.jobs[identifier] = job
-        threading.Thread(target=self._run, args=(job, session), daemon=True).start()
+        threading.Thread(target=self._execute, args=(job, session), daemon=True).start()
         return identifier
 
-    def get(self, identifier, frame=None):
+    def get(self, identifier, frame=None, report=False):
         with self.lock:
             job = self.jobs[identifier]
             if frame is not None:
-                return job['frames'].get(str(frame), {'pending': True})
-            return {key: value for key, value in job.items() if key != 'frames'}
+                if not 0 <= frame < job['total']:
+                    raise IndexError('Image hors limites')
+                return copy.deepcopy(job['frames'].get(str(frame), {'pending': True}))
+            if report:
+                if job['state'] != 'complete':
+                    raise ValueError('Le rapport est disponible après la fin du traitement')
+                return copy.deepcopy(job)
+            return copy.deepcopy({key: value for key, value in job.items() if key != 'frames'})
+
+    def cancel(self, identifier):
+        with self.lock:
+            job = self.jobs[identifier]
+            if job['state'] in ('queued', 'running'):
+                job['cancelRequested'] = True
+            return {'id': identifier, 'cancelRequested': job['cancelRequested'], 'state': job['state']}
+
+    def _execute(self, job, session):
+        try:
+            self._run(job, session)
+        finally:
+            with session.lock:
+                session.busy -= 1
 
     def _run(self, job, session):
-        policy = None
+        simulations = {}
         began = time.perf_counter()
         try:
             with self.batch_lock:
-                with self.lock:
-                    job['state'] = 'running'
-                policy = PolicyProcess()
-                current_session = None
-                pending = None
-                has_started = False
-                last_now = 0
+                if job['cancelRequested']:
+                    job['state'] = 'cancelled'
+                    return
+                job['state'] = 'running'
+                configs = job.get('configs', {'A': job.get('effectivePolicyConfig', {})})
+                for name, config in configs.items():
+                    simulations[name] = PolicySimulation(session, config, job['confirmationDelayMs'])
+                different, alert_different, identity_different, skipped = [], [], [], []
+                input_fingerprint = hashlib.sha256()
                 for index, frame in enumerate(session.frames):
-                    path = safe_path(session.path, frame['imagePath'])
-                    result = self.detector.detect(path)
+                    if job['cancelRequested']:
+                        job['state'] = 'cancelled'
+                        return
                     original = session.inferences.get(frame_key(frame), {})
-                    raw = original.get('rawModelOutput', original.get('rawOutput'))
-                    result['rawParity'] = compare_recorded_raw(raw, result['rawOutput']) if raw is not None else {
-                        'available': False, 'reason': 'Le téléphone n’a pas enregistré ses 300 sorties brutes.'}
-                    result['phoneInference'] = original
-                    observed = finite_number(frame.get('receivedAtMs', frame.get('observedAtMs')))
-                    decision = next((event for event in session.event_frames.get(frame_key(frame), [])
-                                     if event.get('type') == 'decision'), {})
-                    now = finite_number(decision.get('evaluatedAtMs', decision.get('atMs')))
-                    if now is None:
-                        now = finite_number(original.get('evaluatedAtMs'))
-                    if now is None and observed is not None:
-                        age = finite_number(original.get('resultAgeMs', original.get('ageMs')))
-                        now = observed + age if age is not None else None
-                    if now is None:
-                        now = finite_number(original.get('atMs'))
-                    if now is None or observed is None:
-                        result['policy'] = {'skipped': True, 'reason': 'Horodatage résultat téléphone absent ; aucune fraîcheur inventée.'}
+                    if job['detectionSource'] == 'mac':
+                        result = self.detector.detect(safe_path(session.path, frame['imagePath']))
+                        raw = original.get('rawModelOutput', original.get('rawOutput'))
+                        result['rawParity'] = compare_recorded_raw(raw, result['rawOutput']) if raw is not None else {
+                            'available': False, 'reason': 'Le téléphone n’a pas enregistré ses 300 sorties brutes.'}
                     else:
-                        video_id = int(frame.get('videoSessionId', frame.get('sessionId', 1)))
-                        if video_id != current_session:
-                            if has_started:
-                                policy.call({'type': 'stop', 'atMs': last_now})
-                            recorded_start = next((event for event in session.events if event.get('type') == 'start'
-                                                   and str(event.get('sessionId')) == str(video_id)), {})
-                            start_at = finite_number(recorded_start.get('policyAtMs', recorded_start.get('atMs')), observed)
-                            start = {'type': 'start', 'sessionId': video_id, 'atMs': int(start_at)}
-                            if not has_started:
-                                start['config'] = job['effectivePolicyConfig']
-                            policy.call(start)
-                            has_started, current_session, pending = True, video_id, None
-                        if pending and pending['dueAtMs'] <= now:
-                            confirmation = policy.call({'type': 'confirmed', 'ticketId': pending['ticketId'], 'nowMs': pending['dueAtMs']})
-                            with self.lock:
-                                job['simulatedAudioEvents'].append({'type': 'simulated_confirmed', **pending, 'accepted': confirmation.get('accepted')})
-                            pending = None
-                        value = policy.call({'type': 'frame', 'requestId': str(index), 'sessionId': video_id,
-                                             'frameId': int(frame['frameId']), 'observedAtMs': int(observed),
-                                             'nowMs': int(now), 'detections': result['detections']})
-                        result['policy'] = value
-                        result['policyClockMs'] = now
-                        last_now = now
-                        alert = value.get('eligibleAlert')
-                        if alert:
-                            submitted = policy.call({'type': 'submitted', 'alertId': alert['id'], 'nowMs': int(now)})
-                            result['simulatedSubmission'] = submitted
-                            if submitted.get('accepted'):
-                                pending = {'ticketId': submitted['ticketId'], 'submittedAtMs': now,
-                                           'dueAtMs': now + job['confirmationDelayMs'], 'text': alert.get('text'), 'frameIndex': index}
-                                with self.lock:
-                                    job['simulatedAudioEvents'].append({'type': 'simulated_submitted', **pending})
+                        result = {'detections': normalize_detections(original.get('detections', frame.get('detections', []))),
+                                  'scope': 'Détections du téléphone ; aucune nouvelle inférence ONNX.'}
+                    observed, now = policy_clock(session, frame)
+                    # In recorded mode, a frame without a recorded inference must not manufacture an empty observation.
+                    if job['detectionSource'] == 'recorded' and not original and 'detections' not in frame:
+                        now = None
+                    shared_input = {'index': index, 'frameId': frame['frameId'],
+                                    'videoSessionId': frame.get('videoSessionId', frame.get('sessionId')),
+                                    'observedAtMs': observed, 'nowMs': now, 'detections': result['detections']}
+                    input_fingerprint.update(json.dumps(shared_input, sort_keys=True, allow_nan=False).encode())
+                    variants = {name: simulation.frame(index, frame, result['detections'], observed, now)
+                                for name, simulation in simulations.items()}
+                    result['phoneInference'] = original
+                    if job['kind'] == 'comparison':
+                        paths = changed_paths(decision_signature(variants['A']), decision_signature(variants['B']))
+                        alerts = {name: value['policy'].get('eligibleAlert') for name, value in variants.items()}
+                        utterances = {name: ((alert or {}).get('text'), (alert or {}).get('zone')) for name, alert in alerts.items()}
+                        identities = {name: {'selected': (value['policy'].get('evaluation', {}).get('selected') or {}).get('trackId'),
+                                             'tracks': [t.get('id') for t in value['policy'].get('evaluation', {}).get('tracks', [])]}
+                                      for name, value in variants.items()}
+                        if identities['A'] != identities['B']: identity_different.append(index)
+                        result.update({'variants': variants, 'changedPaths': paths,
+                                       'decisionDifferent': bool(paths), 'identityDifferent': identities['A'] != identities['B'], 'announcementDifferent': utterances['A'] != utterances['B'],
+                                       'sharedInput': shared_input})
+                        if paths: different.append(index)
+                        if utterances['A'] != utterances['B']: alert_different.append(index)
+                    else:
+                        result.update(variants['A'])
+                    if now is None or observed is None:
+                        skipped.append(index)
                     with self.lock:
                         job['frames'][str(index)] = result
                         job['done'] = index + 1
-                if has_started:
-                    end = finite_number(session.manifest.get('endedAtMonotonicMs'), last_now)
-                    if pending and pending['dueAtMs'] <= end:
-                        confirmation = policy.call({'type': 'confirmed', 'ticketId': pending['ticketId'], 'nowMs': pending['dueAtMs']})
-                        with self.lock:
-                            job['simulatedAudioEvents'].append({'type': 'simulated_confirmed', **pending, 'accepted': confirmation.get('accepted')})
-                        pending = None
-                    policy.call({'type': 'stop', 'atMs': int(end)})
+                        job['simulatedAudioEvents'] = copy.deepcopy(simulations['A'].audio)
+                        if job['kind'] == 'comparison':
+                            job['simulatedAudioByVariant'] = {name: copy.deepcopy(sim.audio) for name, sim in simulations.items()}
+                pending = {name: sim.finish() for name, sim in simulations.items()}
                 with self.lock:
-                    job['pendingAtReplayEnd'] = pending
-                    job['state'] = 'complete'
+                    job['inputSha256'] = input_fingerprint.hexdigest()
+                    job['simulatedAudioEvents'] = copy.deepcopy(simulations['A'].audio)
+                    job['pendingAtReplayEnd'] = pending if job['kind'] == 'comparison' else pending['A']
+                    job['skippedFrames'] = skipped
+                    if job['kind'] == 'comparison':
+                        job['simulatedAudioByVariant'] = {name: copy.deepcopy(sim.audio) for name, sim in simulations.items()}
+                        job['summary'] = {'comparedFrames': len(session.frames) - len(skipped),
+                                          'differentFrames': different, 'announcementDifferentFrames': alert_different,
+                                          'identityDifferentFrames': identity_different,
+                                          'announcements': {name: [e for e in sim.audio if e['type'] == 'simulated_submitted']
+                                                            for name, sim in simulations.items()}}
                     job['macBatchSeconds'] = time.perf_counter() - began
-                # Derived lightweight analysis stays beside imported capture, outside the repository.
-                (session.path / f'recompute-{job["id"]}.json').write_text(json.dumps(job, ensure_ascii=False))
+                    report = copy.deepcopy(job)
+                    report['state'] = 'complete'
+                atomic_json(session.path / f'{"comparison" if job["kind"] == "comparison" else "recompute"}-{job["id"]}.json', report)
+                with self.lock:
+                    job['state'] = 'complete'
         except Exception as error:
             with self.lock:
                 job['state'] = 'failed'
                 job['error'] = str(error)
         finally:
-            if policy:
-                policy.close()
+            for simulation in simulations.values():
+                simulation.close()

@@ -1,6 +1,12 @@
 # Recette Oria × VIVE Eagle — nouveau HTC, 26 septembre 2026
 
-## Verdict courant
+## État de la branche courante
+
+Le candidat hors téléphone est compilé mais **ni installé ni validé physiquement**. Ses nouveautés, tests et recette restante figurent dans [OFFLINE_PROGRESS.md](OFFLINE_PROGRESS.md) ; son identité est dans [offline_candidate_manifest.json](../artifacts/offline_candidate_manifest.json). La dernière installation du build précédent `f49def19…` sur CN4B53M00860 a permis de vérifier le lancement et le modèle chargé, sans nouvelle preuve vidéo/voix.
+
+La suite conserve les résultats historiques de CN46V3M00284 : ses noms « nouveau téléphone » et « build courant » désignent cette campagne, pas le candidat actuel. Les empreintes de modèle ci-dessous précèdent le renommage des métadonnées ; [ORIA_RENAMING.md](ORIA_RENAMING.md) décrit l’égalité des paramètres et les empreintes actuelles.
+
+## Verdict historique CN46V3M00284
 
 L’application **Oria + Oria Lab** est compilée et installée sur **CN46V3M00284**, HTC U24 pro, Android 14, arm64-v8a. APK courant : `f49def1953699349d1c189402c2a7b0229e6bd17db1ca7c0f29c54c9873eeb43`. Le package autorisé reste `com.htc.vive.eagle.hackathon.starter`. Oria est l’accueil ; Oria Lab ajoute capture et relecture ; les quatre écrans d’origine restent accessibles par **Diagnostic HTC**. Les commandes Démarrer/Arrêter restent fixes même avec un aperçu portrait.
 

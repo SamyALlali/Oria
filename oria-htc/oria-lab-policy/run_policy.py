@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Build cached JVM adapter from the actual Android core; forward JSONL stdin/stdout."""
 import hashlib
+import fcntl
 import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
@@ -38,15 +40,20 @@ def prepare():
         digest.update(item.read_bytes())
     build = HERE/'build'/digest.hexdigest()[:20]
     artifact = build/'policy.jar'
-    if not artifact.exists():
-        build.mkdir(parents=True, exist_ok=True)
-        completed = subprocess.run([java, '-cp', os.pathsep.join(map(str, compiler)),
-            'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler', '-no-stdlib', '-no-reflect', '-jvm-target', '11',
-            '-classpath', os.pathsep.join(map(str, [stdlib, gson])), '-d', str(artifact), *map(str, sources)],
-            stdout=sys.stderr, stderr=sys.stderr)
-        if completed.returncode:
-            artifact.unlink(missing_ok=True)
-            raise RuntimeError('Kotlin policy compilation failed')
+    build.mkdir(parents=True, exist_ok=True)
+    # A/B launches independent processes. Publish one complete artifact, never a partly written jar.
+    with (build/'compile.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not artifact.exists():
+            with tempfile.TemporaryDirectory(prefix='compile-', dir=build) as temporary:
+                candidate = Path(temporary)/'policy.jar'
+                completed = subprocess.run([java, '-cp', os.pathsep.join(map(str, compiler)),
+                    'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler', '-no-stdlib', '-no-reflect', '-jvm-target', '11',
+                    '-classpath', os.pathsep.join(map(str, [stdlib, gson])), '-d', str(candidate), *map(str, sources)],
+                    stdout=sys.stderr, stderr=sys.stderr)
+                if completed.returncode:
+                    raise RuntimeError('Kotlin policy compilation failed')
+                os.replace(candidate, artifact)
     return [java, '-cp', os.pathsep.join(map(str, [artifact, stdlib, gson])), 'orialab.PolicyReplayKt']
 
 if __name__ == '__main__':

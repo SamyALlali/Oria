@@ -71,6 +71,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import com.htc.vive.eagle.hackathon.starter.oria.lifecycle.PocketSessionService
 import com.htc.vive.eagle.hackathon.starter.oria.OriaController
 import com.htc.vive.eagle.hackathon.starter.oria.ui.OriaScreen
 import com.htc.vive.eagle.hackathon.starter.oria.ui.OriaLabScreen
@@ -83,7 +84,17 @@ class MainActivity : AppCompatActivity() {
     private fun startOria() {
         if (echoPageRoute != AppDestination.Oria.route || !lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         // Oria uses HTC's video-only overload; microphone permission belongs to diagnostics.
-        oriaController?.start()
+        val controller = oriaController ?: return
+        if (controller.state.value.pocketEnabled) {
+            if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this,
+                    Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                return
+            }
+            PocketSessionService.request(this, controller) {
+                echoPageRoute == AppDestination.Oria.route && lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+            }
+        } else controller.start()
     }
 
     private fun startOriaLab() {
@@ -95,6 +106,12 @@ class MainActivity : AppCompatActivity() {
         echoPageRoute = route
     }
 
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) startOria()
+            else oriaController?.reportPocketError("Notifications refusées · désactiver le mode poche pour démarrer à l’écran")
+        }
 
     private val bluetoothPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         arrayOf(
@@ -173,8 +190,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
-        oriaController?.stop("Application en arrière-plan · session arrêtée")
-        viveClientManager?.stopMediaForBackground()
+        if (oriaController?.canContinueInBackground() != true) {
+            oriaController?.stop("Application en arrière-plan · session arrêtée")
+            viveClientManager?.stopMediaForBackground()
+        }
         super.onStop()
 
         unregisterReceiver(bluetoothStateReceiver)

@@ -4,13 +4,19 @@ L’application **Oria** s’ouvre sur l’assistance en direct et propose deux 
 
 Le package et le namespace restent `com.htc.vive.eagle.hackathon.starter`. Le SDK, les dépendances locales et la clé debug sont conservés. Les paramètres numériques du modèle, les règles RGB, les seuils et les fixtures partagées Swift sont inchangés ; seules les métadonnées descriptives du modèle ont été renommées.
 
-## État et preuves
+## Candidat hors téléphone
 
-Le téléphone actuel est **HTC U24 pro / Android 14 / arm64-v8a**, ADB **CN46V3M00284**. Ses rapports actuels sont dans `validation/new-device-CN46V3M00284/`. Les rapports physiques historiques et sauvegardes ont été archivés hors du projet ; voir [PUBLICATION.md](../PUBLICATION.md). L’ancien appareil était **CN4B53M00860** : son APK livré, son manifeste, son README et sa recette sont préservés dans `validation/archive-CN4B53M00860/`. Les dossiers historiques `device-*` concernent l’ancien téléphone.
+La branche courante ajoute noms/corbeille/export de captures, comparaison A/B sur Mac, suivi V2 optionnel et mode poche expérimental limité à 15 minutes. **APK candidat compilé, non installé** : [manifeste](artifacts/offline_candidate_manifest.json), [travaux et recette restante](validation/OFFLINE_PROGRESS.md). Le suivi précédent reste le défaut ; le mode poche reste désactivé. Les règles numériques restent celles du suivi précédent sauf activation explicite du V2.
+
+Dernier téléphone installé : **CN4B53M00860**, le 26 septembre, APK `f49def19…` : lancement et modèle chargé vérifiés. Les résultats vidéo/voix/endurance ci-dessous concernent **CN46V3M00284** et les APK historiques identifiés. Aucun de ces résultats ne valide le candidat hors téléphone.
+
+## État et preuves historiques
+
+Le téléphone de cette campagne était **HTC U24 pro / Android 14 / arm64-v8a**, ADB **CN46V3M00284**. Ses rapports actuels sont dans `validation/new-device-CN46V3M00284/`. Les rapports physiques historiques et sauvegardes ont été archivés hors du projet ; voir [PUBLICATION.md](../PUBLICATION.md). L’ancien appareil était **CN4B53M00860** : son APK livré, son manifeste, son README et sa recette sont préservés dans `validation/archive-CN4B53M00860/`. Les dossiers historiques `device-*` concernent l’ancien téléphone.
 
 La voix HTC **avec vidéo arrêtée a été entendue dans les lunettes**, selon la [confirmation explicite de l’utilisateur](validation/new-device-CN46V3M00284/human-confirmations.json). Pendant la vidéo, le SDK HTC 0.6 refuse `speakText` avec `ERROR_RESOURCE_CONFLICT`, y compris avec son entrée vidéo seule. Le prototype utilise donc désormais **Bluetooth VIVE** par défaut : synthèse française locale sur le téléphone, puis lecture PCM sur la sortie audio des lunettes.
 
-**Le build actuel Oria + Oria Lab**, [installé sur ce HTC](validation/new-device-CN46V3M00284/production-update-oria-final.json), a pour SHA-256 `f49def1953699349d1c189402c2a7b0229e6bd17db1ca7c0f29c54c9873eeb43`. Ses [51 tests JVM réussissent](validation/new-device-CN46V3M00284/oria-final-build.json), dont dix tests PCM et deux régressions d’initialisation de la navigation. Les [trois tests instrumentés de l’enregistreur](validation/new-device-CN46V3M00284/oria-lab-instrumented-tests.log) ont passé sur le build Oria Lab précédent `1c3226…`, avant le renommage interne des sources d’enregistrement. Le crash de navigation de ce premier build est corrigé ; il n’est pas présenté comme une livraison utilisable.
+**Le build précédent Oria + Oria Lab**, [installé sur ce HTC](validation/new-device-CN46V3M00284/production-update-oria-final.json), a pour SHA-256 `f49def1953699349d1c189402c2a7b0229e6bd17db1ca7c0f29c54c9873eeb43`. Ses [51 tests JVM réussissent](validation/new-device-CN46V3M00284/oria-final-build.json), dont dix tests PCM et deux régressions d’initialisation de la navigation. Les [trois tests instrumentés de l’enregistreur](validation/new-device-CN46V3M00284/oria-lab-instrumented-tests.log) ont passé sur le build Oria Lab précédent `1c3226…`, avant le renommage interne des sources d’enregistrement. Le crash de navigation de ce premier build est corrigé ; il n’est pas présenté comme une livraison utilisable.
 
 **Les annonces automatiques stéréo gauche / droite / centre ont été entendues pendant la vidéo** sur le build historique `412eec7f…`, avec confirmation explicite « Oui, les côtés sont corrects » dans [le registre humain](validation/new-device-CN46V3M00284/human-confirmations.json). La route audio est préparée puis conservée entre les phrases. Après un débit chaud insuffisant à 250 ms, la sélection à 333 ms a tenu plus de dix minutes à **2,631 décisions fraîches/s, âge p95 406 ms**, sur `40175f…`, avec la garde 500 ms inchangée. Ces résultats précèdent la charge supplémentaire d’enregistrement OriaLab ; le verdict détaillé figure dans [la recette](validation/RECETTE.md).
 
@@ -41,7 +47,7 @@ export JAVA_HOME="/Users/sam/Library/Java/JavaVirtualMachines/jbr-21.0.11/Conten
 ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest --console=plain
 ```
 
-JDK 21, SDK Android 36 et Gradle 8.13 local. `local.properties` est propre à ce poste. APK de production : `android-project/app/build/outputs/apk/debug/app-debug.apk` ; copie livrée : `artifacts/oria-silmo-debug.apk`.
+JDK 21, SDK Android 36 et Gradle 8.13 local. `local.properties` est propre à ce poste. APK compilé : `android-project/app/build/outputs/apk/debug/app-debug.apk` ; copie historique livrée : `artifacts/oria-silmo-debug.apk`. Le script `validation/build_offline.py` produit séparément `artifacts/oria-silmo-candidate.apk`.
 
 ## Utiliser Oria
 
@@ -50,7 +56,7 @@ JDK 21, SDK Android 36 et Gradle 8.13 local. `local.properties` est propre à ce
 3. **Démarrer**, autoriser la caméra Android/HTC, puis attendre le statut **route prête**. La première préparation audio a lieu avant les annonces et le même lecteur stéréo reste ouvert pendant la session. Le flux Oria emploie l’entrée vidéo seule du SDK ; les permissions microphone concernent les outils du diagnostic. Si une activité d’autorisation met l’application en arrière-plan, revenir puis démarrer à nouveau : une ancienne demande ne redémarre pas silencieusement la vidéo.
 4. Pendant que les images progressent, utiliser successivement les boutons **Gauche**, **Centre**, **Droite**. Attendre la fin de chaque phrase : gauche doit être entendue du côté gauche, droite du côté droit, et centre des deux côtés. « Lecture Bluetooth terminée » indique une fin de lecture côté Android ; ce message ne remplace pas le contrôle dans les lunettes. Refaire ce contrôle si la route audio change.
 5. Vérifier aussi haut/bas et gauche/droite **dans l’image**, avec une scène asymétrique. Ajuster rotation/miroir dans **Réglages Oria**, puis redémarrer si nécessaire. Cocher **« J’ai vérifié gauche / droite dans l’aperçu et le test vocal. Autoriser les annonces d’objets. »** seulement après les deux contrôles. Dans la configuration essayée, le repère a été confirmé avec rotation 0° et miroir désactivé ; ne pas recopier ce choix sans vérifier un autre montage.
-6. **Arrêter** invalide les calculs et nouvelles annonces, puis annule la lecture locale et ferme son lecteur. Passer au diagnostic ou en arrière-plan arrête aussi la session. Le délai d’arrêt effectivement entendu après les tampons Bluetooth reste à mesurer.
+6. **Arrêter** invalide les calculs et nouvelles annonces, puis annule la lecture locale et ferme son lecteur. Passer au diagnostic arrête aussi la session. L’arrière-plan l’arrête par défaut ; le candidat propose une exception explicite avec le mode poche, à tester sur HTC. Le délai d’arrêt effectivement entendu après les tampons Bluetooth reste à mesurer.
 
 La carte voix et la confirmation d’orientation précèdent l’aperçu. Lorsqu’une image dépasse 500 ms, elle et ses boîtes disparaissent ; l’emplacement reste stable avec « En attente d’image fraîche ». La commande Arrêter demeure fixe.
 

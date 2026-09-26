@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from replay import DEFAULT_STORAGE, MAX_UPLOAD, ReplayJobs, SessionStore, export_context_video, safe_path
+import audio_preview
 
 HERE = Path(__file__).resolve().parent
 
@@ -39,7 +40,7 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
             self.send_header('Content-Length', str(length))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
-            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-ancestors 'none'")
+            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'")
             for key, value in (extra or {}).items():
                 self.send_header(key, value)
             self.end_headers()
@@ -82,18 +83,27 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                 parts = url.path.strip('/').split('/')
                 query = parse_qs(url.query)
                 if url.path == '/api/config':
-                    return self.json({'token': token, 'storage': str(store.storage), 'maxUploadBytes': MAX_UPLOAD})
+                    return self.json({'token': token, 'storage': str(store.storage), 'maxUploadBytes': MAX_UPLOAD,
+                                      'audioPreviewAvailable': audio_preview.available()})
+                if url.path == '/api/library':
+                    return self.json({'sessions': store.library()})
                 if len(parts) == 3 and parts[:2] == ['api', 'session']:
-                    return self.json(store.get(parts[2]).index())
+                    with store.get(parts[2]).operation() as session:
+                        return self.json(session.index())
                 if len(parts) == 5 and parts[:2] == ['api', 'session'] and parts[3] == 'frame':
-                    return self.json(store.get(parts[2]).frame(int(parts[4])))
+                    with store.get(parts[2]).operation() as session:
+                        return self.json(session.frame(int(parts[4])))
                 if len(parts) == 5 and parts[:2] == ['api', 'session'] and parts[3] == 'image':
-                    session = store.get(parts[2]); frame = session.frame(int(parts[4]))['frame']
-                    return self.file(safe_path(session.path, frame['imagePath']), 'image/png')
+                    with store.get(parts[2]).operation() as session:
+                        frame = session.frame(int(parts[4]))['frame']
+                        return self.file(safe_path(session.path, frame['imagePath']), 'image/png')
                 if len(parts) == 4 and parts[:2] == ['api', 'session'] and parts[3] == 'video':
-                    return self.file(store.get(parts[2]).path / 'context-video.mp4', 'video/mp4')
+                    with store.get(parts[2]).operation() as session:
+                        return self.file(safe_path(session.path, 'context-video.mp4'), 'video/mp4')
                 if len(parts) == 3 and parts[:2] == ['api', 'job']:
                     return self.json(jobs.get(parts[2], int(query['frame'][0]) if 'frame' in query else None))
+                if len(parts) == 4 and parts[:2] == ['api', 'job'] and parts[3] == 'report':
+                    return self.json(jobs.get(parts[2], report=True))
                 if url.path in ('/', '/app.js', '/style.css'):
                     return self.file(HERE / 'static' / {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css'}[url.path])
                 raise FileNotFoundError('Page inconnue')
@@ -111,11 +121,25 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
         def do_POST(self):
             try:
                 self.check_origin(mutation=True)
+                parts = urlparse(self.path).path.strip('/').split('/')
+                if len(parts) == 4 and parts[:2] == ['api', 'session']:
+                    identifier, action = parts[2:]
+                    if action == 'rename':
+                        return self.json(store.rename(identifier, self.read_json()['displayName']))
+                    if action == 'archive':
+                        return self.json(store.archive(identifier))
+                    if action == 'restore':
+                        return self.json(store.restore(identifier))
+                    if action == 'export':
+                        with store.export(identifier) as path:
+                            return self.file(path, 'application/zip')
+                if len(parts) == 4 and parts[:2] == ['api', 'job'] and parts[3] == 'cancel':
+                    return self.json(jobs.cancel(parts[2]))
                 if self.path == '/api/import/zip':
                     size = int(self.headers.get('Content-Length', '0'))
                     if not 0 < size <= MAX_UPLOAD:
                         raise ValueError('ZIP vide ou supérieur à 1 Gio')
-                    with tempfile.NamedTemporaryFile(prefix='.upload-', suffix='.zip', dir=store.storage) as upload:
+                    with store.import_operation(), tempfile.NamedTemporaryFile(prefix='.upload-', suffix='.zip', dir=store.storage) as upload:
                         remaining = size
                         while remaining:
                             chunk = self.rfile.read(min(remaining, 1024 * 1024))
@@ -125,14 +149,25 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                         upload.flush()
                         return self.json(store.import_zip(Path(upload.name)).index())
                 if self.path == '/api/import/folder':
-                    return self.json(store.import_folder(self.read_json()['path']).index())
+                    with store.import_operation():
+                        return self.json(store.import_folder(self.read_json()['path']).index())
                 if self.path == '/api/recompute':
                     body = self.read_json()
                     identifier = jobs.create(store.get(body['sessionId']), body.get('confirmationMs', 2000), body.get('policyConfig', {}))
                     return self.json({'jobId': identifier})
+                if self.path == '/api/compare':
+                    body = self.read_json()
+                    identifier = jobs.compare(store.get(body['sessionId']), body.get('confirmationMs', 2000),
+                                              body.get('configA', {}), body.get('configB', {}), body.get('source', 'recorded'))
+                    return self.json({'jobId': identifier})
+                if self.path == '/api/audio-preview':
+                    body = self.read_json()
+                    data = audio_preview.synthesize(body.get('text'), body.get('pan'))
+                    self.write_headers(200, 'audio/wav', len(data))
+                    return self.wfile.write(data)
                 if self.path == '/api/context-video':
                     body = self.read_json(); session = store.get(body['sessionId'])
-                    with session.lock:
+                    with session.operation(), session.lock:
                         return self.json(export_context_video(session))
                 raise FileNotFoundError('Action inconnue')
             except (BrokenPipeError, ConnectionResetError):

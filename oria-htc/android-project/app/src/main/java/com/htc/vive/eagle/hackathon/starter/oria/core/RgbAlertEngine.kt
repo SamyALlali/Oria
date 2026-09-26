@@ -16,6 +16,7 @@ data class RgbAlertConfig(
     val voiceMemoryRetentionMs: Long = 18_000,
     val maximumVoiceMemories: Int = 32,
     val maximumTracks: Int = 300,
+    val trackingMode: RgbTrackingMode = RgbTrackingMode.LEGACY_IOU,
 ) {
     init {
         require(maxObservationAgeMs > 0 && trackLostAfterMs > 0 && confirmationSamples > 0)
@@ -42,6 +43,7 @@ data class RgbTrack(
     val confirmationSamples: Int,
     val confirmed: Boolean,
     val visibleInLatestFrame: Boolean,
+    val associationStatus: RgbAssociationStatus = RgbAssociationStatus.LEGACY_IOU,
 )
 
 data class RgbCandidate(
@@ -99,6 +101,9 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
         var frameId: Long,
         var confirmationSamples: Int,
         var confirmed: Boolean,
+        var previousBox: Box? = null,
+        var previousObservedAtMs: Long? = null,
+        var associationStatus: RgbAssociationStatus = RgbAssociationStatus.NEW,
     )
     private data class VoiceMemory(var lastSeenAtMs: Long, var confirmedAtMs: Long)
     private data class Pairing(val trackId: Long, val detectionIndex: Int, val iou: Float)
@@ -273,7 +278,13 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
     }
 
     private fun associate(detections: List<Detection>, frame: DetectionFrame, previousFrameId: Long?) {
-        val pairings = tracks.values.flatMap { track ->
+        val stable = if (config.trackingMode == RgbTrackingMode.STABLE_RGB_V2) {
+            StableRgbAssociation.associate(tracks.values.map {
+                RgbAssociationInput(it.id, it.detection, it.observedAtMs, it.previousBox, it.previousObservedAtMs)
+            }, detections, frame.observedAtMs, config.trackAssociationIou)
+        } else null
+        stable?.retiredAmbiguousTracks?.forEach { tracks.remove(it) }
+        val pairings = stable?.matches?.map { Pairing(it.trackId, it.detectionIndex, 0f) } ?: tracks.values.flatMap { track ->
             detections.mapIndexedNotNull { index, detection ->
                 if (track.detection.classId != detection.classId) null else {
                     val iou = RgbAlertPolicy.intersectionOverUnion(track.detection.box, detection.box)
@@ -292,6 +303,10 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
             val qualifies = RgbAlertPolicy.qualifies(detection, margin)
             track.confirmationSamples = if (!qualifies) 0 else if (consecutive) track.confirmationSamples + 1 else 1
             track.confirmed = qualifies && track.confirmationSamples >= config.confirmationSamples
+            track.previousBox = if (consecutive) track.detection.box else null
+            track.previousObservedAtMs = if (consecutive) track.observedAtMs else null
+            track.associationStatus = stable?.matches?.firstOrNull { it.trackId == track.id }?.status
+                ?: RgbAssociationStatus.LEGACY_IOU
             track.detection = detection
             track.observedAtMs = frame.observedAtMs
             track.frameId = frame.frameId
@@ -313,7 +328,9 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
             val qualifies = RgbAlertPolicy.qualifies(detection)
             val id = nextTrackId++
             tracks[id] = TrackState(id, detection, frame.observedAtMs, frame.frameId,
-                if (qualifies) 1 else 0, qualifies && config.confirmationSamples == 1)
+                if (qualifies) 1 else 0, qualifies && config.confirmationSamples == 1,
+                associationStatus = if (index in (stable?.ambiguousNewDetections ?: emptySet()))
+                    RgbAssociationStatus.AMBIGUOUS_NEW else RgbAssociationStatus.NEW)
         }
     }
 
@@ -374,7 +391,7 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
         val candidates = if (sessionId != null) freshCandidates(nowMs) else emptyList()
         return RgbEvaluation(sessionId, latestFrameId, status, tracks.values.map {
             RgbTrack(it.id, it.detection, RgbZone.fromCenterX(it.detection.box.centerX), it.observedAtMs,
-                it.confirmationSamples, it.confirmed, it.frameId == latestFrameId)
+                it.confirmationSamples, it.confirmed, it.frameId == latestFrameId, it.associationStatus)
         }, candidates.firstOrNull { it.trackId == selectedTrackId } ?: candidates.firstOrNull(),
             alert, reason, audioState, rejectedCount)
     }
