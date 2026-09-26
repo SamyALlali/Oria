@@ -32,7 +32,7 @@ Les chemins de code abrégés dans le tableau sont relatifs à `android-project/
 
 La copie locale complète est `<projet Swift externe : ORIA_SWIFT_SOURCE>`, branche `main`, commit `8fbb4e03911bfc16e90e072f3446a492bc61c2ea`. L’accès aux sources est résolu ; aucun déblocage GitHub n’est requis pour poursuivre le travail local. Le dépôt est resté inchangé pendant cet audit.
 
-Les packages `Oria_App/best.mlpackage` et `OriaLab/Sources/best.mlpackage` ont été inspectés : leurs trois fichiers correspondent exactement aux empreintes Paris V1 consignées dans `Documentation/GREENLIGHT_BASELINE.json`. Ce manifeste décrit un checkpoint source SHA-256 `3661675b3ea931bbc6bed0892753912764ce6fc4bc2a8c13745ba8f0d0bc5dc4`, distinct de l’empreinte du `.pt` fourni pour SILMO.
+Les deux copies de `best.mlpackage` du projet iOS source externe ont été inspectées : leurs trois fichiers correspondent exactement aux empreintes Paris V1 consignées dans son fichier `Documentation/GREENLIGHT_BASELINE.json`. Ce manifeste décrit un checkpoint source SHA-256 `3661675b3ea931bbc6bed0892753912764ce6fc4bc2a8c13745ba8f0d0bc5dc4`, distinct de l’empreinte du `.pt` fourni pour SILMO. Ces copies externes ne sont pas déplacées par le renommage du présent dépôt.
 
 Le checkpoint `.pt` permet de préparer directement un export Android. Le contrat Core ML Paris V1 est documenté comme `[1,10,3549]`, non end-to-end, avec NMS dans le Swift. La première proposition d’export du candidat SILMO conserve sa branche end-to-end : le parseur doit être adapté et vérifié. Les références ne doivent pas être déclarées équivalentes sur la seule base de leurs six classes communes.
 
