@@ -1,0 +1,35 @@
+{
+  "product": "Oria",
+  "laboratory": "Oria Lab",
+  "package": "com.htc.vive.eagle.hackathon.starter",
+  "apk_asset": "Oria-SILMO-debug.apk",
+  "apk_sha256": "2fc0b36f173e8f1b3352f765377450a0d60fa293760056d43ff9983b253b64a8",
+  "apk_bytes": 159596591,
+  "jvm_tests": {
+    "passed": 51,
+    "failed": 0
+  },
+  "desktop_tests": {
+    "passed": 11,
+    "failed": 0
+  },
+  "device": "HTC U24 pro / Android 14",
+  "compatible_update_installed": true,
+  "physical_scope": "Historic glasses video plus automatic speech demonstrated; rename build validated by installation and UI checks. New70/30 PCM mix still pending human listening.",
+  "source_model_sha256": "c3b7b89fadf62385a9244edac2832944bf49266ae763cc8744a39f2d4e95756d",
+  "capture_audit": {
+    "frames": 164,
+    "exact_policy_decisions": 164,
+    "high_confidence_detections_matched": 240,
+    "raw_output_frame_parity": "147/164; low-score substitutions remain failures",
+    "personal_recording_in_repository": false
+  },
+  "git_content_validation": {
+    "fresh_checkout_from_index": true,
+    "official_gradle_download_sha256_verified": true,
+    "android_build": "PASSED",
+    "jvm_tests_passed": 51,
+    "desktop_tests_passed": 11,
+    "environment_scope": "Clean project files with existing machine JDK, Android SDK, Gradle dependency cache and Python runtime; no phone data required."
+  }
+}

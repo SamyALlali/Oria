@@ -1,0 +1,17 @@
+# Revue visuelle de la première moitié — orchestrateur
+
+Capture0548b68a : chaque vignette des planches01–07 a été inspectée, soit indices1–84, frames1–898. Ce contrôle qualitatif porte sur les images sélectionnées pour l'analyse, pas sur chacune des1771 images de la vidéo complète ; il ne constitue pas une annotation exhaustive de vérité terrain ni un calcul de rappel. Les boîtes superposées sont les sorties réelles Android ≥0,70.
+
+| Images examinées | Observation |
+|---|---|
+|1–12, frames1–118| Première image très sombre. La personne assise au premier plan est correctement encadrée aux images2–3 puis5–12 ; disparition de la détection en frame24 malgré sa présence visible. Première annonce f51 à droite vise bien cette personne. « Piéton » est toutefois moins précis que « Personne » pour une personne assise.|
+|13–24, frames125–242| Rotation. Personne assise derrière ordinateur clairement visible aux frames150/161/171 sans boîte retenue ; f191 détectée à0,77, insuffisant pour annonce. Détections intermittentes de personnes en arrière-plan. Silence conforme aux données du moteur, perception incomplète.|
+|25–36, frames254–377| Plusieurs personnes assises. f288 devant cohérent avec le centre de boîte (proche de la limite droite0,61). f354 annonce la personne en bleu à droite ; la personne proche sélectionnée est une autre piste en cooldown. f363 perd les détections malgré présence visible. Aucun faux deux-roues/poteau évident dans ce groupe.|
+|37–48, frames388–502| Boîtes de personnes autour de la table et debout. Annoncef441 à droite cohérente avec la personne assise visée. Des personnes sont omises selon les images (par exemple premier planf481). Table, chaises et câbles sont visibles mais ne sont pas des catégories couvertes par ce modèle.|
+|49–60, frames514–632| Deux personnes debout et une personne assise partiellement masquée. Les cibles annoncéesf537 puis620 semblent être la même personne, passée de droite au centre en tournant la tête ; pistes38 puis56. Répétition à2,955s : limitation d'identité, à croiser avec le rapport moteur.|
+|61–72, frames643–769| Personnes proches traversant les zones. f703 annonce la personne située sur le bord gauche (piste63), pas la personne bouclée au centre. Direction cohérente avec le candidat effectif. Détection proche intermittente, notamment f749.|
+|73–84, frames778–898| Rotation vers une table. Personne assise proche omise sur plusieurs images (798–841), retrouvée brièvementf854. Personnes de fond détectées ; absence d'annonce ne prouve pas l'absence d'obstacles. f888 montre surtout mobilier et fond, f898 une personne coupée au bord.|
+
+L'ensemble des13 images d'annonces a aussi été inspecté séparément, avec boîte rose du candidat réellement annoncé : chaque cible est une personne visible et la zone est cohérente avec sa boîte. Cela n'établit ni l'identité persistante, ni la priorité selon une distance réelle absente. Le couple1509/1521, inspecté en pleine résolution, montre une permutation apparente de piste93 entre deux personnes différentes pendant rotation ; les confirmations1→2 ne constituent alors pas deux preuves du même individu.
+
+Aucune modification des seuils, du tri ou du modèle n'est faite sur la base de cette seule scène. Priorités d'amélioration : stabilité d'association en mouvement, corpus de personnes assises/occluses et d'affiches, puis évaluation séparée rappel/fausses annonces. Le mot« Personne » serait plus descriptif que« Piéton » dans ce salon ; vocabulaire inchangé dans cette livraison.

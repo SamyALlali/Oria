@@ -1,0 +1,162 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "com.htc.viveglass.sdk",
+    "module": "viveglass_client",
+    "version": "0.6.0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.5"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseApiElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "android",
+        "org.gradle.usage": "java-api",
+        "org.jetbrains.kotlin.platform.type": "androidJvm"
+      },
+      "dependencies": [
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.1.0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "viveglass_client-0.6.0.aar",
+          "url": "viveglass_client-0.6.0.aar",
+          "size": 619656,
+          "sha512": "93a332fb09f1de9f87c2c5cd65f6bd96190f535661a8de2c0513e129c13895d70d238982560708c480ee33484f7b983482195196e2f1e0ea375832193be73fdf",
+          "sha256": "51d261ff5b06384c74ef518cf0d9683702d7795d2c2d48116a09884a54d6b882",
+          "sha1": "184f398e6dbae2580b03b647d8481e04f9cc2794",
+          "md5": "229cf563ffac64b9552d6fde8c681fe1"
+        }
+      ]
+    },
+    {
+      "name": "releaseRuntimeElements-published",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.jvm.environment": "android",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "androidJvm"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.core",
+          "module": "core",
+          "version": {
+            "requires": "1.13.1"
+          }
+        },
+        {
+          "group": "androidx.core",
+          "module": "core-ktx",
+          "version": {
+            "requires": "1.13.1"
+          }
+        },
+        {
+          "group": "androidx.lifecycle",
+          "module": "lifecycle-runtime",
+          "version": {
+            "requires": "2.6.2"
+          }
+        },
+        {
+          "group": "androidx.lifecycle",
+          "module": "lifecycle-viewmodel",
+          "version": {
+            "requires": "2.6.2"
+          }
+        },
+        {
+          "group": "androidx.lifecycle",
+          "module": "lifecycle-livedata",
+          "version": {
+            "requires": "2.6.2"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-annotations-jvm",
+          "version": {
+            "requires": "1.3.72"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlinx",
+          "module": "kotlinx-coroutines-android",
+          "version": {
+            "requires": "1.9.0"
+          }
+        },
+        {
+          "group": "com.google.code.findbugs",
+          "module": "jsr305",
+          "version": {
+            "requires": "3.0.2"
+          }
+        },
+        {
+          "group": "com.google.code.gson",
+          "module": "gson",
+          "version": {
+            "requires": "2.11.0"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.1.0"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "viveglass_client-0.6.0.aar",
+          "url": "viveglass_client-0.6.0.aar",
+          "size": 619656,
+          "sha512": "93a332fb09f1de9f87c2c5cd65f6bd96190f535661a8de2c0513e129c13895d70d238982560708c480ee33484f7b983482195196e2f1e0ea375832193be73fdf",
+          "sha256": "51d261ff5b06384c74ef518cf0d9683702d7795d2c2d48116a09884a54d6b882",
+          "sha1": "184f398e6dbae2580b03b647d8481e04f9cc2794",
+          "md5": "229cf563ffac64b9552d6fde8c681fe1"
+        }
+      ]
+    },
+    {
+      "name": "releaseSourcesElements-published",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.jvm.environment": "android",
+        "org.gradle.libraryelements": "jar",
+        "org.gradle.usage": "java-runtime",
+        "org.jetbrains.kotlin.platform.type": "androidJvm"
+      },
+      "files": [
+        {
+          "name": "viveglass_client-0.6.0-sources.jar",
+          "url": "viveglass_client-0.6.0-sources.jar",
+          "size": 273695,
+          "sha512": "b702c1b8af4dc5195a56cb9d33240ffac830a38f46428dc9eea590b7f6948fae001aa7620b1305693be73c5cea9a41f2948106cd57ede18abbdf2cde6b2eeded",
+          "sha256": "623f042aab0795b7f3562603546e0581335df96d4d9c2d68e62cb21ee7fbe2d8",
+          "sha1": "f68d10e211cbe4424d434d8c2147e483922de8a2",
+          "md5": "be4e63e57c841ef79c4f4dbe45612d27"
+        }
+      ]
+    }
+  ]
+}

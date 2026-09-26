@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "max_coordinate_error_px": 1.0,
+  "max_score_error": 0.001,
+  "application_confidence_floor": 0.7,
+  "comparison": "same-class one-to-one set matching; raw and threshold effects reported separately"
+}

@@ -1,0 +1,44 @@
+# Build products and machine-specific state
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+.gradle/
+.kotlin/
+.idea/
+build/
+local.properties
+.cxx/
+.externalNativeBuild/
+*.iml
+.pytest_cache/
+*.log
+
+# Credentials and signing material remain local
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+
+# Original starter copies and reproducible/generated archives
+/echonav-htc/baseline-project/
+/echonav-htc/apk/
+/echonav-htc/gradle-dist/*.zip
+/echonav-htc/artifacts/*.apk
+/echonav-htc/echotest-desktop/vendor/
+/echonav-htc/ml/.ultralytics/
+
+# Phone backups, recordings, images and raw device logs stay on this Mac.
+# Keep the validation tools and written conclusions in Git.
+/echonav-htc/validation/**
+!/echonav-htc/validation/*.py
+!/echonav-htc/validation/*.md
+!/echonav-htc/validation/user-scene-0548b68a/
+!/echonav-htc/validation/user-scene-0548b68a/*.md
+!/echonav-htc/validation/user-scene-0548b68a/*.py
+!/echonav-htc/validation/user-scene-0548b68a/*.kt
+!/echonav-htc/validation/user-scene-0548b68a/frames_auditees.csv

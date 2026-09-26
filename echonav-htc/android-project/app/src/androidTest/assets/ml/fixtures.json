@@ -1,0 +1,113 @@
+{
+  "protocol": {
+    "version": 1,
+    "max_coordinate_error_px": 1.0,
+    "max_score_error": 0.001,
+    "application_confidence_floor": 0.7,
+    "comparison": "same-class one-to-one set matching; raw and threshold effects reported separately"
+  },
+  "fixtures": [
+    {
+      "name": "sdk_sample_0",
+      "source": "bundled HTC simulator video",
+      "source_frame": 9,
+      "transform": {
+        "width": 480,
+        "height": 856,
+        "resized_width": 233,
+        "resized_height": 416,
+        "scale": 0.48598130841121495,
+        "left": 91,
+        "top": 0
+      },
+      "image_sha256": "ff5472dea66fccaafcb523591c3059fd81be6c41bf28a3f97ddc01db2a4dec24",
+      "tensor_sha256": "69fd72003a4c925572b5df8b4b93abd21b8c9a3fc5a8e336ab276d5c60674400",
+      "onnx_output_sha256": "410d9620e62cded1fcb7c5202bf86f7d20272ec0ec5ec5455ca35eefc92c5ea7"
+    },
+    {
+      "name": "sdk_sample_1",
+      "source": "bundled HTC simulator video",
+      "source_frame": 95,
+      "transform": {
+        "width": 480,
+        "height": 856,
+        "resized_width": 233,
+        "resized_height": 416,
+        "scale": 0.48598130841121495,
+        "left": 91,
+        "top": 0
+      },
+      "image_sha256": "a2cfcd866c23bbb8d76a6680dd88881a7a05b3e2dd7e048b92dfca2b9d57ca13",
+      "tensor_sha256": "54146c37c646327b074a800e4fe806a58f7e1fd8372486f864644a5b1488f355",
+      "onnx_output_sha256": "744e904fdcbf77366929751b2be593e160e92e27cfbcab55320d43d601e02d94"
+    },
+    {
+      "name": "sdk_sample_2",
+      "source": "bundled HTC simulator video",
+      "source_frame": 171,
+      "transform": {
+        "width": 480,
+        "height": 856,
+        "resized_width": 233,
+        "resized_height": 416,
+        "scale": 0.48598130841121495,
+        "left": 91,
+        "top": 0
+      },
+      "image_sha256": "13488893c862c3f04dd869212e4b87a08211bd19d2629585e57338b5105265fc",
+      "tensor_sha256": "2d449a4efd7df7940a27cc5e75c8a1e2469a7a83ca56e157f727be0f8fdf6d56",
+      "onnx_output_sha256": "8b8fa81865fa4867fe9833dcdb2bf4252413e17919a8196c964775a8a9e7dc23"
+    },
+    {
+      "name": "ultralytics_bus",
+      "source": "public sample bundled with ultralytics 8.4.27: assets/bus.jpg",
+      "source_frame": null,
+      "transform": {
+        "width": 810,
+        "height": 1080,
+        "resized_width": 312,
+        "resized_height": 416,
+        "scale": 0.3851851851851852,
+        "left": 52,
+        "top": 0
+      },
+      "image_sha256": "bf5a9f8f6a89bb2ec24dff2121b2614344e76abc8a884bc66a46689ac0ee39c6",
+      "tensor_sha256": "3c3825502ba3c5e69f37e3cde6b4c87c2cc38da96448a6c5a783453a7cd40c10",
+      "onnx_output_sha256": "c1d97f9f75b10adb025717a103bd3153973569173116af37fd7e058d4eb5fd65"
+    },
+    {
+      "name": "ultralytics_zidane",
+      "source": "public sample bundled with ultralytics 8.4.27: assets/zidane.jpg",
+      "source_frame": null,
+      "transform": {
+        "width": 1280,
+        "height": 720,
+        "resized_width": 416,
+        "resized_height": 234,
+        "scale": 0.325,
+        "left": 0,
+        "top": 91
+      },
+      "image_sha256": "6c2f6c030c660af02e1827b63e34ecd9045afd4751fd02abb760e06db6bbe7bf",
+      "tensor_sha256": "9040d121fff64b871ebd100d41c0a5df25b042b063a4c588faea512a06dabc23",
+      "onnx_output_sha256": "4792c96d3cd93a47486b9f1a795b0c1edaed350f5991c57aa4a61578d8b94d6d"
+    },
+    {
+      "name": "geometry_rgb_odd",
+      "source": "generated geometry test; no detection quality claim",
+      "source_frame": null,
+      "transform": {
+        "width": 419,
+        "height": 237,
+        "resized_width": 416,
+        "resized_height": 235,
+        "scale": 0.9928400954653938,
+        "left": 0,
+        "top": 90
+      },
+      "image_sha256": "b0434e5bdaac990861e32029ebc4a63cef8b18e3f178d6af55a89842bf50d40e",
+      "tensor_sha256": "0eafbd0a27bb1af738f00149998ba853f1c9076d81583d7420b9099c12ea0f92",
+      "onnx_output_sha256": "2f5d2ffd68900cb8af49e782fbeeaf04bee4db3d8bad9c0cd43fb40e4c26f3fa"
+    }
+  ]
+}

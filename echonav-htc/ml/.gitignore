@@ -1,0 +1,6 @@
+.venv/
+.ultralytics/
+__pycache__/
+exports/*.pt
+!exports/echonav_silmo_fp32.pt
+fixtures/*.mp4
