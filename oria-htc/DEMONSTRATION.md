@@ -1,12 +1,12 @@
 # Démonstration Oria — nouveau HTC CN46V3M00284
 
-> Candidat préparé hors téléphone : voir [OFFLINE_PROGRESS.md](validation/OFFLINE_PROGRESS.md) avant installation. Les preuves qui suivent concernent les APK précédents. Le dernier appareil installé est CN4B53M00860 ; identifier à nouveau le téléphone au branchement. Les numéros ADB des exemples ci-dessous désignent la campagne historique CN46V3M00284 et ne doivent pas être réutilisés sans vérification.
+> Le 27 septembre, Oria 1.2-night a été installé sans désinstallation sur **CN46V3M00284**. Voir [le bilan de nuit](validation/NIGHT_WORK_20260927.md). Les essais de téléphone sont nouveaux ; les confirmations vidéo/voix ci-dessous restent historiques. Vérifier le numéro ADB avant chaque installation.
 
 L’application livrée s’appelle **Oria**, s’ouvre directement sur Oria et conserve le package HTC autorisé. Deux onglets donnent accès à **Oria** pour l’assistance en direct et **Oria Lab** pour enregistrer une scène explicitement. **Diagnostic HTC** donne accès aux outils du starter. Les commandes de démarrage/arrêt restent visibles en bas, même lorsque l’aperçu portrait remplit le contenu.
 
 L’installation sur ce nouveau HTC U24 pro Android 14 a été autorisée après sauvegarde de l’APK d’origine et des fichiers privés accessibles, puis exécutée. VIVE Connect est resté installé au même emplacement. Les preuves et le verdict physique consolidé sont dans [la recette](validation/RECETTE.md). Les anciens résultats du téléphone CN4B53M00860 restent distincts.
 
-**Build actuel installé :** `f49def1953699349d1c189402c2a7b0229e6bd17db1ca7c0f29c54c9873eeb43`, Oria + Oria Lab, [51 tests JVM réussis](validation/new-device-CN46V3M00284/oria-final-build.json) et [installation enregistrée](validation/new-device-CN46V3M00284/production-update-oria-final.json). Les trois tests instrumentés de l’enregistreur ont réussi sur le build précédent `1c3226…`, avant le renommage interne du recorder ; son défaut d’initialisation de navigation a été corrigé avant cette livraison.
+**Build historique du 26 septembre :** `f49def1953699349d1c189402c2a7b0229e6bd17db1ca7c0f29c54c9873eeb43`, Oria + Oria Lab, [51 tests JVM réussis](validation/new-device-CN46V3M00284/oria-final-build.json) et [installation enregistrée](validation/new-device-CN46V3M00284/production-update-oria-final.json). Les trois tests instrumentés de l’enregistreur ont réussi sur le build précédent `1c3226…`, avant le renommage interne du recorder ; son défaut d’initialisation de navigation a été corrigé avant cette livraison.
 
 **Preuves audio et endurance antérieures :** les annonces automatiques **Bluetooth VIVE en stéréo gauche / droite / centre pendant la vidéo** ont été entendues sur `412eec7f…`, avec réponse utilisateur « Oui, les côtés sont corrects » ([registre humain](validation/new-device-CN46V3M00284/human-confirmations.json)). Le build `40175fb4…` à 333 ms a ensuite passé dix minutes instrumentées : **2,631 décisions fraîches/s, âge p95 406 ms**, garde 500 ms inchangée. L’enregistrement OriaLab ajoute une charge distincte. Le build froid `aef0571a` avait une voix manuelle audible mais des annonces automatiques expirées ; `b682e0ce` échouait à préparer la route ; `a56bfa58` annonçait en mono. Le [README](README.md) distingue ces preuves. La voix HTC propriétaire a aussi été entendue **vidéo arrêtée** ; pendant le streaming, le SDK la refuse avec `ERROR_RESOURCE_CONFLICT`.
 
@@ -32,7 +32,7 @@ Les essais de perte Bluetooth et de réapparition doivent vérifier le son enten
 
 1. Sur le téléphone connecté aux lunettes, ouvrir **Oria Lab**. Attendre « Modèle prêt » et choisir la source réelle ; le simulateur est étiqueté séparément. Appuyer explicitement sur **Enregistrer une scène**. Cette action arrête une perception précédente, arme la capture puis redémarre la vidéo pour conserver ses en-têtes codec.
 2. Filmer la scène souhaitée. Durée, paquets, images et octets sont affichés ; **Arrêter et finaliser** reste fixe. Passer sur Oria conserve cette capture et affiche **Oria Lab ●**. Un retour sur Oria Lab ne crée pas une autre capture.
-3. Appuyer sur **Arrêter et finaliser**, puis attendre la sauvegarde. À 60 s ou 250 Mio, l’enregistrement se termine automatiquement ; la perception peut continuer et doit être arrêtée avec **Arrêter la vidéo**. Les captures incomplètes ou sans image exploitable sont signalées. Le stockage total est borné à 1 Gio, sans suppression automatique.
+3. Appuyer sur **Arrêter et finaliser**, puis attendre la sauvegarde. Il n’y a plus de limite de durée ni de quota fixe par capture. Une réserve de 512 Mio libres protège le stockage : si elle est atteinte, la capture s’arrête avec un motif explicite et conserve les données écrites ; arrêter aussi la perception avec **Arrêter la vidéo**. Les captures incomplètes ou sans image exploitable sont signalées. Aucune purge automatique.
 4. Brancher le téléphone par USB au Mac et autoriser son débogage USB. Double-cliquer [Récupérer depuis HTC.command](<oria-lab-transfer/Récupérer depuis HTC.command>). Le lanceur récupère la capture finalisée la plus récente dans `~/Documents/Oria Lab Captures/`, puis l’importe et ouvre automatiquement le lecteur Mac. Les captures du téléphone restent intactes. Garder le terminal ouvert ; Ctrl+C ferme le serveur local.
 5. Dans **Observations du téléphone**, utiliser précédente/suivante, la timeline, lecture/pause et la vitesse. Les touches ←/→ parcourent les PNG ; espace commande la lecture. Les boîtes sont celles des images exactes fournies au modèle, avec les décisions et horloges enregistrées.
 6. Dans **Recalcul sur ce Mac**, relancer ONNX et la politique Kotlin. Comparer par exemple une confirmation après deux observations puis après une seule. Chaque recalcul parcourt chronologiquement la scène ; revenir dans la timeline consulte les résultats calculés, sans réinitialiser artificiellement la mémoire à chaque image. La voix est **simulée**, avec délai configurable : aucun son n’est joué et le contrôleur/transport Bluetooth réel n’est pas reproduit.
@@ -63,7 +63,7 @@ Après cette première installation autorisée, notre même clé permet une mise
 
 ```bash
 cd "/Users/sam/Documents/ChatGPT/Hackathon SILMO/oria-htc"
-/Users/sam/Library/Android/sdk/platform-tools/adb -s CN46V3M00284 install -r artifacts/oria-silmo-debug.apk
+/Users/sam/Library/Android/sdk/platform-tools/adb -s CN46V3M00284 install -r artifacts/oria-silmo-candidate.apk
 /Users/sam/Library/Android/sdk/platform-tools/adb -s CN46V3M00284 shell am start -n com.htc.vive.eagle.hackathon.starter/.MainActivity
 ```
 
@@ -117,7 +117,7 @@ Ces deux APK ciblent uniquement le harness et ses tests. Pour une mise à jour d
 
 Le rapport est `files/combined-pipeline-report.json`. Il inclut les rejets et la cadence réellement obtenue ; le seuil d’acceptation du test ne garantit pas à lui seul la cible de 4 Hz.
 
-4. **Politiques Oria, PCM stéréo et navigation** : lancer les commandes suivantes. Les sous-shells conservent le dossier courant pour la suite. Le build actuel a passé 51 tests JVM, dont dix tests PCM (échantillons signés, entrelacement, isolation des canaux, durée et cache intact), deux tests d’ordre d’initialisation des destinations et le test regroupant les 18 fixtures communes Swift/Kotlin. Les tests ne remplacent pas l’écoute dans les lunettes.
+4. **Politiques Oria, PCM stéréo et navigation** : lancer les commandes suivantes. Les sous-shells conservent le dossier courant pour la suite. Le build historique du 26 septembre avait passé 51 tests JVM ; le build 1.2-night en passe 83, dont dix tests PCM (échantillons signés, entrelacement, isolation des canaux, durée et cache intact), deux tests d’ordre d’initialisation des destinations et le test regroupant les 18 fixtures communes Swift/Kotlin. Les tests ne remplacent pas l’écoute dans les lunettes.
 
 ```bash
 (cd "$ORIA_ROOT/android-project" && ./gradlew :app:testDebugUnitTest)

@@ -151,7 +151,7 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                             Text("Mode poche · expérimental", Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
                         }
                         Text(state.pocketStatus, style = MaterialTheme.typography.bodySmall)
-                        Text("Continuer écran verrouillé pendant 15 minutes maximum. À valider sur HTC. Oria Lab s’arrête toujours en arrière-plan.",
+                        Text("Continuer écran verrouillé jusqu’à votre arrêt ou une interruption de connexion. À valider sur HTC. Oria Lab s’arrête toujours en arrière-plan.",
                             style = MaterialTheme.typography.bodySmall)
                     }
                 }

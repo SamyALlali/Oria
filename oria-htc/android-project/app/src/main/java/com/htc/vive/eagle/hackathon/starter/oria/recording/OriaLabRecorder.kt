@@ -17,7 +17,6 @@ import org.json.JSONObject
 import java.io.Closeable
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
 import java.io.OutputStream
 import java.nio.ByteBuffer
 import java.nio.file.Files
@@ -58,18 +57,21 @@ data class OriaLabRecorderState(
     val totalStorageBytes: Long = 0,
     val trashBytes: Long = 0,
     val storageBusy: Boolean = true,
+    val availableStorageBytes: Long = 0,
 )
 
 /** Explicit opt-in capture. SDK/pixel callbacks never perform file I/O or wait for the writer. */
-class OriaLabRecorder(context: Context) : Closeable {
+class OriaLabRecorder(
+    context: Context,
+    private val monotonicClock: () -> Long = SystemClock::elapsedRealtime,
+    private val availableSpaceBytes: (File) -> Long = { it.usableSpace },
+) : Closeable {
     companion object {
         const val SCHEMA_VERSION = 1
-        const val MAX_DURATION_MS = 60_000L
-        const val MAX_SESSION_BYTES = 250L * 1024 * 1024
+        const val RESERVED_FREE_BYTES = 512L * 1024 * 1024
         const val MAX_QUEUED_BYTES = 20L * 1024 * 1024
         private const val MAX_TASKS = 160
         private const val MAX_JSON_BYTES = 256 * 1024
-        private const val MAX_TOTAL_BYTES = 1024L * 1024 * 1024
         private const val MANIFEST_RESERVE = 1024L * 1024
     }
 
@@ -84,13 +86,14 @@ class OriaLabRecorder(context: Context) : Closeable {
     private var saved = emptyList<OriaLabSession>()
     private var totalStorageBytes = 0L
     private var trashStorageBytes = 0L
+    @Volatile private var availableStorageBytes = 0L
     private var active: Run? = null
     private var closed = false
     private var storageBusy = true
     private val worker = Thread(::writerLoop, "oria-lab-writer").apply { start() }
 
     private class Run(val id: String, val directory: File, val metadata: JSONObject,
-                      val epochMs: Long, val originMs: Long, val videoSessionId: Long) {
+                      val epochMs: Long, val originMs: Long, val videoSessionId: Long, val diskBudget: OriaLabDiskBudget) {
         var accepting = true
         var outstanding = 0
         var queuedBytes = 0L
@@ -129,7 +132,8 @@ class OriaLabRecorder(context: Context) : Closeable {
         synchronized(lock) {
             if (closed || storageBusy || active != null) return false
             val id = UUID.randomUUID().toString()
-            val run = Run(id, File(root, id), frozen, System.currentTimeMillis(), now(), videoSessionId)
+            val run = Run(id, File(root, id), frozen, System.currentTimeMillis(), now(), videoSessionId,
+                OriaLabDiskBudget(RESERVED_FREE_BYTES, { availableSpaceBytes(root) }))
             active = run
             run.outstanding = 1
             queue.addLast(Work.Begin(run))
@@ -258,11 +262,13 @@ class OriaLabRecorder(context: Context) : Closeable {
         val session = synchronized(lock) { saved.firstOrNull { it.id == sessionId } ?: error("Capture introuvable") }
         val exports = File(root, "_exports").apply { check(mkdirs() || isDirectory) }
         val destination = File(exports, "${session.id}.zip")
-        check(exports.usableSpace >= session.bytes + MANIFEST_RESERVE * 2) { "Espace insuffisant pour le ZIP" }
+        check(availableSpaceBytes(exports) >= session.bytes + RESERVED_FREE_BYTES + MANIFEST_RESERVE * 2) { "Espace insuffisant pour le ZIP en conservant 512 Mio libres" }
         val temporary = File(exports, "${session.id}.zip.part")
         try {
             // Rebuild instead of returning a stale ZIP after a display-name change.
-            ZipOutputStream(temporary.outputStream().buffered()).use { zip ->
+            val budget = OriaLabDiskBudget(RESERVED_FREE_BYTES, { availableSpaceBytes(exports) })
+            val guarded = DiskGuardStream(temporary.outputStream(), budget)
+            ZipOutputStream(guarded.buffered()).use { zip ->
                 zip.setLevel(1)
                 session.directory.walkTopDown()
                     .onEnter { !Files.isSymbolicLink(it.toPath()) }
@@ -299,7 +305,6 @@ class OriaLabRecorder(context: Context) : Closeable {
         val run = active?.takeIf { it.accepting } ?: return@synchronized null
         if (expected != null && expected !== run) return@synchronized null
         if (run.videoSessionId != videoSessionId) { run.ignoredOtherSessionEvents++; return@synchronized null }
-        if (now() - run.originMs >= MAX_DURATION_MS) { stopLocked(run, "duration_limit", null); return@synchronized null }
         if (bytes > MAX_QUEUED_BYTES || run.queuedBytes + bytes > MAX_QUEUED_BYTES || run.outstanding >= MAX_TASKS) {
             stopLocked(run, "queue_overflow", "Bounded writer queue exhausted; capture is incomplete")
             return@synchronized null
@@ -343,8 +348,8 @@ class OriaLabRecorder(context: Context) : Closeable {
             run.id, run.packets, run.frames, run.bytes, run.queuedBytes,
             ((if (run.endedAtMs > 0) run.endedAtMs else now()) - run.originMs).coerceAtLeast(0),
             run.incompleteReason != null,
-            run.incompleteReason ?: if (run.accepting) "Capture explicite en cours · maximum 60 s" else "Finalisation : ${run.stopReason}", saved,
-            _state.value.trashedSessions, totalStorageBytes + run.bytes, trashStorageBytes, storageBusy)
+            run.incompleteReason ?: if (run.accepting) "Capture explicite en cours · sans limite de durée" else "Finalisation : ${run.stopReason}", saved,
+            _state.value.trashedSessions, totalStorageBytes + run.bytes, trashStorageBytes, storageBusy, availableStorageBytes)
     }
 
     private fun writerLoop() {
@@ -355,7 +360,6 @@ class OriaLabRecorder(context: Context) : Closeable {
             var finishing: Run? = null
             synchronized(lock) {
                 while (true) {
-                    active?.let { if (it.accepting && now() - it.originMs >= MAX_DURATION_MS) stopLocked(it, "duration_limit", null) }
                     if (queue.isNotEmpty()) { work = queue.removeFirst(); break }
                     val run = active
                     if (run != null && !run.accepting && run.outstanding == 0) { finishing = run; break }
@@ -366,7 +370,9 @@ class OriaLabRecorder(context: Context) : Closeable {
             }
             work?.let { job ->
                 try { if (!job.run.ioFailed) write(job) }
-                catch (e: Exception) {
+                catch (e: OriaLabStorageFullException) {
+                    synchronized(lock) { job.run.ioFailed = true; stopLocked(job.run, "storage_reserve_reached", e.message) }
+                } catch (e: Exception) {
                     synchronized(lock) { job.run.ioFailed = true; stopLocked(job.run, "write_failed", "${e.javaClass.simpleName}: ${e.message}") }
                 } catch (_: OutOfMemoryError) {
                     synchronized(lock) { job.run.ioFailed = true; stopLocked(job.run, "write_failed", "writer_out_of_memory") }
@@ -379,15 +385,25 @@ class OriaLabRecorder(context: Context) : Closeable {
         }
     }
 
-    private inner class BudgetStream(private val run: Run, private val delegate: OutputStream) : OutputStream() {
+    private open inner class DiskGuardStream(
+        private val delegate: OutputStream,
+        private val budget: OriaLabDiskBudget,
+    ) : OutputStream() {
         override fun write(value: Int) { write(byteArrayOf(value.toByte()), 0, 1) }
         override fun write(bytes: ByteArray, offset: Int, length: Int) {
-            if (run.bytes + length > MAX_SESSION_BYTES - MANIFEST_RESERVE) throw IOException("Session size limit reached")
+            try { budget.reserveWrite(length) }
+            finally { availableStorageBytes = budget.availableBytes }
             delegate.write(bytes, offset, length)
-            run.bytes += length
         }
         override fun flush() = delegate.flush()
         override fun close() = delegate.close()
+    }
+
+    private inner class BudgetStream(private val run: Run, delegate: OutputStream) : DiskGuardStream(delegate, run.diskBudget) {
+        override fun write(bytes: ByteArray, offset: Int, length: Int) {
+            super.write(bytes, offset, length)
+            run.bytes += length
+        }
     }
 
     private fun write(work: Work) {
@@ -395,10 +411,10 @@ class OriaLabRecorder(context: Context) : Closeable {
         when (work) {
             is Work.Begin -> {
                 check(root.mkdirs() || root.isDirectory) { "Cannot create recording directory" }
-                check(root.walkTopDown().filter { it.isFile }.sumOf { it.length() } < MAX_TOTAL_BYTES) { "Recording storage limit reached (1 GiB)" }
-                check(root.usableSpace >= 16 * 1024 * 1024L) { "Insufficient private storage" }
                 check(File(run.directory, "frames").mkdirs()) { "Cannot create recording session" }
                 writeManifest(run, "recording")
+                try { run.diskBudget.reserveWrite(0) }
+                finally { availableStorageBytes = run.diskBudget.availableBytes }
                 run.video = BudgetStream(run, FileOutputStream(File(run.directory, "video.h264")))
                 run.packetIndex = BudgetStream(run, FileOutputStream(File(run.directory, "packets.jsonl")))
                 run.frameIndex = BudgetStream(run, FileOutputStream(File(run.directory, "frames.jsonl")))
@@ -441,7 +457,7 @@ class OriaLabRecorder(context: Context) : Closeable {
                 if (!session.complete) "Capture incomplète : ${session.reason}"
                 else if (!session.usableForReplay) "Capture terminée sans image exploitable : ${run.stopReason}"
                 else "Capture sauvegardée : ${run.stopReason}", saved, _state.value.trashedSessions,
-                totalStorageBytes, trashStorageBytes, storageBusy)
+                totalStorageBytes, trashStorageBytes, storageBusy, availableStorageBytes)
             lock.notifyAll()
         }
     }
@@ -455,7 +471,9 @@ class OriaLabRecorder(context: Context) : Closeable {
             .put("durationMs", if (run.endedAtMs == 0L) 0L else run.endedAtMs - run.originMs)
             .put("stopReason", run.stopReason).put("incompleteReason", run.incompleteReason ?: JSONObject.NULL)
             .put("metadata", run.metadata).put("unavailable", JSONArray(listOf("microphone", "depth", "pose", "glasses_capture_timestamp")))
-            .put("limits", JSONObject().put("durationMs", MAX_DURATION_MS).put("sessionBytes", MAX_SESSION_BYTES).put("queuedBytes", MAX_QUEUED_BYTES))
+            .put("limits", JSONObject().put("durationMs", JSONObject.NULL).put("durationPolicy", "unlimited")
+                .put("sessionBytes", JSONObject.NULL).put("totalBytes", JSONObject.NULL)
+                .put("reservedFreeBytes", RESERVED_FREE_BYTES).put("queuedBytes", MAX_QUEUED_BYTES))
             .put("counts", JSONObject().put("packets", run.packets).put("frames", run.frames).put("events", run.events)
                 .put("bytes", run.bytes).put("ignoredOtherSessionEvents", run.ignoredOtherSessionEvents))
             .put("pixelContract", "PNG lossless copy of the selected Bitmap offered to the controller; frame_delivery and inference events indicate whether it was accepted/analysed; rotation and mirror already applied; normalized boxes refer to these pixels")
@@ -500,22 +518,26 @@ class OriaLabRecorder(context: Context) : Closeable {
         val trashed = storage.sessionDirectories(inTrash = true).map { load(it, false) }.sortedByDescending { it.startedAtEpochMs }
         val total = storage.totalBytes()
         val trash = storage.trashBytes()
+        val available = availableSpaceBytes(root.takeIf { it.exists() } ?: root.parentFile).coerceAtLeast(0)
         synchronized(lock) {
             saved = loaded
             totalStorageBytes = total
             trashStorageBytes = trash
+            availableStorageBytes = available
             _state.value = _state.value.copy(savedSessions = saved, trashedSessions = trashed,
-                totalStorageBytes = total, trashBytes = trash)
+                totalStorageBytes = total, trashBytes = trash, availableStorageBytes = available)
         }
     }
 
     private fun refreshStorageSizes() {
         val total = storage.totalBytes()
         val trash = storage.trashBytes()
+        val available = availableSpaceBytes(root.takeIf { it.exists() } ?: root.parentFile).coerceAtLeast(0)
         synchronized(lock) {
             totalStorageBytes = total
             trashStorageBytes = trash
-            _state.value = _state.value.copy(totalStorageBytes = total, trashBytes = trash)
+            availableStorageBytes = available
+            _state.value = _state.value.copy(totalStorageBytes = total, trashBytes = trash, availableStorageBytes = available)
         }
     }
 
@@ -527,5 +549,5 @@ class OriaLabRecorder(context: Context) : Closeable {
     }
 
     private fun jsonLine(stream: OutputStream, value: JSONObject) = stream.write((value.toString() + "\n").toByteArray(Charsets.UTF_8))
-    private fun now() = SystemClock.elapsedRealtime()
+    private fun now() = monotonicClock()
 }

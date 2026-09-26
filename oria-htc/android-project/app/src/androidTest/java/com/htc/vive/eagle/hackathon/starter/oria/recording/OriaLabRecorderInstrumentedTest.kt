@@ -21,6 +21,7 @@ import org.junit.runner.RunWith
 import java.io.File
 import java.nio.ByteBuffer
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicLong
 import java.util.zip.CRC32
 import java.util.zip.ZipFile
 
@@ -200,6 +201,77 @@ class OriaLabRecorderInstrumentedTest {
         awaitSaved(recorder, previousId = session.id)
     }
 
+    @Test fun captureContinuesBeyondOneMinuteAndFifteenMinutesUntilExplicitStop() {
+        val origin = 10_000L
+        val clock = AtomicLong(origin)
+        fixture(monotonicClock = { clock.get() }) { recorder ->
+            assertTrue(recorder.start(metadata(601)))
+            recorder.recordPacket(ByteBuffer.wrap(byteArrayOf(1, 2, 3)),
+                MediaCodec.BufferInfo().apply { set(0, 3, 100, 0) }, clock.get(), 601)
+            clock.set(origin + 60_001)
+            val bitmap = Bitmap.createBitmap(2, 2, Bitmap.Config.ARGB_8888)
+            recorder.recordFrame(frame(bitmap, 601, 1, clock.get()))
+            bitmap.recycle()
+            recorder.recordEvent(JSONObject().put("type", "after_one_minute").put("sessionId", 601))
+            clock.set(origin + 15 * 60_000 + 1)
+            recorder.recordPacket(ByteBuffer.wrap(byteArrayOf(4, 5, 6)),
+                MediaCodec.BufferInfo().apply { set(0, 3, 900_001_000, 0) }, clock.get(), 601)
+            recorder.recordEvent(JSONObject().put("type", "after_fifteen_minutes").put("sessionId", 601))
+            assertEquals("Advancing the clock cannot end the capture", OriaLabPhase.RECORDING, recorder.state.value.phase)
+            recorder.stop("explicit_user_stop")
+            val session = awaitSaved(recorder)
+            assertTrue(session.complete)
+            assertEquals(900_001L, session.durationMs)
+            assertEquals(2L, session.packets)
+            assertEquals(1L, session.frames)
+            assertArrayEquals(byteArrayOf(1, 2, 3, 4, 5, 6), session.directory.resolve("video.h264").readBytes())
+            val manifest = JSONObject(session.directory.resolve("manifest.json").readText())
+            val limits = manifest.getJSONObject("limits")
+            assertTrue(limits.has("durationMs") && limits.isNull("durationMs"))
+            assertEquals("unlimited", limits.getString("durationPolicy"))
+            assertTrue(limits.has("sessionBytes") && limits.isNull("sessionBytes"))
+            assertTrue(limits.has("totalBytes") && limits.isNull("totalBytes"))
+            assertEquals(OriaLabRecorder.RESERVED_FREE_BYTES, limits.getLong("reservedFreeBytes"))
+            assertEquals("explicit_user_stop", manifest.getString("stopReason"))
+            assertEquals(listOf("after_one_minute", "after_fifteen_minutes"),
+                session.directory.resolve("events.jsonl").readLines().map { JSONObject(it).getString("type") })
+        }
+    }
+
+    @Test fun diskReserveStopsActualWriterAndRetainsAlreadyWrittenPackets() {
+        val free = AtomicLong(2L * 1024 * 1024 * 1024)
+        fixture(availableSpaceBytes = { free.get() }) { recorder ->
+            assertTrue(recorder.start(metadata(701)))
+            val firstPacket = byteArrayOf(0, 0, 0, 1, 103, 42)
+            recorder.recordPacket(ByteBuffer.wrap(firstPacket),
+                MediaCodec.BufferInfo().apply { set(0, firstPacket.size, 100, 0) }, SystemClock.elapsedRealtime(), 701)
+            val deadline = SystemClock.elapsedRealtime() + 10_000
+            while (recorder.state.value.packets != 1L && SystemClock.elapsedRealtime() < deadline) Thread.yield()
+            assertEquals("The first packet reached the real file writer", 1L, recorder.state.value.packets)
+            free.set(OriaLabRecorder.RESERVED_FREE_BYTES - 1)
+            val next = ByteArray(1024 * 1024)
+            recorder.recordPacket(ByteBuffer.wrap(next),
+                MediaCodec.BufferInfo().apply { set(0, next.size, 200, 0) }, SystemClock.elapsedRealtime(), 701)
+            val session = awaitSaved(recorder)
+            assertFalse(session.complete)
+            assertEquals(OriaLabPhase.ERROR, recorder.state.value.phase)
+            assertEquals(1L, session.packets)
+            assertArrayEquals("Disk guard preserves the previously written H264 prefix", firstPacket,
+                session.directory.resolve("video.h264").readBytes())
+            val manifest = JSONObject(session.directory.resolve("manifest.json").readText())
+            assertEquals("storage_reserve_reached", manifest.getString("stopReason"))
+            assertEquals("incomplete", manifest.getString("status"))
+            assertTrue(manifest.getString("incompleteReason").contains("512 Mio"))
+            assertEquals(1, session.directory.resolve("packets.jsonl").readLines().size)
+            assertEquals(0L, recorder.state.value.queuedBytes)
+            runBlocking {
+                assertTrue(runCatching { recorder.export(session.id) }.exceptionOrNull() is IllegalStateException)
+            }
+            assertArrayEquals(firstPacket, session.directory.resolve("video.h264").readBytes())
+            assertFalse(recorder.state.value.storageBusy)
+        }
+    }
+
     private fun metadata(session: Long) = JSONObject().put("videoSessionId", session).put("source", "instrumented_synthetic")
     private fun frame(bitmap: Bitmap, session: Long, id: Long, at: Long) = OriaVideoFrame(
         bitmap, session, id, at, 123_456, 2, 2, 0, false, at + 1, 0.1)
@@ -216,14 +288,18 @@ class OriaLabRecorderInstrumentedTest {
         throw AssertionError("Recorder did not finalize: ${recorder.state.value}")
     }
 
-    private fun fixture(test: (OriaLabRecorder) -> Unit) {
+    private fun fixture(
+        monotonicClock: () -> Long = SystemClock::elapsedRealtime,
+        availableSpaceBytes: (File) -> Long = { it.usableSpace },
+        test: (OriaLabRecorder) -> Unit,
+    ) {
         val base = InstrumentationRegistry.getInstrumentation().targetContext
         val directory = File(base.cacheDir, "recorder-test-${UUID.randomUUID()}").apply { check(mkdirs()) }
         val context = object : ContextWrapper(base) {
             override fun getApplicationContext(): Context = this
             override fun getFilesDir(): File = directory
         }
-        val recorder = OriaLabRecorder(context)
+        val recorder = OriaLabRecorder(context, monotonicClock, availableSpaceBytes)
         try {
             val readyDeadline = SystemClock.elapsedRealtime() + 10_000
             while (recorder.state.value.storageBusy && SystemClock.elapsedRealtime() < readyDeadline) Thread.sleep(10)

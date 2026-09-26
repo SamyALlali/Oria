@@ -9,7 +9,7 @@ import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
-from replay import DEFAULT_STORAGE, MAX_UPLOAD, ReplayJobs, SessionStore, export_context_video, safe_path
+from replay import DEFAULT_STORAGE, MAX_UPLOAD, RESERVED_FREE_BYTES, ReplayJobs, SessionStore, export_context_video, safe_path, require_disk_space
 import audio_preview
 
 HERE = Path(__file__).resolve().parent
@@ -50,12 +50,14 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
             self.write_headers(status, 'application/json; charset=utf-8', len(data))
             self.wfile.write(data)
 
-        def file(self, path, media_type=None):
+        def file(self, path, media_type=None, download_name=None):
             if not path.is_file():
                 raise FileNotFoundError('Fichier introuvable')
             size = path.stat().st_size
             start, end, status = 0, size - 1, 200
             extra = {'Accept-Ranges': 'bytes'}
+            if download_name:
+                extra['Content-Disposition'] = f'attachment; filename="{download_name}"'
             requested = self.headers.get('Range')
             if requested:
                 import re
@@ -84,6 +86,7 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                 query = parse_qs(url.query)
                 if url.path == '/api/config':
                     return self.json({'token': token, 'storage': str(store.storage), 'maxUploadBytes': MAX_UPLOAD,
+                                      'reservedFreeBytes': RESERVED_FREE_BYTES,
                                       'audioPreviewAvailable': audio_preview.available()})
                 if url.path == '/api/library':
                     return self.json({'sessions': store.library()})
@@ -101,9 +104,10 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                     with store.get(parts[2]).operation() as session:
                         return self.file(safe_path(session.path, 'context-video.mp4'), 'video/mp4')
                 if len(parts) == 3 and parts[:2] == ['api', 'job']:
-                    return self.json(jobs.get(parts[2], int(query['frame'][0]) if 'frame' in query else None))
+                    return self.json(jobs.get(parts[2], int(query['frame'][0]) if 'frame' in query else None, compact=True))
                 if len(parts) == 4 and parts[:2] == ['api', 'job'] and parts[3] == 'report':
-                    return self.json(jobs.get(parts[2], report=True))
+                    with jobs.report_file(parts[2]) as path:
+                        return self.file(path, 'application/json; charset=utf-8', f'OriaLab-comparaison-{parts[2]}.json')
                 if url.path in ('/', '/app.js', '/style.css'):
                     return self.file(HERE / 'static' / {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css'}[url.path])
                 raise FileNotFoundError('Page inconnue')
@@ -138,13 +142,15 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                 if self.path == '/api/import/zip':
                     size = int(self.headers.get('Content-Length', '0'))
                     if not 0 < size <= MAX_UPLOAD:
-                        raise ValueError('ZIP vide ou supérieur à 1 Gio')
+                        raise ValueError('ZIP vide ou supérieur à la borne technique de 128 Gio')
+                    require_disk_space(store.storage, size)
                     with store.import_operation(), tempfile.NamedTemporaryFile(prefix='.upload-', suffix='.zip', dir=store.storage) as upload:
                         remaining = size
                         while remaining:
                             chunk = self.rfile.read(min(remaining, 1024 * 1024))
                             if not chunk:
                                 raise ValueError('Envoi ZIP incomplet')
+                            require_disk_space(store.storage, len(chunk))
                             upload.write(chunk); remaining -= len(chunk)
                         upload.flush()
                         return self.json(store.import_zip(Path(upload.name)).index())

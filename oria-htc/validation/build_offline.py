@@ -58,15 +58,17 @@ def main():
     apk = ROOT / 'artifacts/oria-silmo-candidate.apk'
     shutil.copy2(source, apk)
     shutil.copy2(source, proof / apk.name)
-    manifest = dict(status='BUILT_NOT_INSTALLED', date=stamp, apk=apk.name,
+    manifest = dict(status='BUILT', date=stamp, apk=apk.name,
                     apk_sha256=sha(apk), apk_bytes=apk.stat().st_size,
                     version_code=int(version.group(1)), version_name=version.group(2),
                     android_lint=lint, sources_sha256=source_fingerprints,
                     package=PACKAGE, signer_sha256=SIGNER, android_unit_tests=tests,
-                    instrumented_tests='COMPILED_NOT_EXECUTED', installation='NOT_ATTEMPTED_PHONE_DISCONNECTED',
-                    hardware_validation='PENDING_ON_TARGET_HTC', build_evidence=str(proof.relative_to(ROOT)),
+                    instrumented_tests='COMPILED_NOT_EXECUTED', installation='NOT_ATTEMPTED_BY_BUILD_SCRIPT',
+                    hardware_validation='NOT_ASSESSED_BY_BUILD_SCRIPT', build_evidence=str(proof.relative_to(ROOT)),
                     baseline_tracking_default='LEGACY_IOU', candidate_tracking='STABLE_RGB_V2_OPT_IN',
-                    pocket_mode='EXPERIMENTAL_OPT_IN_DEFAULT_OFF_MAX_15_MINUTES',
+                    pocket_mode='EXPERIMENTAL_OPT_IN_DEFAULT_OFF_NO_DURATION_CAP',
+                    capture_duration_limit_ms=None, capture_size_limit_bytes=None,
+                    capture_reserved_free_bytes=512 * 1024 * 1024,
                     model_sha256=sha(ROOT / 'ml/exports/oria_silmo_fp32.onnx'))
     (ROOT / 'artifacts/offline_candidate_manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print(json.dumps(manifest, indent=2))

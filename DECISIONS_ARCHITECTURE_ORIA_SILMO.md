@@ -289,8 +289,25 @@ Le nom utilisateur est un sidecar facultatif `session-label.json`, version 1, av
 
 ## D22 — Mode poche borné avant recette matérielle
 
-Option désactivée par défaut, service Android explicite avec notification et arrêt accessible, maintien CPU au plus 15 minutes, aucune reprise automatique après interruption. Oria Lab conserve son arrêt en arrière-plan. La destruction de l’Activity termine la perception. La compatibilité du flux HTC écran verrouillé, l’arrêt acoustique, les permissions et la consommation restent à prouver sur matériel. Cette préparation hors téléphone ne transforme pas ces points en succès. Voir `oria-htc/validation/OFFLINE_PROGRESS.md`.
+**État historique : la durée maximale est remplacée par D24 ci-dessous.** Option désactivée par défaut, service Android explicite avec notification et arrêt accessible, maintien CPU au plus 15 minutes dans le candidat du 26 septembre, aucune reprise automatique après interruption. Oria Lab conserve son arrêt en arrière-plan. La destruction de l’Activity termine la perception. La compatibilité du flux HTC écran verrouillé, l’arrêt acoustique, les permissions et la consommation restent à prouver sur matériel. Cette préparation hors téléphone ne transforme pas ces points en succès. Voir `oria-htc/validation/OFFLINE_PROGRESS.md`.
 
 ## D23 — A/B du même moteur et aperçu audio local
 
 Le laboratoire compare deux configurations Kotlin indépendantes sur les mêmes détections et horloges, avec la même règle de confirmation simulée. Les détections proviennent soit de l’enregistrement soit d’un unique calcul ONNX partagé entre les deux variantes. Les identités internes, changements de sélection et textes proposés sont distingués. La synthèse Mac avec gains 70/30 est un aperçu déclenché explicitement ; elle ne confirme aucune transaction du moteur et ne représente pas le son entendu dans les lunettes.
+
+
+## D24 — Sessions sans limite de durée (27 septembre, demande utilisateur)
+
+La demande explicite remplace le plafond expérimental D22 : aucune limite de durée de perception en mode poche ni de capture Oria Lab. Le maintien CPU est une réservation technique de 2 minutes renouvelée toutes les 30 secondes tant que propriétaire, token et session valide correspondent ; ce n’est pas un compteur maximal de session. Un verrou perdu n’est pas réarmé pour une ancienne session. Arrêt explicite, perte de flux/Bluetooth, destruction Activity et invalidation des callbacks restent applicables.
+
+Le plafond de 250 Mio par capture et le quota global de 1 Gio sont aussi retirés : à 74–87 Mio/min ils auraient réintroduit un arrêt pratique vers 3 minutes. La protection porte désormais sur 512 Mio réellement libres, les files bornées, les erreurs disque et l’arrêt propre. Les nouveaux manifestes portent des limites durée/taille nulles explicites. Ni purge automatique ni enregistrement automatique. L’enregistrement reste finalisé si l’application passe en arrière-plan ; le mode poche concerne la perception. Validation physique liée au build et au téléphone dans `oria-htc/validation/NIGHT_WORK_20260927.md`.
+
+## D25 — Horloges protégées contre les événements rejetés (27 septembre)
+
+Des tests adversariaux ont reproduit trois familles d’erreurs : ancien ticket/intention rejeté avançant l’horloge d’une nouvelle session ; frame rejetée consommant une intention pourtant valide ; snapshot demandé avec un temps inversé pouvant exposer une ancienne sélection. Validation d’identité/session et mutation d’état sont séparées, et un snapshot à horloge inversée ne fournit pas de candidat. Les tests de sessions de 24 h virtuelles conservent les bornes mémoire et les deux suivis ; LEGACY_IOU reste le défaut. Les observations refusées ne doivent pas modifier les transactions valides de la session courante.
+
+### D26 — Relecture des longues captures sans charger tous les résultats
+
+**Décision vérifiée le 27 septembre :** Oria Lab Mac indexe `frames.jsonl`, événements et paquets par offsets et lit les données détaillées à la demande. Les rapports de calcul sont écrits progressivement dans un fichier partiel, puis publiés atomiquement après finalisation ; leur téléchargement est un flux. Cache de 16 lignes JSONL et de 8 résultats d’image, index et événements vocaux encore proportionnels au nombre d’éléments. Une réservation d’usage empêche renommage/corbeille pendant lecture/export ; restauration réactive la même identité de session pour ses anciens rapports.
+
+Sur la capture de 164 images : index HTTP 11 436 595 → 34 595 octets ; pic Python de chargement 70,4 → 3,15 Mio ; job A/B 2,39 Mio, mêmes 164 politiques et empreinte d’entrée. Bornes structurelles explicites : 100 000 fichiers/images, 128 Gio transport/expansion, 8 Gio par JSONL, 2 Mio par ligne, 2 millions de lignes. Ces bornes refusent un fichier avec un motif explicite ; elles ne tronquent pas une scène et ne créent pas de minuterie. Réserve disque de 512 Mio. Limite restante : export ZIP via le navigateur chargé en blob, à remplacer/mesurer pour les archives volumineuses ; transfert USB préférable pour les captures longues.

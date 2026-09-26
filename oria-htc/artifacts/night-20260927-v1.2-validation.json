@@ -1,0 +1,70 @@
+{
+  "version_name": "1.2-night",
+  "version_code": 3,
+  "date_local": "2026-09-27",
+  "timezone": "Europe/Paris",
+  "package": "com.htc.vive.eagle.hackathon.starter",
+  "apk_sha256": "4a1e34eebee2e6a7074b14a7d8296314c48104207cf366f04bc306fe79edc911",
+  "device": "CN46V3M00284",
+  "installation": "compatible_update_no_uninstall_no_data_clear",
+  "tests": {
+    "jvm_android_passed": 83,
+    "android_instrumented_passed": 10,
+    "mac_python_passed": 36,
+    "policy_adapter_passed": 6,
+    "javascript_ui": "PASSED",
+    "usb_unit_passed": 11
+  },
+  "replay_on_htc": {
+    "source": "bundled_htc_mp4_replay_on_phone",
+    "sdkTransport": false,
+    "actualAudio": false,
+    "voiceSink": "fake_confirmed",
+    "elapsedReplayMs": 60101,
+    "decodedFrames": 1787,
+    "acceptedDecisions": 224,
+    "acceptedDecisionHz": 3.727059449925958,
+    "acceptedAgesMs": {
+      "count": 224,
+      "min": 239,
+      "p50": 280,
+      "p95": 294,
+      "max": 348
+    },
+    "inferenceMs": {
+      "count": 224,
+      "min": 153.135209,
+      "p50": 153.764636,
+      "p95": 157.173855,
+      "max": 165.234532
+    },
+    "noVoiceAfterStop": true
+  },
+  "mac_comparison": {
+    "frames": 164,
+    "source": "recorded",
+    "differentFrames": 26,
+    "announcementDifferentFrames": 5,
+    "identityDifferentFrames": 125,
+    "announcements": {
+      "A": 12,
+      "B": 12
+    },
+    "inputSha256": "007bc3ca11764d880773150367f6a7d0a37ed7e1317e40df2d4d5fb665ff9203"
+  },
+  "capture_preservation": {
+    "phone_preexisting_manifests_unchanged": 5,
+    "fresh_usb_payloads_match_existing_mac": 168,
+    "fresh_usb_pngs": 164,
+    "usb_archive_bytes": 91739169,
+    "usb_archive_sha256": "fe203cb695115dfac7d7b87716d094070614eb26bfd1a45764dbadc0249a49ae"
+  },
+  "not_executed": [
+    "live_glasses_video_audio_on_this_apk",
+    "human_70_30_listening",
+    "locked_screen_live_glasses",
+    "real_capture_longer_than_15_minutes"
+  ],
+  "virtual_duration_tests": "recorder beyond 15 minutes with injected clock; core 24 hours in each tracking mode",
+  "notes": "Night milestone, not final overnight campaign. Raw evidence and phone backups stay local. Previous physical voice results are not attributed to this APK."
+}

@@ -14,8 +14,8 @@ android {
         applicationId = "com.htc.vive.eagle.hackathon.starter"
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1-preview"
+        versionCode = 3
+        versionName = "1.2-night"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

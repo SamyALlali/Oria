@@ -160,7 +160,6 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
     }
 
     fun evaluate(frame: DetectionFrame, nowMs: Long): RgbEvaluation {
-        offeredAlert = null
         val status = when {
             sessionId == null -> RgbFrameStatus.STOPPED
             frame.sessionId != sessionId -> RgbFrameStatus.WRONG_SESSION
@@ -173,6 +172,8 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
             else -> RgbFrameStatus.ACCEPTED
         }
         if (status != RgbFrameStatus.ACCEPTED) return snapshot(nowMs, status, null, RgbSuppressionReason.FRAME_REJECTED)
+        // An old session/result must not cancel the current session's valid dispatch intention.
+        offeredAlert = null
         lastClockMs = nowMs
         prune(frame.observedAtMs)
         val previousFrameId = latestFrameId
@@ -214,12 +215,13 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
 
     /** Call before dispatching to the SDK. Null means that nothing may be submitted. */
     fun onSubmitted(alert: VoiceAlert, nowMs: Long): VoiceTicket? {
-        if (!acceptClock(nowMs) || audioState != RgbAudioState.AVAILABLE ||
+        if (audioState != RgbAudioState.AVAILABLE ||
             offeredAlert != alert || sessionId != alert.sessionId || generation != alert.generation ||
             latestFrameId != alert.frameId ||
             !RgbAlertPolicy.isFresh(alert.observedAtMs, nowMs, config.maxObservationAgeMs)) return null
         val candidate = freshCandidates(nowMs).firstOrNull { it.trackId == alert.trackId } ?: return null
         if (eligibleCandidate(listOf(candidate), nowMs).first?.trackId != alert.trackId) return null
+        if (!acceptClock(nowMs)) return null
         val ticket = VoiceTicket(alert.id, alert.sessionId, alert.generation, alert.trackId, nowMs, alert.text)
         offeredAlert = null
         inFlight = ticket
@@ -230,7 +232,7 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
 
     /** Means SDK confirmation only, never acoustic proof. Caller must establish callback correlation. */
     fun onConfirmed(ticket: VoiceTicket, nowMs: Long): Boolean {
-        if (!acceptClock(nowMs) || !matches(ticket)) return false
+        if (!matches(ticket) || !acceptClock(nowMs)) return false
         inFlight = null
         audioState = RgbAudioState.AVAILABLE
         lastConfirmedAtMs = nowMs
@@ -244,7 +246,7 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
     }
 
     fun onFailure(ticket: VoiceTicket, nowMs: Long): Boolean {
-        if (!acceptClock(nowMs) || !matches(ticket)) return false
+        if (!matches(ticket) || !acceptClock(nowMs)) return false
         inFlight = null
         audioState = RgbAudioState.AVAILABLE
         lastFailureAtMs = nowMs
@@ -253,7 +255,7 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
 
     /** Timeout or uncorrelatable callback: no new dispatch until an external reset is proven. */
     fun onAmbiguous(ticket: VoiceTicket, nowMs: Long): Boolean {
-        if (!acceptClock(nowMs) || !matches(ticket)) return false
+        if (!matches(ticket) || !acceptClock(nowMs)) return false
         inFlight = null
         offeredAlert = null
         audioState = RgbAudioState.UNKNOWN
@@ -388,7 +390,11 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
 
     private fun snapshot(nowMs: Long, status: RgbFrameStatus, alert: VoiceAlert?, reason: RgbSuppressionReason,
                          rejectedCount: Int = 0): RgbEvaluation {
-        val candidates = if (sessionId != null) freshCandidates(nowMs) else emptyList()
+        // WRONG_SESSION can precede CLOCK_REVERSED in validation. No rejected request may
+        // make an expired observation look fresh again by supplying an earlier clock.
+        val snapshotClock = maxOf(nowMs, lastClockMs ?: nowMs)
+        val candidates = if (sessionId != null && status != RgbFrameStatus.CLOCK_REVERSED)
+            freshCandidates(snapshotClock) else emptyList()
         return RgbEvaluation(sessionId, latestFrameId, status, tracks.values.map {
             RgbTrack(it.id, it.detection, RgbZone.fromCenterX(it.detection.box.centerX), it.observedAtMs,
                 it.confirmationSamples, it.confirmed, it.frameId == latestFrameId, it.associationStatus)

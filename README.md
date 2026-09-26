@@ -4,13 +4,15 @@ Prototype du hackathon SILMO pour HTC VIVE Eagle : la caméra des lunettes trans
 
 Le prototype reprend notre modèle YOLO et des politiques portées depuis une base Swift. Le package autorisé reste `com.htc.vive.eagle.hackathon.starter`.
 
-## Évolution en préparation hors HTC
+## Version de nuit — 27 septembre
 
-La branche courante ajoute la gestion des captures, la comparaison A/B sur Mac, un suivi V2 facultatif et un mode poche expérimental. **Ce candidat n’a pas encore été installé ni essayé sur le téléphone.** Le suivi habituel reste activé par défaut et le mode poche désactivé. La release ci-dessous correspond à la version installée précédente. [Travaux, limites et recette restante](oria-htc/validation/OFFLINE_PROGRESS.md).
+**Oria 1.2-night est installé sur le HTC CN46V3M00284**, par mise à jour conservant les données. Les captures n’ont plus de limite de durée et le mode poche n’expire plus après 15 minutes. Le stockage garde 512 Mio libres, sans purge automatique. Le suivi habituel reste le défaut et le mode poche reste une option expérimentale. [Livraison, mesures et suite des travaux](oria-htc/validation/NIGHT_WORK_20260927.md).
 
-Vérifié sur Mac : **71 tests Android, 25 tests Python, 6 tests de rejeu Kotlin**, régressions UI JavaScript et lint Android sans erreur. Aucun nouvel essai Bluetooth ou écran verrouillé.
+**83 tests JVM Android, 10 tests instrumentés sur HTC, 36 tests Python Mac et 6 tests de rejeu Kotlin passent**, ainsi que les régressions JavaScript. Replay de 60 s sur HTC : 3,73 décisions fraîches/s, âge p95 294 ms. Les lunettes sont déconnectées pendant cette campagne : aucune nouvelle preuve de voix réelle ou d’écran verrouillé avec flux lunettes.
 
-Pour produire le candidat et son manifeste sans téléphone : `python3 oria-htc/validation/build_offline.py`.
+Oria Lab Mac lit désormais les données détaillées à la demande et écrit ses rapports progressivement : l’index de la scène de 164 images passe de 11,44 Mo à 34,6 Ko, avec les mêmes résultats de politique. Captures, corbeille/restauration, export et comparaison A/B sont disponibles. Le suivi V2 reste facultatif.
+
+Pour produire l’APK et son manifeste : `python3 oria-htc/validation/build_offline.py`. La release ci-dessous reste historique ; la version de nuit compilée et installée est identifiée dans [le manifeste](oria-htc/artifacts/offline_candidate_manifest.json).
 
 ## Démarrer après un clone
 
@@ -45,7 +47,7 @@ Le lanceur **[Lancer Oria Lab.command](<oria-htc/oria-lab-desktop/Lancer Oria La
 ## État vérifié de la version précédente
 
 - Build Oria : **51 tests JVM, 12 tests Mac et 4 tests de rejeu Kotlin réussis**, installé sur HTC U24 pro / Android 14.
-- Chaîne lunettes → inférence → annonces vocales démontrée sur CN46V3M00284 avant le renommage. Dernière installation sur CN4B53M00860 : lancement et modèle chargé vérifiés, sans nouvelle preuve vidéo/voix.
+- Chaîne lunettes → inférence → annonces vocales démontrée sur CN46V3M00284 avant le renommage. Installation historique du 26 septembre sur CN4B53M00860 : lancement et modèle chargé vérifiés, sans nouvelle preuve vidéo/voix.
 - Gains PCM actuels : gauche **70/30**, droite **30/70**, centre **1/1**. L’écoute de ce nouveau mélange reste à confirmer ; la preuve humaine précédente concernait 100/0.
 - Audit d’une capture de 60 secondes : **164/164 décisions reproduites**, **240/240 détections ≥0,70 concordantes** entre téléphone et Mac. La parité brute échoue sur certaines lignes de très faible confiance ; des limites de suivi et des faux positifs restent documentés.
 

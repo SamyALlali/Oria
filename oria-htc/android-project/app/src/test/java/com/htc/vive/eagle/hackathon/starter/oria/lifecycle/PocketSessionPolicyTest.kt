@@ -14,9 +14,11 @@ class PocketSessionPolicyTest {
     @Test fun captureAlwaysStopsWhenLeavingTheApp() {
         assertFalse(PocketSessionPolicy.canContinue(true, true, true, false, true, 1))
     }
-    @Test fun sessionIsBoundedAndDoesNotAcceptAReversedClock() {
+    @Test fun sessionHasNoTimeLimitButRejectsAReversedClock() {
         assertTrue(PocketSessionPolicy.canContinue(true, true, true, false, false, 899999))
-        assertFalse(PocketSessionPolicy.canContinue(true, true, true, false, false, 900000))
+        assertTrue(PocketSessionPolicy.canContinue(true, true, true, false, false, 900000))
+        assertTrue(PocketSessionPolicy.canContinue(true, true, true, false, false, 24 * 60 * 60 * 1000L))
+        assertTrue(PocketSessionPolicy.canContinue(true, true, true, false, false, Int.MAX_VALUE.toLong() + 1))
         assertFalse(PocketSessionPolicy.canContinue(true, true, true, false, false, -1))
     }
 }

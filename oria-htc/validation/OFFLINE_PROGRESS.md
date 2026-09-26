@@ -1,5 +1,7 @@
 # Développement hors téléphone — 26 septembre 2026
 
+> État historique du 26 septembre. Remplacé par [la livraison de nuit du 27 septembre](NIGHT_WORK_20260927.md) : durées maximales retirées et nouveau build installé sur CN46V3M00284. Les résultats ci-dessous restent rattachés au candidat 1.1-preview.
+
 Cette livraison est un **candidat compilé sur Mac, non installé et non validé sur HTC**. Les preuves vidéo/voix des APK précédents ne sont pas réattribuées à ce code. Le modèle, les seuils de confiance, la garde de fraîcheur de 500 ms et les gains PCM 70/30 restent inchangés.
 
 ## Périmètre implémenté

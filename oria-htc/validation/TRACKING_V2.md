@@ -65,3 +65,32 @@ python3 validation/tracking_compare.py \
 ```
 
 Le script exige le dossier local déjà importé ; il ne télécharge ni ne publie la scène. Pour la suite, comparer des passages croisés, occultations, rotations rapides et réapparitions sur plusieurs scènes, puis contrôler sur HTC la latence et les répétitions effectivement entendues avant tout changement du défaut.
+
+## Fiabilité des sessions longues — 27 septembre 2026
+
+Le mode V2 reste expérimental et le défaut reste `LEGACY_IOU`. Aucun seuil d'association ni de qualification n'est modifié pendant cet audit. La simulation de 24 heures confirme les bornes de mémoire ; les tests adversariaux ont surtout révélé des mutations indésirables sur des requêtes rejetées.
+
+Les huit nouveaux tests ont été exécutés d'abord contre le cœur gelé du commit `3ec0e7a4472ffd67adae77915c93a1b1b6efa59e` : **quatre échouaient**. Après correction, **40 tests purs du cœur et 6 tests d'adaptateur passent**. Le test de fixtures Swift, qui écrit un fichier de résultats, reste à la recette Gradle de l'orchestrateur.
+
+| Régression reproduite | Correction bornée |
+|---|---|
+| Un ticket audio d'une ancienne session était rejeté, mais avançait néanmoins `lastClockMs` ; une observation valide de la nouvelle session pouvait alors devenir `CLOCK_REVERSED`. | Vérifier ticket, génération et session avant de modifier l'horloge, pour confirmation, échec et ambiguïté. |
+| Une ancienne intention d'annonce refusée avançait aussi l'horloge. | N'accepter l'horloge qu'après les vérifications d'intention, de fraîcheur et d'éligibilité. |
+| Une consultation à horloge inversée rendait à nouveau sélectionnable une observation déjà trop ancienne. Le rejet `WRONG_SESSION` pouvait également masquer ce cas. | Aucun candidat pour `CLOCK_REVERSED`, et fraîcheur d'un snapshot calculée au minimum à la dernière horloge acceptée. |
+| Une frame d'une autre session, ou reçue hors ordre, annulait l'intention valide issue de la dernière frame courante. | Remplacer l'intention uniquement lorsqu'une nouvelle frame est acceptée. Les requêtes rejetées n'offrent aucune nouvelle annonce. |
+
+La simulation utilise **259 460 observations par mode, soit 518 920 évaluations**, avec pas de 333 ms, origine temporelle au-delà de `Int.MAX_VALUE` et identifiants de frames également au-delà de cette limite. Elle vérifie l'ordre des alertes, le délai de répétition, les observations fraîches, une seule piste stable et une seule mémoire vocale pour cet objet ; après expiration, elles disparaissent. Un autre test confirme 500 objets successifs et borne explicitement les registres à 4 pistes et 3 mémoires pour cette configuration de stress. Les registres de production restent bornés à leurs paramètres existants.
+
+Les autres cas couvrent reconnexion après 24 heures, inférence retardée d'une ancienne session, ambiguïté audio conservée jusqu'au reset explicitement vérifié, croisement et occultation à grande horloge. Aucune prédiction ne devient une observation ou une annonce. Ces durées sont des horloges virtuelles, **pas une mesure d'autonomie, de chauffe ou de maintien réseau/CPU sur HTC**.
+
+La scène de 164 images a aussi été rejouée contre le cœur gelé avant ces correctifs, avec mêmes détections, paramètres, horloges et confirmation audio simulée à 2 secondes : **164/164 évaluations complètes et 12/12 annonces identiques dans chacun des deux modes**. Les correctifs concernent les entrées rejetées ; ils ne modifient pas le tri de cette scène valide, ni la contrepartie V2 de 81 → 90 identifiants.
+
+Reproduction sans téléphone :
+
+```bash
+python3 oria-lab-policy/run_core_tests.py --report /tmp/oria-core-tests.json
+python3 oria-lab-policy/run_core_tests.py --long-session-only
+python3 -m unittest discover -s oria-lab-policy -v
+```
+
+Le service Pocket a fait l'objet d'une lecture croisée : renouvellement du wakelock associé à un propriétaire et un token précis, contrôle de session/connexion/enregistrement, arrêt si le verrou a expiré, retrait du callback lors de la libération. Les arrêts par notification, perte de connexion et destruction d'Activity restent requis. La suppression de la borne de 15 minutes ne vaut pas validation du comportement écran verrouillé ou des restrictions HTC ; ces essais appartiennent à la recette matérielle.

@@ -25,7 +25,7 @@ import com.htc.vive.eagle.hackathon.starter.MainActivity
 import com.htc.vive.eagle.hackathon.starter.R
 import com.htc.vive.eagle.hackathon.starter.oria.OriaController
 
-/** Explicit, bounded foreground experiment. An Activity destruction ends the session.
+/** Explicit foreground experiment without a session duration cap. An Activity destruction ends the session.
  * Never sticky: a dead process or an old notification cannot restart camera or speech.
  * All ownership transitions are serialized on the main thread, like OriaController.
  */
@@ -34,7 +34,7 @@ class PocketSessionService : Service() {
     private var ownerToken: Long? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private val handler = Handler(Looper.getMainLooper())
-    private val timeout = Runnable { finish("Mode poche : limite de 15 minutes atteinte") }
+    private var renewal: Runnable? = null
     private var receiverRegistered = false
     private val bluetoothReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -90,7 +90,8 @@ class PocketSessionService : Service() {
             val notification = NotificationCompat.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.glasses_solid_full)
                 .setContentTitle("Oria · mode poche expérimental")
-                .setContentText("Analyse des lunettes active · essai limité à 15 min")
+                .setContentText("Analyse des lunettes active · jusqu’à votre arrêt")
+                .setUsesChronometer(true).setWhen(System.currentTimeMillis())
                 .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .addAction(android.R.drawable.ic_media_pause, "Arrêter", stop).build()
@@ -99,20 +100,44 @@ class PocketSessionService : Service() {
             wakeLock = getSystemService(PowerManager::class.java).newWakeLock(
                 PowerManager.PARTIAL_WAKE_LOCK, "Oria:PocketSession").apply {
                 setReferenceCounted(false)
-                acquire(PocketSessionPolicy.MAX_DURATION_MS)
+                acquire(WAKE_LEASE_MS)
             }
             ContextCompat.registerReceiver(this, bluetoothReceiver,
                 IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_EXPORTED)
             receiverRegistered = true
             startedAt = SystemClock.elapsedRealtime()
-            handler.postDelayed(timeout, PocketSessionPolicy.MAX_DURATION_MS)
             pending.controller.pocketServiceReady()
             pending.controller.start()
             if (!pending.controller.state.value.running) finish("Mode poche : démarrage refusé")
+            else scheduleRenewal(pending.controller, pending.token)
         } catch (error: Exception) {
             finish("Mode poche indisponible : ${error.message ?: error.javaClass.simpleName}")
         }
         return START_NOT_STICKY
+    }
+
+    private fun scheduleRenewal(controller: OriaController, token: Long) {
+        // A short watchdog lease bounds a leaked lock; it is not a session timeout.
+        // Renewal can only belong to this exact owner/token, and never starts perception.
+        val callback = object : Runnable {
+            override fun run() {
+                if (active !== this@PocketSessionService || owner !== controller || ownerToken != token) return
+                if (!controller.canContinueInBackground()) {
+                    finish("Mode poche interrompu · session indisponible")
+                    return
+                }
+                try {
+                    val lock = checkNotNull(wakeLock)
+                    check(lock.isHeld) { "Le maintien CPU a été interrompu" }
+                    lock.acquire(WAKE_LEASE_MS)
+                    handler.postDelayed(this, WAKE_RENEW_INTERVAL_MS)
+                } catch (error: Exception) {
+                    finish("Mode poche interrompu : ${error.message ?: error.javaClass.simpleName}")
+                }
+            }
+        }
+        renewal = callback
+        handler.postDelayed(callback, WAKE_RENEW_INTERVAL_MS)
     }
 
     private fun finish(reason: String) {
@@ -127,7 +152,8 @@ class PocketSessionService : Service() {
     }
 
     private fun releaseResources() {
-        handler.removeCallbacks(timeout)
+        renewal?.let(handler::removeCallbacks)
+        renewal = null
         if (receiverRegistered) { unregisterReceiver(bluetoothReceiver); receiverRegistered = false }
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
@@ -145,6 +171,8 @@ class PocketSessionService : Service() {
     }
 
     companion object {
+        private const val WAKE_LEASE_MS = 2 * 60 * 1000L
+        private const val WAKE_RENEW_INTERVAL_MS = 30 * 1000L
         private const val CHANNEL = "oria_pocket_session"
         private const val NOTIFICATION_ID = 701
         private const val ACTION_START = "oria.POCKET_START"
@@ -175,7 +203,7 @@ class PocketSessionService : Service() {
         }
 
         fun isReadyFor(controller: OriaController): Boolean = active?.owner === controller &&
-            SystemClock.elapsedRealtime() - startedAt in 0 until PocketSessionPolicy.MAX_DURATION_MS
+            SystemClock.elapsedRealtime() >= startedAt && active?.wakeLock?.isHeld == true
 
         fun elapsedMs(): Long = SystemClock.elapsedRealtime() - startedAt
 

@@ -4,6 +4,7 @@
 
 ```bash
 python3 oria-lab-policy/run_policy.py --build-only
+python3 oria-lab-policy/run_core_tests.py --report /tmp/oria-core-tests.json
 cd oria-lab-policy
 python3 -m unittest -v test_policy.py
 ```
@@ -22,5 +23,7 @@ Un lecteur peut simuler une durée vocale pour comparer des réglages, à condit
 Le paramètre `config.trackingMode` accepte `LEGACY_IOU` (défaut préservé) et `STABLE_RGB_V2` (expérimental). Une valeur inconnue est rejetée. Le mode V2 utilise une continuité géométrique prudente et réinitialise les confirmations ambiguës ; il ne reconnaît pas l'identité physique d'une personne. Le champ supplémentaire `tracks[].associationStatus` explique la dernière association : `NEW`, `LEGACY_IOU`, `UNAMBIGUOUS_IOU`, `MOTION_RECOVERY` ou `AMBIGUOUS_NEW`. Il est purement descriptif et ne modifie pas les coordonnées. Pour une piste non visible, il décrit sa dernière observation, pas une prédiction courante.
 
 Les six tests exécutables couvrent confirmation et cooldown, direction, reproductibilité, rejet de résultats périmés et de callbacks d'une ancienne session, validation des paramètres et des modes de suivi, ainsi que deux compilations simultanées avec cache vide. Les tests complets du moteur restent ceux d'Android.
+
+`run_core_tests.py` exécute aussi les tests purs du cœur avec Kotlin/JUnit et les dépendances déjà présentes, sans Gradle ni téléphone. Il partage le verrou de compilation et produit facultativement un rapport avec les empreintes des sources. `--long-session-only` limite l'exécution aux invariants de sessions longues. Les horloges de 24 heures sont simulées ; ce test ne mesure pas une journée de fonctionnement matériel. Le test qui écrit les résultats des fixtures Swift reste réservé à la vérification Gradle complète.
 
 La [comparaison V2](../validation/TRACKING_V2.md) conserve les mêmes détections, horloges et règle de confirmation audio simulée pour les deux modes. Les événements audio réels ne sont jamais attribués au candidat.

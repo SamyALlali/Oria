@@ -141,7 +141,7 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                         }
                         Text(if (live.modelReady) "Modèle prêt" else "Chargement du modèle…")
                         Text("L’enregistrement commence uniquement avec « Enregistrer une scène ». Il contient la vidéo, les images exactes analysées et la télémétrie, sans piste microphone.")
-                        Text("Limite par capture : 60 secondes ou 250 Mio. Un arrêt à la limite finalise la capture ; la vidéo peut continuer jusqu’à « Arrêter la vidéo ».", style = MaterialTheme.typography.bodySmall)
+                        Text("Sans limite de durée : terminez avec « Arrêter et finaliser ». La capture s’arrête si le téléphone ne peut plus conserver 512 Mio libres, ou si la file d’écriture déborde. Aucune suppression automatique.", style = MaterialTheme.typography.bodySmall)
                         Text("Une nouvelle capture redémarre le flux pour conserver ses en-têtes vidéo. Le retour sur cet écran ne déclenche rien.", style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -172,6 +172,7 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                 Text("Le ZIP contient les fichiers de la session. Choisissez son emplacement avec le sélecteur Android ; aucun serveur n’est utilisé par Oria Lab.", style = MaterialTheme.typography.bodySmall)
                 if (live.running || recordingActive || finalizing) Text("Arrêtez la vidéo et attendez la finalisation avant de revoir ou exporter une capture.", style = MaterialTheme.typography.bodySmall)
                 Text("Espace occupé : ${mib(recording.totalStorageBytes)} Mio · corbeille : ${mib(recording.trashBytes)} Mio", style = MaterialTheme.typography.bodyMedium)
+                Text("Espace libre estimé : ${mib(recording.availableStorageBytes)} Mio · réserve : 512 Mio", style = MaterialTheme.typography.bodySmall)
                 Text("Le total inclut les captures et les ZIP privés. Mettre à la corbeille conserve les données et ne libère pas d’espace.", style = MaterialTheme.typography.bodySmall)
                 if (storageBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (managementStatus.isNotBlank()) Text(managementStatus, style = MaterialTheme.typography.bodySmall)

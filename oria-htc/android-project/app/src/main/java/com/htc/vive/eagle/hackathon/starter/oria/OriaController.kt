@@ -326,7 +326,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     fun setPocketMode(enabled: Boolean) {
         if (_state.value.running || _state.value.pocketPreparing) return
         _state.update { it.copy(pocketEnabled = enabled,
-            pocketStatus = if (enabled) "Expérimental · prochain démarrage, 15 minutes maximum" else "Désactivé · garder l’application ouverte") }
+            pocketStatus = if (enabled) "Expérimental · prochain démarrage, sans limite de durée" else "Désactivé · garder l’application ouverte") }
     }
     fun pocketServicePreparing() { _state.update { it.copy(pocketPreparing = true, pocketActive = false,
         pocketStatus = "Préparation du mode poche · garder Oria visible") } }

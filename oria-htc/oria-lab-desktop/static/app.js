@@ -1,18 +1,19 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const state = {token:null,session:null,index:0,playing:false,timer:null,job:null,jobKind:null,
-  drawVersion:0,sessionVersion:0,loadVersion:0,libraryVersion:0,jobVersion:0,audioVersion:0,mode:'recorded',comparison:null,audioUrl:null,pendingArchive:null};
+  drawVersion:0,sessionVersion:0,loadVersion:0,libraryVersion:0,jobVersion:0,audioVersion:0,mode:'recorded',comparison:null,audioUrl:null,pendingArchive:null,frameAbort:null,seekTimer:null};
 const fmt=(v,d=1)=>Number.isFinite(v)?v.toFixed(d):'—';
-async function response(url,body,binary=false){
+async function response(url,body,binary=false,signal){
   const options=body===undefined?{}:{method:'POST',headers:{'X-Oria-Lab-Token':state.token,
     'Content-Type':binary?'application/zip':'application/json'},body:binary?body:JSON.stringify(body)};
+  if(signal)options.signal=signal;
   const r=await fetch(url,options);
   if(!r.ok){let data;try{data=await r.json();}catch{data={};}throw Error(data.error||'Action impossible');}
   return r;
 }
-async function request(url,body,binary=false){return (await response(url,body,binary)).json();}
+async function request(url,body,binary=false,signal){return (await response(url,body,binary,signal)).json();}
 function error(e){$('importStatus').textContent=e.message;$('importStatus').className='warning';}
-function stop(){state.playing=false;clearTimeout(state.timer);$('play').textContent='Lire';}
+function stop(){state.playing=false;clearTimeout(state.timer);clearTimeout(state.seekTimer);$('play').textContent='Lire';}
 function textJson(id,value){$(id).textContent=JSON.stringify(value,null,2);}
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000);}
 function stopAudio(){++state.audioVersion;$('previewPlayer').pause();$('previewPlayer').removeAttribute('src');$('previewPlayer').hidden=true;if(state.audioUrl)URL.revokeObjectURL(state.audioUrl);state.audioUrl=null;}
@@ -38,7 +39,7 @@ function sessionTitle(){if(state.session){$('sessionTitle').textContent=state.se
 async function loadSession(session,version){
   if(version!==state.loadVersion)return;
   const oldJob=state.job;if(oldJob)request(`/api/job/${oldJob}/cancel`,{}).catch(()=>{});
-  stop();stopAudio();resetArchiveConfirmation();++state.sessionVersion;++state.drawVersion;++state.jobVersion;
+  stop();stopAudio();resetArchiveConfirmation();state.frameAbort?.abort();clearFrameView();++state.sessionVersion;++state.drawVersion;++state.jobVersion;
   state.session=session;state.index=0;state.job=null;state.jobKind=null;state.comparison=null;state.mode='recorded';
   const config=session.manifest.metadata?.policyConfig||{};
   for(const id of ['confirmationSamples','samplesA','samplesB'])$(id).value=config.confirmationSamples??2;
@@ -59,7 +60,7 @@ async function loadSession(session,version){
   $('timeEnd').textContent=fmt(session.frames.at(-1)?.timeSeconds)+' s';
   $('importStatus').textContent=`Session ouverte : ${session.frames.length} PNG. Traitement local sur ce Mac.`;$('importStatus').className='muted';
   await refreshLibrary();if(version!==state.loadVersion)return;
-  if(has)await showFrame(0);else{$('empty').hidden=false;$('empty').textContent='Cette capture ne contient aucune PNG exploitable.';}
+  if(has)await showFrame(0);else{$('empty').hidden=false;$('empty').textContent='Cette capture ne contient aucune PNG exploitable.';$('decision').textContent='Aucune image exploitable.';$('audio').textContent='Aucun événement associé à une image.';}
 }
 function draw(image,detections){
   const canvas=$('canvas'),ctx=canvas.getContext('2d');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;ctx.drawImage(image,0,0);
@@ -71,20 +72,32 @@ function draw(image,detections){
     ctx.fillStyle=ctx.strokeStyle;ctx.fillRect(x,Math.max(0,y-20*scale),size+8*scale,20*scale);ctx.fillStyle='#0e1724';ctx.fillText(label,x+4*scale,Math.max(15*scale,y-5*scale));
   }
 }
+function clearFrameView(){
+  $('canvas').hidden=true;$('empty').hidden=false;$('empty').textContent='Chargement de l’image…';
+  $('decision').textContent='Chargement de la décision…';$('audio').textContent='Chargement des événements…';
+  for(const id of ['decisionJson','audioJson','differenceJson','rawDetails'])$(id).textContent='';
+  $('metrics').replaceChildren();
+  for(const label of ['Image','Détections','Inférence','Âge enregistré']){
+    const div=document.createElement('div'),span=document.createElement('span'),strong=document.createElement('strong');
+    span.textContent=label;strong.textContent='—';div.append(span,strong);$('metrics').append(div);
+  }
+}
 async function showFrame(index){
   if(!state.session||!state.session.frames.length)return;
   index=Math.max(0,Math.min(index,state.session.frames.length-1));state.index=index;
+  state.frameAbort?.abort();state.frameAbort=new AbortController();const signal=state.frameAbort.signal;
   const version=++state.drawVersion,session=state.session,mode=state.mode,jobId=state.job,item=session.frames[index];
+  clearFrameView();
   $('timeline').value=index;$('position').textContent=`${index+1} / ${session.frames.length}`;
   $('frameSubtitle').textContent=`Image ${item.frameId} · ${fmt(item.timeSeconds,3)} s · PNG dans le repère analysé`;
   $('modeBadge').textContent=mode==='recorded'?'TÉLÉPHONE · ENREGISTRÉ':mode==='comparison'?'MAC · COMPARAISON A/B':'MAC · RECALCUL';
   const usableJob=jobId&&((mode==='comparison')===(state.jobKind==='comparison'));
   try{
-    const recorded=await request(`/api/session/${session.id}/frame/${index}`);
-    const calculated=mode!=='recorded'&&usableJob?await request(`/api/job/${jobId}?frame=${index}`):null;
+    const [recorded,calculated]=await Promise.all([request(`/api/session/${session.id}/frame/${index}`,undefined,false,signal),
+      mode!=='recorded'&&usableJob?request(`/api/job/${jobId}?frame=${index}`,undefined,false,signal):Promise.resolve(null)]);
     if(version!==state.drawVersion)return;
     const ready=calculated&&!calculated.pending,boxes=mode==='recorded'?recorded.detections:ready?calculated.detections:[];
-    const image=new Image();image.onload=()=>{if(version===state.drawVersion){draw(image,boxes);$('empty').hidden=true;}};
+    const image=new Image();image.onload=()=>{if(version===state.drawVersion){draw(image,boxes);$('canvas').hidden=false;$('empty').hidden=true;}};
     image.onerror=()=>{if(version===state.drawVersion){$('empty').hidden=false;$('empty').textContent='PNG absente ou illisible.';}};
     image.src=`/api/session/${session.id}/image/${index}`;
     const phone=recorded.recordedInference||{},time=ready?calculated.macTimingsMs?.inference:mode==='recorded'?phone.inferenceMs:null;
@@ -98,14 +111,14 @@ async function showFrame(index){
     textJson('decisionJson',mode==='recorded'?decisions:ready?(calculated.variants||calculated.policy):{});
     let audio=[];
     if(mode==='recorded'){audio=recorded.audioEvents;$('audio').textContent=`${audio.length} événement(s) enregistré(s). Aucune piste sonore.`;}
-    else if(ready){const job=await request(`/api/job/${jobId}`);if(version!==state.drawVersion)return;
-      audio=mode==='comparison'?Object.fromEntries(Object.entries(job.simulatedAudioByVariant).map(([name,events])=>[name,events.filter(e=>e.frameIndex===index)])):job.simulatedAudioEvents.filter(e=>e.frameIndex===index);
+    else if(ready){
+      audio=mode==='comparison'?calculated.simulatedAudioByVariant:calculated.simulatedAudioEvents;
       $('audio').textContent='Événements simulés. Aucun son automatique, aucune confirmation physique.';
     }else $('audio').textContent='Simulation en attente de traitement.';
     textJson('audioJson',audio);
     textJson('differenceJson',ready&&mode==='comparison'?{champsModifiés:calculated.changedPaths,identifiantsDifférents:calculated.identityDifferent,entréeCommune:calculated.sharedInput}:{});
     textJson('rawDetails',{detections:boxes,...(ready?{macTimingsMs:calculated.macTimingsMs,rawParity:calculated.rawParity,rawModelOutput:calculated.rawOutput,transform:calculated.transform,scope:calculated.scope}:{confidenceFloor:recorded.recordedDetectionConfidenceFloor,rawModelOutputIncluded:recorded.rawModelOutputIncluded,rawModelOutput:phone.rawModelOutput??null,modelDetections:phone.modelDetections??null})});
-  }catch(e){if(version===state.drawVersion){$('audio').textContent='Résultat indisponible.';textJson('audioJson',[]);error(e);}}
+  }catch(e){if(e.name==='AbortError')return;if(version===state.drawVersion){$('empty').textContent='Image indisponible.';$('decision').textContent='Décision indisponible pour cette image.';$('audio').textContent='Résultat indisponible.';textJson('audioJson',[]);error(e);}}
 }
 async function tick(){
   if(!state.playing||!state.session)return;const current=state.session.frames[state.index],next=state.session.frames[state.index+1];
@@ -134,7 +147,7 @@ $('confirmArchive').onclick=async()=>{
   try{
     await request(`/api/session/${session.id}/archive`,{});
     if(pending.version===state.sessionVersion&&state.session?.id===session.id){
-      stop();stopAudio();++state.loadVersion;++state.sessionVersion;++state.drawVersion;++state.jobVersion;
+      stop();stopAudio();state.frameAbort?.abort();++state.loadVersion;++state.sessionVersion;++state.drawVersion;++state.jobVersion;
       state.session=null;state.job=null;state.jobKind=null;state.comparison=null;
       $('contextVideo').pause();$('contextVideo').removeAttribute('src');$('contextVideo').hidden=true;
       $('videoControls').hidden=true;$('sessionInfo').replaceChildren();$('canvas').width=$('canvas').width;
@@ -147,7 +160,7 @@ $('confirmArchive').onclick=async()=>{
   }catch(e){if(pending.version===state.sessionVersion)error(e);}
 };
 $('previous').onclick=()=>{stop();showFrame(state.index-1);};$('next').onclick=()=>{stop();showFrame(state.index+1);};
-$('timeline').oninput=()=>{stop();showFrame(Number($('timeline').value));};
+$('timeline').oninput=()=>{stop();state.frameAbort?.abort();const index=Number($('timeline').value),version=state.sessionVersion;state.seekTimer=setTimeout(()=>{if(version===state.sessionVersion)showFrame(index);},50);};
 $('play').onclick=async()=>{if(state.playing){stop();return;}if(!state.session)return;const version=state.sessionVersion;if(state.index===state.session.frames.length-1)await showFrame(0);if(version!==state.sessionVersion)return;state.playing=true;$('play').textContent='Pause';tick();};
 $('speed').onchange=()=>{if(state.playing){clearTimeout(state.timer);tick();}};
 $('mode').onchange=()=>{state.mode=$('mode').value;$('comparisonPanel').hidden=state.mode!=='comparison';showFrame(state.index);};
@@ -191,7 +204,7 @@ async function pollJob(id,version){
   }catch(e){if(id===state.job&&version===state.jobVersion){error(e);for(const name of ['compare','recompute'])$(name).disabled=false;}}
 }
 $('nextDifference').onclick=()=>{const frames=state.comparison?.summary?.differentFrames||[];if(frames.length){stop();showFrame(frames.find(i=>i>state.index)??frames[0]);}};
-$('exportReport').onclick=async()=>{const id=state.job;try{const report=await request(`/api/job/${id}/report`);download(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}),`OriaLab-comparaison-${id}.json`);}catch(e){error(e);}};
+$('exportReport').onclick=()=>{if(!state.job)return;const link=document.createElement('a');link.href=`/api/job/${state.job}/report`;link.download=`OriaLab-comparaison-${state.job}.json`;link.click();};
 $('videoButton').onclick=async()=>{const session=state.session,version=state.sessionVersion;try{$('videoButton').disabled=true;$('videoStatus').textContent='Préparation locale…';const r=await request('/api/context-video',{sessionId:session.id});if(version!==state.sessionVersion)return;$('videoStatus').textContent=r.scope;$('contextVideo').src=`/api/session/${session.id}/video`;$('contextVideo').hidden=false;$('videoControls').hidden=false;}catch(e){if(version===state.sessionVersion)$('videoStatus').textContent=e.message;}finally{if(version===state.sessionVersion)$('videoButton').disabled=false;}};
 for(const [id,delta]of [['videoPrev',-1],['videoNext',1]])$(id).onclick=()=>{const v=$('contextVideo');v.pause();v.currentTime=Math.max(0,Math.min(v.duration||0,v.currentTime+delta/30));};
 $('previewAudio').onclick=async()=>{stopAudio();const version=state.audioVersion;try{$('previewStatus').textContent='Synthèse locale…';const r=await response('/api/audio-preview',{text:$('previewText').value,pan:$('previewPan').value});const blob=await r.blob();if(version!==state.audioVersion)return;state.audioUrl=URL.createObjectURL(blob);$('previewPlayer').src=state.audioUrl;$('previewPlayer').hidden=false;await $('previewPlayer').play();$('previewStatus').textContent='Simulation Mac uniquement. Écoutez avec une sortie stéréo pour comparer les côtés.';}catch(e){if(version===state.audioVersion)$('previewStatus').textContent=e.message;}};

@@ -16,7 +16,11 @@ import time
 import unicodedata
 import uuid
 import zipfile
+import weakref
 from contextlib import contextmanager
+from collections import OrderedDict
+from collections.abc import Mapping, Sequence
+from bisect import bisect_left
 
 ROOT = Path(__file__).resolve().parent.parent
 MODEL = ROOT / 'ml/exports/oria_silmo_fp32.onnx'
@@ -25,10 +29,16 @@ MODEL_SHA = 'abab2174c8000e219d4d40550beb4506fd1156054b6282e8e8ee34154acd4742'
 # descriptive metadata differs; retain its recorded hash instead of rewriting captures.
 METADATA_ONLY_MODEL_SHA = 'c3b7b89fadf62385a9244edac2832944bf49266ae763cc8744a39f2d4e95756d'
 CLASSES = ['person', 'vehicle', 'bike_scooter', 'pole', 'traffic_light', 'traffic_sign']
-MAX_UPLOAD = 1024 ** 3
-MAX_EXPANDED = 2 * 1024 ** 3
-MAX_FILES = 10000
+MAX_UPLOAD = 128 * 1024 ** 3  # Transport guard, never a recording duration quota.
+MAX_EXPANDED = 128 * 1024 ** 3
+MAX_FILES = 100000
+MAX_FRAMES = 100000
+RESERVED_FREE_BYTES = 512 * 1024 ** 2
+MAX_ZIP_RATIO = 2000
 MAX_METADATA = 32 * 1024 ** 2
+MAX_JSONL_BYTES = 8 * 1024 ** 3
+MAX_JSONL_LINE = 2 * 1024 ** 2
+MAX_JSONL_ROWS = 2_000_000
 MAX_IMAGE_PIXELS = 4096 * 4096
 DEFAULT_STORAGE = Path.home() / 'Library/Application Support/Oria Lab/sessions'
 POLICY_FIELDS = {'maxObservationAgeMs', 'trackAssociationIou', 'trackLostAfterMs', 'confirmationSamples',
@@ -86,6 +96,17 @@ def sha256(path):
     return digest.hexdigest()
 
 
+def require_disk_space(path, required):
+    if required < 0 or shutil.disk_usage(path).free - required < RESERVED_FREE_BYTES:
+        raise ValueError('Espace disque insuffisant : conserver une réserve de 512 Mio')
+
+
+def copy_bounded(source, destination, disk_path):
+    while chunk := source.read(1024 * 1024):
+        require_disk_space(disk_path, len(chunk))
+        destination.write(chunk)
+
+
 def relative_path(value):
     if not isinstance(value, str) or not value or '\\' in value or '\0' in value:
         raise ValueError('Chemin de capture invalide')
@@ -108,28 +129,85 @@ def safe_path(root, relative):
     return path
 
 
-def read_jsonl(path):
-    if not path.exists():
-        return [], []
-    if path.stat().st_size > MAX_METADATA:
-        raise ValueError('Index de session trop volumineux')
-    data = path.read_bytes()
-    rows, warnings = [], []
-    lines = data.splitlines()
-    for index, line in enumerate(lines):
-        if not line.strip():
-            continue
-        try:
-            row = json.loads(line)
-            if not isinstance(row, dict):
-                raise ValueError('Ligne JSONL non objet')
-            rows.append(row)
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            if index == len(lines) - 1 and not data.endswith(b'\n'):
-                warnings.append(f'{path.name}: dernière ligne incomplète ignorée')
-            else:
-                raise ValueError(f'{path.name}:{index + 1}: JSON invalide')
-    return rows, warnings
+class JsonlRows(Sequence):
+    """Validated offsets, not a resident list of every model output in the capture."""
+    CACHE_ROWS = 16
+
+    def __init__(self, path, on_row=None):
+        self.path = path
+        self.offsets = []
+        self.warnings = []
+        self.cache = OrderedDict()
+        self.lock = threading.RLock()
+        if not path.exists():
+            return
+        if path.stat().st_size > MAX_JSONL_BYTES:
+            raise ValueError('Index JSONL supérieur à la limite technique de 8 Gio')
+        with path.open('rb') as source:
+            line_number = 0
+            while True:
+                offset = source.tell()
+                line = source.readline(MAX_JSONL_LINE + 1)
+                if not line:
+                    break
+                line_number += 1
+                if len(line) > MAX_JSONL_LINE:
+                    raise ValueError(f'{path.name}:{line_number}: ligne JSONL supérieure à 2 Mio')
+                if not line.strip():
+                    continue
+                try:
+                    row = json.loads(line)
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    if not line.endswith(b'\n') and source.tell() == path.stat().st_size:
+                        self.warnings.append(f'{path.name}: dernière ligne incomplète ignorée')
+                        break
+                    raise ValueError(f'{path.name}:{line_number}: JSON invalide')
+                if not isinstance(row, dict):
+                    raise ValueError('Ligne JSONL non objet')
+                if len(self.offsets) >= MAX_JSONL_ROWS:
+                    raise ValueError('Trop de lignes JSONL dans cet index')
+                self.offsets.append((offset, len(line)))
+                if on_row:
+                    on_row(len(self.offsets) - 1, row)
+
+    def __len__(self):
+        return len(self.offsets)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self[i] for i in range(*index.indices(len(self)))]
+        if index < 0:
+            index += len(self)
+        if not 0 <= index < len(self):
+            raise IndexError('Événement hors limites')
+        with self.lock:
+            if index not in self.cache:
+                offset, length = self.offsets[index]
+                with self.path.open('rb') as source:
+                    source.seek(offset)
+                    self.cache[index] = json.loads(source.read(length))
+                while len(self.cache) > self.CACHE_ROWS:
+                    self.cache.popitem(last=False)
+            self.cache.move_to_end(index)
+            return self.cache[index]
+
+
+class EventLookup(Mapping):
+    def __init__(self, events, indices, grouped=False):
+        self.events, self.indices, self.grouped = events, indices, grouped
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __iter__(self):
+        return iter(self.indices)
+
+    def __getitem__(self, key):
+        value = self.indices[key]
+        return [self.events[index] for index in value] if self.grouped else self.events[value]
+
+    def clear(self):
+        self.indices.clear()
 
 
 def frame_key(row):
@@ -159,6 +237,56 @@ def normalize_detections(value):
     return output
 
 
+class FrameIndex(Sequence):
+    """Keep only timeline descriptors in RAM; arbitrary frame metadata stays in JSONL."""
+    def __init__(self, root, warnings):
+        keys = set()
+        descriptors = []
+
+        def index_frame(index, frame):
+            if index >= MAX_FRAMES:
+                raise ValueError('Session supérieure à la borne technique de 100 000 images')
+            key = frame_key(frame)
+            if key in keys:
+                raise ValueError('Identifiant vidéo/image dupliqué dans frames.jsonl')
+            keys.add(key)
+            descriptor = {key: frame[key] for key in ('frameId', 'videoSessionId', 'sessionId', 'receivedAtMs',
+                                                     'observedAtMs', 'width', 'height') if key in frame}
+            descriptor['_sourceIndex'] = index
+            descriptors.append(descriptor)
+            image_path = frame.get('imagePath')
+            if not isinstance(image_path, str) or not image_path.lower().endswith('.png'):
+                raise ValueError('Chaque image analysée doit référencer une PNG sans perte')
+            path = safe_path(root, image_path)
+            if not path.is_file():
+                warnings.append(f'PNG absente : {image_path}')
+                return
+            from PIL import Image
+            with Image.open(path) as image:
+                if image.format != 'PNG' or image.width * image.height > MAX_IMAGE_PIXELS:
+                    raise ValueError('Format PNG ou taille invalide dans frames.jsonl')
+                for field, actual in [('width', image.width), ('height', image.height)]:
+                    if frame.get(field) is not None and frame[field] != actual:
+                        raise ValueError(f'Dimension {field} incohérente pour {image_path}')
+
+        self.rows = JsonlRows(root / 'frames.jsonl', index_frame)
+        warnings.extend(self.rows.warnings)
+        descriptors.sort(key=lambda f: (finite_number(f.get('receivedAtMs', f.get('observedAtMs')), 0),
+                                        finite_number(f.get('frameId'), 0)))
+        for index, descriptor in enumerate(descriptors):
+            descriptor['_index'] = index
+        self.summaries = descriptors
+
+    def __len__(self):
+        return len(self.summaries)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self[i] for i in range(*index.indices(len(self)))]
+        descriptor = self.summaries[index]
+        return {**self.rows[descriptor['_sourceIndex']], '_index': descriptor['_index']}
+
+
 class Session:
     def __init__(self, path, identifier):
         self.path, self.id = Path(path), identifier
@@ -171,50 +299,46 @@ class Session:
             raise ValueError('Seules les captures au format v1 sont prises en charge')
         if self.manifest.get('kind', 'oria-lab-session') != 'oria-lab-session':
             raise ValueError('Type de session non reconnu')
-        self.frames, self.warnings = read_jsonl(self.path / 'frames.jsonl')
-        self.events, warnings = read_jsonl(self.path / 'events.jsonl')
-        self.warnings += warnings
-        self.packets, warnings = read_jsonl(self.path / 'packets.jsonl')
-        self.warnings += warnings
-        self.frames.sort(key=lambda f: (finite_number(f.get('receivedAtMs', f.get('observedAtMs')), 0),
-                                        finite_number(f.get('frameId'), 0)))
-        self.event_frames = {}
-        for event in self.events:
+        self.warnings = []
+        self.frames = FrameIndex(self.path, self.warnings)
+        event_groups, inference_indices = {}, {}
+        self.decision_keys, self.video_starts, self.audio_index = set(), {}, []
+
+        def index_event(index, event):
+            key, kind = frame_key(event), event.get('type', '')
             if event.get('frameId', event.get('frame')) is not None:
-                self.event_frames.setdefault(frame_key(event), []).append(event)
-        self.inferences = {}
-        for event in self.events:
-            if event.get('type') == 'inference':
-                self.inferences[frame_key(event)] = event
-        keys = set()
-        for index, frame in enumerate(self.frames):
-            key = frame_key(frame)
-            if key in keys:
-                raise ValueError('Identifiant vidéo/image dupliqué dans frames.jsonl')
-            keys.add(key)
-            frame['_index'] = index
-            image_path = frame.get('imagePath')
-            if not isinstance(image_path, str) or not image_path.lower().endswith('.png'):
-                raise ValueError('Chaque image analysée doit référencer une PNG sans perte')
-            path = safe_path(self.path, image_path)
-            if not path.is_file():
-                self.warnings.append(f'PNG absente : {image_path}')
-                continue
-            from PIL import Image
-            with Image.open(path) as image:
-                if image.format != 'PNG' or image.width * image.height > MAX_IMAGE_PIXELS:
-                    raise ValueError('Format PNG ou taille invalide dans frames.jsonl')
-                for field, actual in [('width', image.width), ('height', image.height)]:
-                    if frame.get(field) is not None and frame[field] != actual:
-                        raise ValueError(f'Dimension {field} incohérente pour {image_path}')
-        video = self.path / 'video.h264'
-        expected_offset = 0
-        for packet in self.packets:
+                event_groups.setdefault(key, []).append(index)
+            if kind == 'inference':
+                inference_indices[key] = index
+            elif kind == 'decision':
+                self.decision_keys.add(key)
+            elif kind == 'start':
+                self.video_starts.setdefault(str(event.get('sessionId')), index)
+            if str(kind).startswith(('speech', 'audio')):
+                self.audio_index.append((finite_number(event.get('atMs', event.get('recordedAtMs')), -1), index))
+
+        self.events = JsonlRows(self.path / 'events.jsonl', index_event)
+        self.warnings += self.events.warnings
+        self.event_frames = EventLookup(self.events, event_groups, grouped=True)
+        self.inferences = EventLookup(self.events, inference_indices)
+        self.audio_index.sort()
+        self.audio_times = [timestamp for timestamp, _ in self.audio_index]
+        expected_offset, packet_invalid = 0, False
+
+        def index_packet(index, packet):
+            nonlocal expected_offset, packet_invalid
+            if packet_invalid:
+                return
             offset, length = packet.get('offset'), packet.get('length')
             if not isinstance(offset, int) or not isinstance(length, int) or offset != expected_offset or length <= 0:
                 self.warnings.append('Index H264 non contigu ou invalide ; ne pas considérer la vidéo comme complète.')
-                break
+                packet_invalid = True
+                return
             expected_offset += length
+
+        self.packets = JsonlRows(self.path / 'packets.jsonl', index_packet)
+        self.warnings += self.packets.warnings
+        video = self.path / 'video.h264'
         if self.packets or video.exists():
             actual_bytes = video.stat().st_size if video.exists() else 0
             if expected_offset != actual_bytes:
@@ -223,12 +347,18 @@ class Session:
             self.warnings.append('Le manifeste déclare complete, mais l’import détecte des incohérences ; cette déclaration seule ne valide pas la capture.')
         self.origin = finite_number(self.manifest.get('monotonicOriginMs'))
         if self.origin is None:
-            self.origin = min((finite_number(f.get('receivedAtMs'), 0) for f in self.frames), default=0)
+            self.origin = min((finite_number(f.get('receivedAtMs'), 0) for f in self.frames.summaries), default=0)
         self.model_sha = self.manifest.get('metadata', {}).get('onnxSha256', self.manifest.get('metadata', {}).get('modelSha256'))
         self.recomputations = {}
         self.lock = threading.RLock()
         self.busy = 0
         self.archived = False
+
+    def relocate(self, path):
+        self.path = path
+        self.events.path = path / 'events.jsonl'
+        self.packets.path = path / 'packets.jsonl'
+        self.frames.rows.path = path / 'frames.jsonl'
 
     @contextmanager
     def operation(self):
@@ -245,17 +375,16 @@ class Session:
 
     def index(self):
         frames = []
-        for f in self.frames:
-            events = self.event_frames.get(frame_key(f), [])
-            inference = self.inferences.get(frame_key(f))
+        for f in self.frames.summaries:
+            key = frame_key(f)
             frames.append({'index': f['_index'], 'frameId': f.get('frameId'),
                            'videoSessionId': f.get('videoSessionId', f.get('sessionId')),
                            'atMs': f.get('receivedAtMs', f.get('observedAtMs')),
                            'timeSeconds': (finite_number(f.get('receivedAtMs', f.get('observedAtMs')), self.origin) - self.origin) / 1000,
                            'width': f.get('width'), 'height': f.get('height'),
-                           'hasInference': inference is not None, 'hasDecision': any(e.get('type') == 'decision' for e in events)})
+                           'hasInference': key in self.inferences.indices, 'hasDecision': key in self.decision_keys})
         return {'id': self.id, 'displayName': self.display_name, 'manifest': self.manifest, 'warnings': self.warnings,
-                'frames': frames, 'events': self.events, 'originMs': self.origin,
+                'frames': frames, 'eventCount': len(self.events), 'originMs': self.origin,
                 'modelSha256': self.model_sha, 'localModelSha256': MODEL_SHA,
                 'packetCount': len(self.packets),
                 'videoAvailable': (self.path / 'video.h264').is_file(),
@@ -271,8 +400,8 @@ class Session:
         events = self.event_frames.get(frame_key(f), [])
         at = finite_number(f.get('receivedAtMs', f.get('observedAtMs')), 0)
         end = finite_number(self.frames[index + 1].get('receivedAtMs'), at + 1000) if index + 1 < len(self.frames) else at + 1000
-        audio = [e for e in self.events if str(e.get('type', '')).startswith(('speech', 'audio')) and
-                 at <= finite_number(e.get('atMs', e.get('recordedAtMs')), -1) < end]
+        audio = [self.events[event_index] for _, event_index in
+                 self.audio_index[bisect_left(self.audio_times, at):bisect_left(self.audio_times, end)]]
         return {'frame': f, 'recordedInference': inference,
                 'detections': normalize_detections((inference or {}).get('detections', f.get('detections', []))),
                 'events': events, 'audioEvents': audio,
@@ -281,10 +410,13 @@ class Session:
 
 
 class SessionStore:
+    MAX_CACHED_SESSIONS = 3
     def __init__(self, storage=DEFAULT_STORAGE):
         self.storage = Path(storage).expanduser().resolve()
         self.storage.mkdir(parents=True, exist_ok=True)
-        self.sessions = {}
+        self.sessions = OrderedDict()
+        self.live_sessions = weakref.WeakValueDictionary()
+        self.archived_sessions = weakref.WeakValueDictionary()
         self.lock = threading.RLock()
         self.trash = self.storage / '.trash'
         self.trash.mkdir(exist_ok=True)
@@ -311,8 +443,20 @@ class SessionStore:
                     raise ValueError('Session symbolique refusée')
                 if not (p / 'manifest.json').is_file():
                     raise KeyError('Session inconnue')
-                self.sessions[identifier] = Session(p, identifier)
+                self.sessions[identifier] = self.live_sessions.get(identifier) or Session(p, identifier)
+                self.live_sessions[identifier] = self.sessions[identifier]
+            self.sessions.move_to_end(identifier)
+            self._trim_cache(identifier)
             return self.sessions[identifier]
+
+    def _trim_cache(self, keep):
+        for identifier in list(self.sessions):
+            if len(self.sessions) <= self.MAX_CACHED_SESSIONS:
+                break
+            session = self.sessions[identifier]
+            with session.lock:
+                if identifier != keep and not session.busy:
+                    del self.sessions[identifier]
 
     def library(self):
         with self.lock:
@@ -354,8 +498,11 @@ class SessionStore:
                 if destination.exists():
                     raise ValueError('Une session de même identifiant existe dans la corbeille')
                 os.replace(session.path, destination)
+                session.relocate(destination)
                 session.archived = True
                 self.sessions.pop(identifier)
+                self.live_sessions.pop(identifier, None)
+                self.archived_sessions[identifier] = session
                 return {'id': identifier, 'archived': True}
 
     def restore(self, identifier):
@@ -368,9 +515,24 @@ class SessionStore:
             destination = self.storage / identifier
             if destination.exists():
                 raise ValueError('Une session active possède déjà cet identifiant')
-            Session(source, identifier)  # Validate before exposing it to readers.
-            os.replace(source, destination)
-            return self.get(identifier).index()
+            restored = Session(source, identifier)  # Validate before exposing it to readers.
+            previous = self.archived_sessions.get(identifier)
+            session = previous if previous is not None else restored
+            with session.lock:
+                os.replace(source, destination)
+                if previous is not None:
+                    # Existing completed jobs retain this lease identity. Refresh their source
+                    # indexes while keeping its lock, so restoring does not strand their reports.
+                    for key, value in restored.__dict__.items():
+                        if key not in ('lock', 'busy'):
+                            setattr(session, key, value)
+                session.relocate(destination)
+                session.archived = False
+                self.live_sessions[identifier] = session
+                self.sessions[identifier] = session
+                self.archived_sessions.pop(identifier, None)
+            self._trim_cache(identifier)
+            return session.index()
 
     @contextmanager
     def export(self, identifier):
@@ -385,12 +547,14 @@ class SessionStore:
                 for path in files:
                     relative = path.relative_to(session.path).as_posix()
                     safe_path(session.path, relative)
-                    if relative.startswith(('recompute-', 'comparison-', '.write-')) or relative == 'context-video.mp4':
+                    if relative.startswith(('recompute-', 'comparison-', '.write-', '.replay-', '.context-video-')) or relative == 'context-video.mp4':
                         continue
                     total += path.stat().st_size
                     if total > MAX_UPLOAD:
-                        raise ValueError('Export supérieur à 1 Gio')
-                    archive.write(path, relative)
+                        raise ValueError('Export supérieur à la borne technique de 128 Gio')
+                    require_disk_space(self.storage, path.stat().st_size)
+                    with path.open('rb') as source, archive.open(relative, 'w', force_zip64=True) as target:
+                        copy_bounded(source, target, self.storage)
             yield output
 
     def _finish(self, staging):
@@ -402,9 +566,11 @@ class SessionStore:
         session = Session(roots[0], identifier)  # Validate before publishing.
         destination = self.storage / identifier
         shutil.move(str(roots[0]), str(destination))
-        session.path = destination
+        session.relocate(destination)
         with self.lock:
             self.sessions[identifier] = session
+            self.live_sessions[identifier] = session
+            self._trim_cache(identifier)
         return session
 
     def import_zip(self, archive_path):
@@ -425,23 +591,28 @@ class SessionStore:
                         raise ValueError('ZIP chiffré non pris en charge')
                     expanded += info.file_size
                     if expanded > MAX_EXPANDED:
-                        raise ValueError('Archive décompressée supérieure à 2 Gio')
+                        raise ValueError('Archive décompressée supérieure à la borne technique de 128 Gio')
+                    if info.file_size > 1024 * 1024 and info.file_size > max(1, info.compress_size) * MAX_ZIP_RATIO:
+                        raise ValueError('Taux de compression ZIP excessif')
                     target = unicodedata.normalize('NFC', str(PurePosixPath(info.filename))).casefold()
                     if target in targets:
                         raise ValueError('Entrée ZIP dupliquée')
                     targets.add(target)
+                require_disk_space(self.storage, expanded)
                 for info in entries:
                     target = safe_path(staging, info.filename)
                     if info.is_dir():
                         target.mkdir(parents=True, exist_ok=True)
                         continue
                     target.parent.mkdir(parents=True, exist_ok=True)
+                    require_disk_space(self.storage, info.file_size)
                     actual = 0
                     with archive.open(info) as source, target.open('wb') as output:
                         while chunk := source.read(1024 * 1024):
                             actual += len(chunk)
                             if actual > info.file_size or actual > MAX_EXPANDED:
                                 raise ValueError('Taille ZIP incohérente')
+                            require_disk_space(self.storage, len(chunk))
                             output.write(chunk)
             return self._finish(staging)
 
@@ -472,6 +643,8 @@ class SessionStore:
                     raise ValueError('Lien symbolique refusé dans la session')
             for name in names:
                 p = Path(directory) / name
+                if any(part.startswith(('.replay-', '.context-video-', '.write-')) for part in p.relative_to(source).parts):
+                    continue
                 if not p.is_file():
                     raise ValueError('Fichier spécial refusé')
                 target = unicodedata.normalize('NFC', str(p.relative_to(source))).casefold()
@@ -483,12 +656,15 @@ class SessionStore:
                 if len(files) > MAX_FILES or total > MAX_EXPANDED:
                     raise ValueError('Dossier supérieur aux limites d’import')
         with tempfile.TemporaryDirectory(prefix='.import-', dir=self.storage) as tmp:
+            require_disk_space(self.storage, total)
             staging = Path(tmp) / 'content'
             staging.mkdir()
             for p in files:
                 target = staging / p.relative_to(source)
                 target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(p, target)
+                require_disk_space(self.storage, p.stat().st_size)
+                with p.open('rb') as content, target.open('wb') as destination:
+                    copy_bounded(content, destination, self.storage)
             return self._finish(staging)
 
 
@@ -680,7 +856,8 @@ class PolicySimulation:
                 self.process.call({'type': 'stop', 'atMs': self.last_now})
                 if self.pending:
                     self.audio.append({'type': 'simulated_cancelled', **self.pending, 'reason': 'video_session_changed'})
-            recorded_start = next((e for e in self.session.events if e.get('type') == 'start' and str(e.get('sessionId')) == str(video_id)), {})
+            start_index = self.session.video_starts.get(str(video_id))
+            recorded_start = self.session.events[start_index] if start_index is not None else {}
             start_at = finite_number(recorded_start.get('policyAtMs', recorded_start.get('atMs')), observed)
             start = {'type': 'start', 'sessionId': video_id, 'atMs': int(start_at)}
             if not self.started:
@@ -768,6 +945,103 @@ def compare_recorded_raw(recorded, recalculated):
             'scope': 'Appariement ensembliste de même classe. Échec brut conservé même si seulement sous seuil ; CPU Mac ≠ XNNPACK Android.'}
 
 
+class ReplayCancelled(Exception):
+    pass
+
+
+class DiskFrameReport:
+    """A single atomic report, seekable while running without keeping every frame in RAM."""
+    CACHE_FRAMES = 8
+
+    def __init__(self, session, identifier):
+        self.session = session
+        self.path = session.path / f'.replay-{identifier}.partial.json'
+        self.offsets, self.cache = {}, OrderedDict()
+        self.lock = threading.RLock()
+        self.published = False
+        require_disk_space(session.path, 1024 * 1024)
+        self.output = self.path.open('xb')
+        try:
+            self.output.write(b'{"frames":{')
+            self.output.flush()
+        except BaseException:
+            self.abort()
+            raise
+
+    def append(self, index, value):
+        encoded = json.dumps(value, ensure_ascii=False, allow_nan=False).encode()
+        with self.lock:
+            prefix = (b',' if self.offsets else b'') + json.dumps(str(index)).encode() + b':'
+            require_disk_space(self.session.path, len(encoded) + len(prefix))
+            self.output.write(prefix)
+            offset = self.output.tell()
+            self.output.write(encoded)
+            self.output.flush()
+            self.offsets[index] = (offset, len(encoded))
+            self.cache[index] = encoded
+            self._trim_cache()
+
+    def _trim_cache(self):
+        while len(self.cache) > self.CACHE_FRAMES:
+            self.cache.popitem(last=False)
+
+    def get(self, index):
+        with self.lock:
+            if index not in self.offsets:
+                return {'pending': True}
+            if index not in self.cache:
+                offset, length = self.offsets[index]
+                with self.path.open('rb') as source:
+                    source.seek(offset)
+                    self.cache[index] = source.read(length)
+                self._trim_cache()
+            self.cache.move_to_end(index)
+            return json.loads(self.cache[index])
+
+    def finish(self, metadata, destination, cancelled=lambda: False):
+        with self.lock:
+            self.output.write(b'}')
+            encoder = json.JSONEncoder(ensure_ascii=False, allow_nan=False)
+            for key, value in metadata.items():
+                if cancelled():
+                    raise ReplayCancelled('Traitement annulé pendant la finalisation')
+                self.output.write(b',' + json.dumps(key).encode() + b':')
+                buffer = bytearray()
+                for chunk in encoder.iterencode(value):
+                    buffer.extend(chunk.encode())
+                    if len(buffer) >= 1024 * 1024:
+                        if cancelled():
+                            raise ReplayCancelled('Traitement annulé pendant la finalisation')
+                        require_disk_space(self.session.path, len(buffer))
+                        self.output.write(buffer)
+                        buffer.clear()
+                require_disk_space(self.session.path, len(buffer))
+                self.output.write(buffer)
+            self.output.write(b'}')
+            self.output.flush()
+            os.fsync(self.output.fileno())
+            self.output.close()
+            if cancelled():
+                raise ReplayCancelled('Traitement annulé avant la publication')
+            if destination.exists():
+                raise ValueError('Un rapport existe déjà pour cet identifiant')
+            os.replace(self.path, destination)
+            self.path, self.published = destination, True
+
+    def abort(self):
+        with self.lock:
+            try:
+                if not self.output.closed:
+                    self.output.close()
+            finally:
+                if not self.published:
+                    try:
+                        self.path.unlink(missing_ok=True)
+                    finally:
+                        self.offsets.clear()
+                        self.cache.clear()
+
+
 class ReplayJobs:
     MAX_ACTIVE_JOBS = 4
     MAX_RETAINED_JOBS = 16
@@ -815,7 +1089,8 @@ class ReplayJobs:
             raise ValueError('Le modèle enregistré diffère du modèle local : recalcul comparable refusé')
         identifier = uuid.uuid4().hex
         job = {'id': identifier, 'sessionId': session.id, 'captureId': session.manifest.get('sessionId'),
-               'state': 'queued', 'done': 0, 'total': len(session.frames), 'frames': {}, 'simulatedAudioEvents': [],
+               'state': 'queued', 'done': 0, 'total': len(session.frames), 'frames': None, 'simulatedAudioEvents': [],
+               '_session': session, '_audioIndex': {},
                'confirmationDelayMs': confirmation_ms, 'cancelRequested': False,
                'controllerGateAssumption': 'Orientation confirmed and available/unpaused voice assumed. Controller gates and real audio transport are not replayed.',
                'scope': 'Moteur Kotlin, détections et horloges identiques entre A et B, transport vocal simulé. '
@@ -839,18 +1114,42 @@ class ReplayJobs:
         threading.Thread(target=self._execute, args=(job, session), daemon=True).start()
         return identifier
 
-    def get(self, identifier, frame=None, report=False):
+    def get(self, identifier, frame=None, report=False, compact=False):
         with self.lock:
             job = self.jobs[identifier]
             if frame is not None:
                 if not 0 <= frame < job['total']:
                     raise IndexError('Image hors limites')
-                return copy.deepcopy(job['frames'].get(str(frame), {'pending': True}))
+                with job['_session'].operation():
+                    result = job['frames'].get(frame) if job['frames'] else {'pending': True}
+                    if not result.get('pending'):
+                        audio = job['_audioIndex']
+                        if job['kind'] == 'comparison':
+                            result['simulatedAudioByVariant'] = {name: copy.deepcopy(events.get(frame, [])) for name, events in audio.items()}
+                        else:
+                            result['simulatedAudioEvents'] = copy.deepcopy(audio.get('A', {}).get(frame, []))
+                    return result
             if report:
                 if job['state'] != 'complete':
                     raise ValueError('Le rapport est disponible après la fin du traitement')
-                return copy.deepcopy(job)
-            return copy.deepcopy({key: value for key, value in job.items() if key != 'frames'})
+                # Python callers explicitly request the whole object; HTTP downloads stream the file.
+                with self.report_file(identifier) as path:
+                    return json.loads(path.read_bytes())
+            excluded = {'frames'} | ({'simulatedAudioEvents', 'simulatedAudioByVariant'} if compact else set())
+            result = copy.deepcopy({key: value for key, value in job.items() if key not in excluded and not key.startswith('_')})
+            if compact:
+                result['simulatedAudioEventCounts'] = {name: sum(len(items) for items in events.values()) for name, events in job['_audioIndex'].items()}
+            return result
+
+    @contextmanager
+    def report_file(self, identifier):
+        with self.lock:
+            job = self.jobs[identifier]
+            if job['state'] != 'complete':
+                raise ValueError('Le rapport est disponible après la fin du traitement')
+            session, path = job['_session'], job['frames'].path
+        with session.operation():
+            yield path
 
     def cancel(self, identifier):
         with self.lock:
@@ -868,6 +1167,8 @@ class ReplayJobs:
 
     def _run(self, job, session):
         simulations = {}
+        audio_offsets = {}
+        frames = None
         began = time.perf_counter()
         try:
             with self.batch_lock:
@@ -875,9 +1176,25 @@ class ReplayJobs:
                     job['state'] = 'cancelled'
                     return
                 job['state'] = 'running'
+                frames = DiskFrameReport(session, job['id'])
+                job['frames'] = frames
                 configs = job.get('configs', {'A': job.get('effectivePolicyConfig', {})})
                 for name, config in configs.items():
                     simulations[name] = PolicySimulation(session, config, job['confirmationDelayMs'])
+                    job['_audioIndex'][name] = {}
+                    audio_offsets[name] = 0
+
+                def publish_audio():
+                    with self.lock:
+                        for name, simulation in simulations.items():
+                            new = copy.deepcopy(simulation.audio[audio_offsets[name]:])
+                            audio_offsets[name] += len(new)
+                            for event in new:
+                                job['_audioIndex'][name].setdefault(event['frameIndex'], []).append(event)
+                            if name == 'A':
+                                job['simulatedAudioEvents'].extend(new)
+                            if job['kind'] == 'comparison':
+                                job['simulatedAudioByVariant'][name].extend(new)
                 different, alert_different, identity_different, skipped = [], [], [], []
                 input_fingerprint = hashlib.sha256()
                 for index, frame in enumerate(session.frames):
@@ -921,35 +1238,45 @@ class ReplayJobs:
                         result.update(variants['A'])
                     if now is None or observed is None:
                         skipped.append(index)
+                    frames.append(index, result)
+                    publish_audio()
                     with self.lock:
-                        job['frames'][str(index)] = result
                         job['done'] = index + 1
-                        job['simulatedAudioEvents'] = copy.deepcopy(simulations['A'].audio)
-                        if job['kind'] == 'comparison':
-                            job['simulatedAudioByVariant'] = {name: copy.deepcopy(sim.audio) for name, sim in simulations.items()}
                 pending = {name: sim.finish() for name, sim in simulations.items()}
+                publish_audio()
                 with self.lock:
                     job['inputSha256'] = input_fingerprint.hexdigest()
-                    job['simulatedAudioEvents'] = copy.deepcopy(simulations['A'].audio)
                     job['pendingAtReplayEnd'] = pending if job['kind'] == 'comparison' else pending['A']
                     job['skippedFrames'] = skipped
                     if job['kind'] == 'comparison':
-                        job['simulatedAudioByVariant'] = {name: copy.deepcopy(sim.audio) for name, sim in simulations.items()}
                         job['summary'] = {'comparedFrames': len(session.frames) - len(skipped),
                                           'differentFrames': different, 'announcementDifferentFrames': alert_different,
                                           'identityDifferentFrames': identity_different,
                                           'announcements': {name: [e for e in sim.audio if e['type'] == 'simulated_submitted']
                                                             for name, sim in simulations.items()}}
                     job['macBatchSeconds'] = time.perf_counter() - began
-                    report = copy.deepcopy(job)
+                    report = copy.deepcopy({key: value for key, value in job.items() if key != 'frames' and not key.startswith('_')})
                     report['state'] = 'complete'
-                atomic_json(session.path / f'{"comparison" if job["kind"] == "comparison" else "recompute"}-{job["id"]}.json', report)
+                frames.finish(report, session.path / f'{"comparison" if job["kind"] == "comparison" else "recompute"}-{job["id"]}.json',
+                              cancelled=lambda: job['cancelRequested'])
                 with self.lock:
                     job['state'] = 'complete'
         except Exception as error:
             with self.lock:
-                job['state'] = 'failed'
+                job['state'] = 'cancelled' if isinstance(error, ReplayCancelled) else 'failed'
                 job['error'] = str(error)
         finally:
+            cleanup_errors = []
+            if frames and not frames.published:
+                try:
+                    frames.abort()
+                except Exception as error:
+                    cleanup_errors.append(str(error))
             for simulation in simulations.values():
-                simulation.close()
+                try:
+                    simulation.close()
+                except Exception as error:
+                    cleanup_errors.append(str(error))
+            if cleanup_errors:
+                with self.lock:
+                    job['cleanupWarnings'] = cleanup_errors
