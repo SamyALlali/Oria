@@ -1,0 +1,19 @@
+{
+  "scope": "Extracted pure Swift bodies only; no ARKit, model inference or iOS live pipeline",
+  "source_path": "External Swift source supplied through ORIA_SWIFT_SOURCE",
+  "source_sha256": "f10525f34c34ab46fbf189426337e24fdb4990256ecd90d72d54a8f997c45f54",
+  "fixtures_sha256": "befe6bfb622b8d2605348153a9d3dac4a978f51c86edbfeda98434d7aac37bdf",
+  "extracted_bodies_sha256": {
+    "categories": "ac11c39db8b71e22f67fe3231b4d6eb854f97d9f31da1db177d3e75751771c9c",
+    "zones": "04d28cc995fc7e6597f349f95362d91dacbf6becc4ed731d69db79a5b94b6e62",
+    "lifetime": "bad3c5c463907f31d7b0c1d1d20dff819ec26f19d0e755dffeb3686eab6a0280",
+    "zoneFunction": "e3667d6773b2482f9e97ccad56f8a3d589eb958850cc1926420bba2911a21a86",
+    "qualification": "0d926ee07188d7abd34adceca2029fbc10b433677a874e29d4048feb4e44966f",
+    "thresholds": "86099ffa1a19bc151f3d04994bac5348b06d7d7a82ffdbef41cc739d543c4ac7"
+  },
+  "fixture_count": 18,
+  "swift_matches_expected": true,
+  "kotlin_results_present": true,
+  "kotlin_matches_swift": true,
+  "swift_version": "Apple Swift version 6.2.1 (swiftlang-6.2.1.4.8 clang-1700.4.4.1)\nTarget: arm64-apple-macosx26.0"
+}

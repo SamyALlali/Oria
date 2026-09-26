@@ -4,9 +4,9 @@
 
 ## Recommandation
 
-Construire une **assistance descriptive RGB**, avec annonces d’objets appris et de leur direction par rapport à la caméra des lunettes. Réutiliser le noyau temporel et les formulations EchoNav, mais créer un contrat de capacités RGB explicite. La démonstration promet « Piéton devant », pas une distance physique, une trajectoire sûre ou une absence d’obstacles.
+Construire une **assistance descriptive RGB**, avec annonces d’objets appris et de leur direction par rapport à la caméra des lunettes. Réutiliser le noyau temporel et les formulations Oria, mais créer un contrat de capacités RGB explicite. La démonstration promet « Piéton devant », pas une distance physique, une trajectoire sûre ou une absence d’obstacles.
 
-Le live Swift actuel exige profondeur et suivi AR avant la décision (`EchoNavApp.swift:1203`). Sa branche `qualifiesForVisualOnlySemanticCue` n’est donc pas un mode RGB live autonome. Faire artificiellement passer `hasFreshDepth` à vrai pour débloquer le moteur détruirait le sens des protections de session. En RGB, les conditions deviennent : session connectée, image récente réellement décodée, modèle valide ayant produit une sortie récente, chemin d’alerte disponible ou état audio explicitement dégradé.
+Le live Swift actuel exige profondeur et suivi AR avant la décision (`OriaApp.swift:1203`). Sa branche `qualifiesForVisualOnlySemanticCue` n’est donc pas un mode RGB live autonome. Faire artificiellement passer `hasFreshDepth` à vrai pour débloquer le moteur détruirait le sens des protections de session. En RGB, les conditions deviennent : session connectée, image récente réellement décodée, modèle valide ayant produit une sortie récente, chemin d’alerte disponible ou état audio explicitement dégradé.
 
 ### Ce qui doit être réutilisé
 
@@ -26,7 +26,7 @@ Le live Swift actuel exige profondeur et suivi AR avant la décision (`EchoNavAp
 
 ### Identité : ne pas conserver `worldAnchor=nil`
 
-Dans `SpatialAlertVoiceMemory.bestMatchingEntityIndex` (`EchoNavApp.swift:4031` environ ; symbole déterminant), une observation sans ancre fusionne avec la dernière entité de même catégorie. Deux personnes peuvent alors hériter du même silence de rappel. La mémoire vocale Swift n’est pas un tracker vidéo général.
+Dans `SpatialAlertVoiceMemory.bestMatchingEntityIndex` (`OriaApp.swift:4031` environ ; symbole déterminant), une observation sans ancre fusionne avec la dernière entité de même catégorie. Deux personnes peuvent alors hériter du même silence de rappel. La mémoire vocale Swift n’est pas un tracker vidéo général.
 
 Proposition : une association 2D minimale, à appariement un-à-un, classe + recouvrement + continuité temporelle, produit des identifiants de pistes locaux. Réutiliser les règles de cooldown sur ces identifiants. La durée de vie courte des pistes perdues est un paramètre RGB distinct des 18 s de rétention des annonces Swift : retenir une mémoire n’autorise pas à associer une nouvelle personne 18 s plus tard. Ne pas promettre l’identité à travers un grand mouvement de tête ou une occultation longue. L’IMU du téléphone ne représente pas la tête.
 
@@ -48,7 +48,7 @@ Le Swift peut arrêter immédiatement son `AVSpeechSynthesizer` (`265–312`). R
 
 Si l’association 2D n’est pas fiable ou ne tient pas dans le temps disponible, employer une mémoire **par classe et zone** avec cadence globale, sans prétendre distinguer les individus. C’est beaucoup plus simple qu’un tracker et plus honnête que `nil` présenté comme une identité spatiale. Le compromis est observable : deux personnes de même zone partagent le rappel, changement de zone peut réannoncer la même personne. Accepter cette variante uniquement en démonstration explicitement collective (« présence d’un piéton devant »), sans compter les individus. Réouvrir vers des pistes dès qu’un test à deux objets montre une suppression gênante et que le budget permet de la corriger.
 
-Je recommande les pistes 2D légères pour préserver au maximum le comportement utile d’EchoNav ; je conteste cependant toute obligation de réidentification persistante ou de tracker complexe au MVP.
+Je recommande les pistes 2D légères pour préserver au maximum le comportement utile d’Oria ; je conteste cependant toute obligation de réidentification persistante ou de tracker complexe au MVP.
 
 ## Actualisation : téléphone HTC disponible, piste iOS demain
 
@@ -79,9 +79,9 @@ Ces critères décrivent un prototype d’assistance descriptive. Ils ne transfo
 
 ## Sources primaires inspectées
 
-- [Moteur EchoNav](/Users/sam/Documents/ChatGPT/echonav/EchoNav_main/EchoNav_App/EchoNav/EchoNavApp.swift:562) : `ProximitySessionSafetyState`, `session(_:didUpdate:)`, `semanticCandidateWithoutForwardObstruction`, `qualifiesForVisualOnlySemanticCue`, `visualOnlyProxyDistance`, `stabilizedCandidate`, `emitVoiceCueIfNeeded`, `spatialAlertWorldAnchor`, `SpatialAlertVoiceMemory`.
-- [Tests moteur](/Users/sam/Documents/ChatGPT/echonav/EchoNav_main/EchoNav_App/EchoNavTests/EchoNavTests.swift:329) : rappels, escalade, ancres distinctes, rétention, pacing et reset ; leurs tests métriques ne valident pas le RGB.
-- [Tests session](/Users/sam/Documents/ChatGPT/echonav/EchoNav_main/EchoNav_App/EchoNavTests/ProximitySessionSafetyTests.swift:49) : anciennes générations et epochs périmés.
-- [Jalon 3](/Users/sam/Documents/ChatGPT/echonav/EchoNav_main/Documentation/SPRINT2_JALON3_SESSION_SAFETY.md), [jalon 4](/Users/sam/Documents/ChatGPT/echonav/EchoNav_main/Documentation/SPRINT2_JALON4_PRODUCT_MODE.md) : cycle de vie et interface produit actuels ; résultats historiques non reproduits ici.
-- [Contrat de mémoire vocale](/Users/sam/Documents/ChatGPT/echonav/EchoNav_main/Documentation/SPATIAL_ALERT_MEMORY.md) : séparation voix/danger et association AR ; certaines formulations « effectivement émise » décrivent l’export, pas une preuve d’audibilité physique.
+- [Moteur Oria](<projet Swift externe : ORIA_SWIFT_SOURCE>:562) : `ProximitySessionSafetyState`, `session(_:didUpdate:)`, `semanticCandidateWithoutForwardObstruction`, `qualifiesForVisualOnlySemanticCue`, `visualOnlyProxyDistance`, `stabilizedCandidate`, `emitVoiceCueIfNeeded`, `spatialAlertWorldAnchor`, `SpatialAlertVoiceMemory`.
+- [Tests moteur](<projet Swift externe : ORIA_SWIFT_SOURCE>:329) : rappels, escalade, ancres distinctes, rétention, pacing et reset ; leurs tests métriques ne valident pas le RGB.
+- [Tests session](<projet Swift externe : ORIA_SWIFT_SOURCE>:49) : anciennes générations et epochs périmés.
+- [Jalon 3](<projet Swift externe : ORIA_SWIFT_SOURCE>), [jalon 4](<projet Swift externe : ORIA_SWIFT_SOURCE>) : cycle de vie et interface produit actuels ; résultats historiques non reproduits ici.
+- [Contrat de mémoire vocale](<projet Swift externe : ORIA_SWIFT_SOURCE>) : séparation voix/danger et association AR ; certaines formulations « effectivement émise » décrivent l’export, pas une preuve d’audibilité physique.
 - [HTC callback synthèse](/Users/sam/Downloads/eagle-hackathon-starter-usb/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ViveGlassKitManager.kt:236), [envoi texte](/Users/sam/Downloads/eagle-hackathon-starter-usb/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ViveGlassKitManager.kt:534).

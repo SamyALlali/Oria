@@ -1,4 +1,4 @@
-# Repérage du package HTC pour le prompt EchoNav
+# Repérage du package HTC pour le prompt Oria
 
 Inspection statique effectuée le 26 septembre 2026. Le projet HTC original n’a pas été modifié. Aucun build, lancement de simulateur ou essai sur lunettes n’a été effectué dans cette préparation du prompt.
 
@@ -30,25 +30,25 @@ Les chemins de code abrégés dans le tableau sont relatifs à `android-project/
 
 ## Sources et modèles disponibles
 
-La copie locale complète est `/Users/sam/Documents/ChatGPT/echonav/EchoNav_main`, branche `main`, commit `8fbb4e03911bfc16e90e072f3446a492bc61c2ea`. L’accès aux sources est résolu ; aucun déblocage GitHub n’est requis pour poursuivre le travail local. Le dépôt est resté inchangé pendant cet audit.
+La copie locale complète est `<projet Swift externe : ORIA_SWIFT_SOURCE>`, branche `main`, commit `8fbb4e03911bfc16e90e072f3446a492bc61c2ea`. L’accès aux sources est résolu ; aucun déblocage GitHub n’est requis pour poursuivre le travail local. Le dépôt est resté inchangé pendant cet audit.
 
-Les packages `EchoNav_App/best.mlpackage` et `EchoTest/Sources/best.mlpackage` ont été inspectés : leurs trois fichiers correspondent exactement aux empreintes Paris V1 consignées dans `Documentation/GREENLIGHT_BASELINE.json`. Ce manifeste décrit un checkpoint source SHA-256 `3661675b3ea931bbc6bed0892753912764ce6fc4bc2a8c13745ba8f0d0bc5dc4`, distinct de l’empreinte du `.pt` fourni pour SILMO.
+Les packages `Oria_App/best.mlpackage` et `OriaLab/Sources/best.mlpackage` ont été inspectés : leurs trois fichiers correspondent exactement aux empreintes Paris V1 consignées dans `Documentation/GREENLIGHT_BASELINE.json`. Ce manifeste décrit un checkpoint source SHA-256 `3661675b3ea931bbc6bed0892753912764ce6fc4bc2a8c13745ba8f0d0bc5dc4`, distinct de l’empreinte du `.pt` fourni pour SILMO.
 
 Le checkpoint `.pt` permet de préparer directement un export Android. Le contrat Core ML Paris V1 est documenté comme `[1,10,3549]`, non end-to-end, avec NMS dans le Swift. La première proposition d’export du candidat SILMO conserve sa branche end-to-end : le parseur doit être adapté et vérifié. Les références ne doivent pas être déclarées équivalentes sur la seule base de leurs six classes communes.
 
-## Réutilisation du projet EchoNav complet
+## Réutilisation du projet Oria complet
 
-Le moteur principal identifié est `EchoNav_App/EchoNav/EchoNavApp.swift`, avec un dérivé généré pour EchoTest. L’audit des sources a confirmé arbitrage des dangers, attribution de profondeur, branche d’alerte visuelle, stabilisation temporelle, mémoire anti-répétition, formulations vocales et protection des sessions. La [carte de portage détaillée](</Users/sam/Documents/ChatGPT/Hackathon SILMO/PORTAGE_ECHONAV_SWIFT_ANDROID.md>) fournit fonctions, lignes, paramètres, dépendances matérielles et tests.
+Le moteur principal identifié est `fichier Swift externe défini par ORIA_SWIFT_SOURCE`, avec un dérivé généré pour OriaLab. L’audit des sources a confirmé arbitrage des dangers, attribution de profondeur, branche d’alerte visuelle, stabilisation temporelle, mémoire anti-répétition, formulations vocales et protection des sessions. La [carte de portage détaillée](</Users/sam/Documents/ChatGPT/Hackathon SILMO/PORTAGE_ORIA_SWIFT_ANDROID.md>) fournit fonctions, lignes, paramètres, dépendances matérielles et tests.
 
-Le prompt exige désormais un expert EchoNav/Swift, une matrice de portage avec fichier/symbole/commit, la reprise des paramètres existants et une justification des adaptations. Les calculs métier seront portés vers un cœur Kotlin testable ; les entrées/sorties dépendantes d’Apple seront adaptées aux capacités vérifiées du starter HTC. Toute bibliothèque réellement portable trouvée dans le dépôt sera évaluée avant réécriture.
+Le prompt exige désormais un expert Oria/Swift, une matrice de portage avec fichier/symbole/commit, la reprise des paramètres existants et une justification des adaptations. Les calculs métier seront portés vers un cœur Kotlin testable ; les entrées/sorties dépendantes d’Apple seront adaptées aux capacités vérifiées du starter HTC. Toute bibliothèque réellement portable trouvée dans le dépôt sera évaluée avant réécriture.
 
 Adaptations principales : remplacer la profondeur/pose ARKit uniquement par des données réellement disponibles, expliciter un mode RGB avec prérequis propres, adapter l’association des entités vocales et traiter la distance heuristique comme telle. La branche visuelle existante est utile, mais le démarrage live iOS exige toujours le LiDAR/profondeur.
 
-La validation comparera séparément `.pt`/export Android et politiques Swift/Kotlin sur des entrées communes. Les 76 déclarations de tests Swift ont été comptées, sans exécution. Les contrats des quatre sessions EchoTest sont présents, mais aucun `frames.jsonl` ni média brut correspondant n’a été trouvé dans cette copie ; leur emplacement externe reste à préciser avant replay.
+La validation comparera séparément `.pt`/export Android et politiques Swift/Kotlin sur des entrées communes. Les 76 déclarations de tests Swift ont été comptées, sans exécution. Les contrats des quatre sessions OriaLab sont présents, mais aucun `frames.jsonl` ni média brut correspondant n’a été trouvé dans cette copie ; leur emplacement externe reste à préciser avant replay.
 
 ## Checkpoint local fourni et inspecté
 
-Fichier : `/Users/sam/Downloads/echonav_current_best.pt`. Taille : 20 285 758 octets, soit environ 19,35 Mio. SHA-256 : `7dd79d15d1fe61200b19916c7d0b73136637fd768c9da53a94d0499f010a40c1`.
+Fichier : `oria-htc/ml/exports/oria_silmo_fp32.pt`. Taille : 20 285 758 octets, soit environ 19,35 Mio. SHA-256 : `a591f2db91a90e98297d8a5f035b037b9745cc88aecace98f434e162c2a63f55`.
 
 Méthode : inspection de l’archive PyTorch et lecture statique des opcodes de `best/data.pkl` avec `pickletools`, sans charger ni exécuter le modèle. Le contrôle CRC des 716 entrées ZIP ne signale aucune erreur. Cela confirme l’intégrité de l’archive, pas la validité de l’inférence.
 
@@ -90,7 +90,7 @@ Les classes `traffic_light` et `traffic_sign` ne distinguent ni couleur du feu n
 
 ## Orientation proposée
 
-L’utilisateur a confirmé disposer d’un téléphone HTC prêté et envisager Kotlin ; des accès de développement iOS sont possibles le 27 septembre, sans confirmation. Les deux tours de revue sont désormais consignés dans le [registre des décisions](</Users/sam/Documents/ChatGPT/Hackathon SILMO/DECISIONS_ARCHITECTURE_ECHONAV_SILMO.md>) ; le [cahier des charges](</Users/sam/Documents/ChatGPT/Hackathon SILMO/CAHIER_DES_CHARGES_ECHONAV_SILMO.md>) précise priorités et recette. La voie initiale est Android/Kotlin, avec option iOS conditionnée à un essai réel caméra/audio.
+L’utilisateur a confirmé disposer d’un téléphone HTC prêté et envisager Kotlin ; des accès de développement iOS sont possibles le 27 septembre, sans confirmation. Les deux tours de revue sont désormais consignés dans le [registre des décisions](</Users/sam/Documents/ChatGPT/Hackathon SILMO/DECISIONS_ARCHITECTURE_ORIA_SILMO.md>) ; le [cahier des charges](</Users/sam/Documents/ChatGPT/Hackathon SILMO/CAHIER_DES_CHARGES_ORIA_SILMO.md>) précise priorités et recette. La voie initiale est Android/Kotlin, avec option iOS conditionnée à un essai réel caméra/audio.
 
 Utiliser des agents spécialisés pour le développement et la revue contradictoire. Garder la boucle perception → décision → alerte locale, bornée et mesurable. Un système de LLM dialoguant à chaque image n’est pas nécessaire au MVP décrit ; si une fonction agentique embarquée est souhaitée, la spécifier séparément.
 
@@ -100,4 +100,4 @@ Pour l’extraction vidéo, choisir un mode de sortie `MediaCodec` compatible av
 
 LiteRT fournit aussi un runtime Android ; le choix doit tenir compte du modèle disponible et de l’API/version réellement intégrée. [Documentation LiteRT Android](https://developers.google.com/edge/litert/android).
 
-Le prompt maître est dans `PROMPT_ECHONAV_SILMO_MULTI_AGENTS.md` et contient les rôles, le protocole de débat, les étapes d’implémentation et les critères de validation.
+Le prompt maître est dans `PROMPT_ORIA_SILMO_MULTI_AGENTS.md` et contient les rôles, le protocole de débat, les étapes d’implémentation et les critères de validation.

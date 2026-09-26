@@ -6,7 +6,7 @@ Mise à jour utilisateur pendant le tour : un téléphone HTC prêté est dispon
 
 ## Proposition indépendante
 
-Retenir un unique pipeline local Android, dans une copie du starter avec son identité conservée : adaptateur HTC → réception H.264 → décodeur qui expose ses images → dernier frame décodé disponible → moteur ML → politique EchoNav adaptée → ordonnanceur vocal → `speakText`. Les agents collaborent au développement et à la revue ; ils ne dialoguent pas à chaque image dans l'application.
+Retenir un unique pipeline local Android, dans une copie du starter avec son identité conservée : adaptateur HTC → réception H.264 → décodeur qui expose ses images → dernier frame décodé disponible → moteur ML → politique Oria adaptée → ordonnanceur vocal → `speakText`. Les agents collaborent au développement et à la revue ; ils ne dialoguent pas à chaque image dans l'application.
 
 Pour le premier prototype d'accès aux pixels, je privilégie **MediaCodec sans Surface d'affichage, avec sortie Image YUV accessible**, sous réserve des capacités du codec du téléphone réel. La conversion respecte crop, rowStride, pixelStride et colorimétrie, puis produit un repère caméra documenté. L'aperçu consomme une sortie optionnelle du pipeline et ne possède plus son cycle de vie. Une seule inférence et une seule image récente en attente. Les images conservées sont copiées/possédées avant libération du buffer codec ; aucun Image ne reste détenu pendant une inférence lente.
 

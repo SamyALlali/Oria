@@ -25,20 +25,20 @@ local.properties
 *.pem
 
 # Original starter copies and reproducible/generated archives
-/echonav-htc/baseline-project/
-/echonav-htc/apk/
-/echonav-htc/gradle-dist/*.zip
-/echonav-htc/artifacts/*.apk
-/echonav-htc/echotest-desktop/vendor/
-/echonav-htc/ml/.ultralytics/
+/oria-htc/baseline-project/
+/oria-htc/apk/
+/oria-htc/gradle-dist/*.zip
+/oria-htc/artifacts/*.apk
+/oria-htc/oria-lab-desktop/vendor/
+/oria-htc/ml/.ultralytics/
 
 # Phone backups, recordings, images and raw device logs stay on this Mac.
 # Keep the validation tools and written conclusions in Git.
-/echonav-htc/validation/**
-!/echonav-htc/validation/*.py
-!/echonav-htc/validation/*.md
-!/echonav-htc/validation/user-scene-0548b68a/
-!/echonav-htc/validation/user-scene-0548b68a/*.md
-!/echonav-htc/validation/user-scene-0548b68a/*.py
-!/echonav-htc/validation/user-scene-0548b68a/*.kt
-!/echonav-htc/validation/user-scene-0548b68a/frames_auditees.csv
+/oria-htc/validation/**
+!/oria-htc/validation/*.py
+!/oria-htc/validation/*.md
+!/oria-htc/validation/user-scene-0548b68a/
+!/oria-htc/validation/user-scene-0548b68a/*.md
+!/oria-htc/validation/user-scene-0548b68a/*.py
+!/oria-htc/validation/user-scene-0548b68a/*.kt
+!/oria-htc/validation/user-scene-0548b68a/frames_auditees.csv

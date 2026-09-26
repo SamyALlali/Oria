@@ -3,20 +3,20 @@
   "laboratory": "Oria Lab",
   "package": "com.htc.vive.eagle.hackathon.starter",
   "apk_asset": "Oria-SILMO-debug.apk",
-  "apk_sha256": "2fc0b36f173e8f1b3352f765377450a0d60fa293760056d43ff9983b253b64a8",
-  "apk_bytes": 159596591,
+  "apk_sha256": "f49def1953699349d1c189402c2a7b0229e6bd17db1ca7c0f29c54c9873eeb43",
+  "apk_bytes": 191528658,
   "jvm_tests": {
     "passed": 51,
     "failed": 0
   },
   "desktop_tests": {
-    "passed": 11,
+    "passed": 12,
     "failed": 0
   },
   "device": "HTC U24 pro / Android 14",
   "compatible_update_installed": true,
   "physical_scope": "Historic glasses video plus automatic speech demonstrated; rename build validated by installation and UI checks. New70/30 PCM mix still pending human listening.",
-  "source_model_sha256": "c3b7b89fadf62385a9244edac2832944bf49266ae763cc8744a39f2d4e95756d",
+  "source_model_sha256": "abab2174c8000e219d4d40550beb4506fd1156054b6282e8e8ee34154acd4742",
   "capture_audit": {
     "frames": 164,
     "exact_policy_decisions": 164,
@@ -24,12 +24,20 @@
     "raw_output_frame_parity": "147/164; low-score substitutions remain failures",
     "personal_recording_in_repository": false
   },
-  "git_content_validation": {
-    "fresh_checkout_from_index": true,
-    "official_gradle_download_sha256_verified": true,
-    "android_build": "PASSED",
-    "jvm_tests_passed": 51,
-    "desktop_tests_passed": 11,
-    "environment_scope": "Clean project files with existing machine JDK, Android SDK, Gradle dependency cache and Python runtime; no phone data required."
+  "policy_replay_tests": {
+    "passed": 4,
+    "failed": 0
+  },
+  "naming_validation": {
+    "current_tracked_paths_and_contents": "NO_PREVIOUS_NAMES",
+    "decompressed_apk_entries": "NO_PREVIOUS_NAMES",
+    "checkpoint_tensors_equal": 708,
+    "onnx_graph_identical": true,
+    "phone_captures_migrated": 5,
+    "mac_sessions_migrated": 7,
+    "export_archives_migrated": 5,
+    "mac_scene_recomputed_frames": 164,
+    "mac_scene_recompute_seconds": 11.3,
+    "git_history_rewritten": false
   }
 }

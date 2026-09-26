@@ -1,0 +1,6 @@
+.venv/
+.ultralytics/
+__pycache__/
+exports/*.pt
+!exports/oria_silmo_fp32.pt
+fixtures/*.mp4

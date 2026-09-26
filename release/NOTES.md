@@ -1,7 +1,9 @@
-# Oria — prototype SILMO
+# Oria — noms unifiés
 
-Application Android Oria et laboratoire de capture/rejeu Oria Lab. Caméra HTC VIVE Eagle → YOLO local → politique Kotlin → annonces françaises Bluetooth, avec gains PCM 70/30 selon le côté.
+Le projet et l’APK utilisent Oria / Oria Lab dans les fichiers, classes, assets, documentation, formats et métadonnées des modèles. Le package HTC autorisé et la signature restent identiques.
 
-APK debug identifié, installé sur le HTC U24 pro du hackathon ; package `com.htc.vive.eagle.hackathon.starter`. 51 tests JVM et 11 tests Mac réussis. La nouvelle répartition 70/30 reste à confirmer à l’écoute ; les preuves physiques précédentes sont distinguées dans la documentation.
+Version installée sur le HTC U24 pro du hackathon. **51 tests JVM, 12 tests Mac et 4 tests de rejeu Kotlin passent.** Les 708 tenseurs du checkpoint et le graphe ONNX sont strictement identiques après modification des seules métadonnées descriptives. La recherche dans les fichiers versionnés et les entrées décompressées de l’APK ne trouve plus les anciens noms.
 
-`SHA256SUMS` permet de vérifier l’APK. Le code inclut l’ONNX, le checkpoint et les dépendances HTC. Les captures personnelles et sauvegardes du téléphone restent locales. Consulter le README avant installation, notamment si une version signée avec une autre clé est déjà présente.
+Les captures présentes sur le téléphone et le Mac ont été migrées après sauvegarde externe, en conservant images, événements et UUID. La scène de 164 images a été recalculée intégralement sur Mac. Le lecteur attend le marqueur `oria-lab-session` ; les exports originaux non migrés restent archivés hors du projet.
+
+`SHA256SUMS` identifie l’APK. Les captures personnelles et les sauvegardes restent locales. Aucune nouvelle preuve acoustique n’est ajoutée : le mélange PCM 70/30 reste à confirmer à l’écoute. Les preuves physiques précédentes et leurs limites restent distinguées dans la documentation.
