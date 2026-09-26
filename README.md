@@ -6,9 +6,11 @@ Le prototype reprend notre modèle YOLO et des politiques portées depuis une ba
 
 ## Version de nuit — 27 septembre
 
-**Oria 1.2-night est installé sur le HTC CN46V3M00284**, par mise à jour conservant les données. Les captures n’ont plus de limite de durée et le mode poche n’expire plus après 15 minutes. Le stockage garde 512 Mio libres, sans purge automatique. Le suivi habituel reste le défaut et le mode poche reste une option expérimentale. [Livraison, mesures et suite des travaux](oria-htc/validation/NIGHT_WORK_20260927.md).
+**Oria 1.3-night est installé sur le HTC CN46V3M00284**, par mise à jour conservant les données. Les captures n’ont plus de limite de durée et le mode poche n’expire plus après 15 minutes. Le stockage garde 512 Mio libres, sans purge automatique. Le suivi habituel reste le défaut et le mode poche reste une option expérimentale. [Livraison, mesures et suite des travaux](oria-htc/validation/NIGHT_WORK_20260927.md).
 
-**83 tests JVM Android, 10 tests instrumentés sur HTC, 36 tests Python Mac et 6 tests de rejeu Kotlin passent**, ainsi que les régressions JavaScript. Replay de 60 s sur HTC : 3,73 décisions fraîches/s, âge p95 294 ms. Les lunettes sont déconnectées pendant cette campagne : aucune nouvelle preuve de voix réelle ou d’écran verrouillé avec flux lunettes.
+**Livraison 1.3 : 83 tests JVM Android, 10 tests de galerie sur HTC et 45 tests Python Mac passent**, ainsi que les régressions JavaScript. Les 164 images et 240 détections de la capture réelle concordent avec une lecture indépendante ; galerie synthétique de 21 622 images ouverte en 14,2 s sur HTC. Le ZIP Mac se télécharge nativement, sans blob intégral ; 169 fichiers réels vérifiés identiques par SHA-256.
+
+**Preuves antérieures conservées sur 1.2-night :** 10 instruments de capture/modèle/replay et 6 tests de rejeu Kotlin ; replay de 60 s sur HTC à 3,73 décisions fraîches/s, âge p95 294 ms, voix factice. Les lunettes restent déconnectées : aucune nouvelle preuve de voix réelle ou d’écran verrouillé avec flux lunettes.
 
 Oria Lab Mac lit désormais les données détaillées à la demande et écrit ses rapports progressivement : l’index de la scène de 164 images passe de 11,44 Mo à 34,6 Ko, avec les mêmes résultats de politique. Captures, corbeille/restauration, export et comparaison A/B sont disponibles. Le suivi V2 reste facultatif.
 

@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-09-26T23:39:28.567595+00:00",
+  "version_name": "1.3-night",
+  "version_code": 4,
+  "apk_sha256": "896d97d057331ede9dc4930043509763345c9701b1bf069d3e6f5f2b778eaaa3",
+  "apk_bytes": 158790919,
+  "package": "com.htc.vive.eagle.hackathon.starter",
+  "signer_sha256": "60372c0d29a3e6a0ea7af9af3bf16cbaff79fd95f75912c1692a9e12a9dfbeb7",
+  "model_sha256": "abab2174c8000e219d4d40550beb4506fd1156054b6282e8e8ee34154acd4742",
+  "device": "CN46V3M00284",
+  "device_model": "HTC U24 pro",
+  "installation": "COMPATIBLE_UPDATE_NO_UNINSTALL",
+  "android_unit_tests": {
+    "tests": 83,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "android_lint": {
+    "Fatal": 0,
+    "Error": 0,
+    "Warning": 100,
+    "Hint": 2
+  },
+  "gallery_instrumented_tests": {
+    "unique_tests": 10,
+    "failures": 0,
+    "suite_seconds": 22.021,
+    "receipt_test_reexecuted_after_test_only_path_canonicalization": true
+  },
+  "real_gallery": {
+    "frames_compared": 164,
+    "detections_compared": 240,
+    "float_absolute_tolerance": 1e-06,
+    "mismatches": [],
+    "capture_payloads_unchanged": true,
+    "gallery_load_and_read_ms": 1540,
+    "instrumented_tests": 10,
+    "apk_sha256": "896d97d057331ede9dc4930043509763345c9701b1bf069d3e6f5f2b778eaaa3"
+  },
+  "synthetic_gallery_on_htc": {
+    "measurements": [
+      {
+        "syntheticFrames": 5406,
+        "durationMs": 3942,
+        "eventBytes": 88505925,
+        "heapBeforeBytes": 2410800,
+        "heapAfterGcBytes": 3865488,
+        "heapDeltaAfterGcBytes": 1454688,
+        "note": "Approximate retained JVM heap, not peak RSS. One shared synthetic PNG. No HTC camera transport."
+      },
+      {
+        "syntheticFrames": 21622,
+        "durationMs": 14178,
+        "eventBytes": 354005900,
+        "heapBeforeBytes": 2453136,
+        "heapAfterGcBytes": 8130192,
+        "heapDeltaAfterGcBytes": 5677056,
+        "note": "Approximate retained JVM heap, not peak RSS. One shared synthetic PNG. No HTC camera transport."
+      }
+    ]
+  },
+  "mac_tests": {
+    "python": 45,
+    "failures": 0,
+    "seconds": 5.909,
+    "javascript": "PASS"
+  },
+  "mac_native_export": {
+    "bytes": 91739169,
+    "sha256": "79cb5d65bf591344747d4a9b6e6ccc954831919fae18577aa4bd18a195cbf9c7",
+    "capture_payloads_compared": 169,
+    "png_count": 164,
+    "crc": "PASS",
+    "payload_sha256_parity": "PASS",
+    "extra_files": [],
+    "download": "NATIVE_BROWSER_GET"
+  },
+  "ui_checks": [
+    "HTC gallery positions 1 and 2 display frameId 1 and 6, with 0 and 1 detections",
+    "Mac native export of the real 164-PNG capture",
+    "Mac synthetic export label remains frozen after rename",
+    "Mac export link removed with the source still available"
+  ],
+  "original_capture_manifests_preserved": 5,
+  "previous_validation": "night-20260927-v1.2-validation.json",
+  "hardware_limits": [
+    "No live glasses transport or listening validation during this wave",
+    "Two-hour gallery fixture is not two hours of live recording",
+    "Retained heap after GC is not peak RSS"
+  ],
+  "tracking_default": "LEGACY_IOU",
+  "capture_duration_limit_ms": null,
+  "pocket_duration_limit_ms": null,
+  "phone_final_state": "APP_FORCE_STOPPED_NO_CAMERA_OR_RECORDING_LEFT_ACTIVE",
+  "raw_evidence": "validation/night-20260927-CN46V3M00284/wave2",
+  "backup_restore_tested": false,
+  "instrumentation_apk_sha256": "94e1eeeabb79ce924f6175e778a516a807256b6d75ecf419c5a1243f7b125db2"
+}

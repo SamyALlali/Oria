@@ -539,23 +539,66 @@ class SessionStore:
         session = self.get(identifier)
         with session.operation(), tempfile.TemporaryDirectory(prefix='.export-', dir=self.storage) as tmp:
             output = Path(tmp) / 'OriaLab-session.zip'
-            with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_STORED) as archive:
-                total = 0
-                files = sorted(p for p in session.path.rglob('*') if p.is_file())
-                if len(files) > MAX_FILES:
-                    raise ValueError('Session trop riche en fichiers')
-                for path in files:
-                    relative = path.relative_to(session.path).as_posix()
-                    safe_path(session.path, relative)
-                    if relative.startswith(('recompute-', 'comparison-', '.write-', '.replay-', '.context-video-')) or relative == 'context-video.mp4':
-                        continue
-                    total += path.stat().st_size
-                    if total > MAX_UPLOAD:
-                        raise ValueError('Export supérieur à la borne technique de 128 Gio')
-                    require_disk_space(self.storage, path.stat().st_size)
-                    with path.open('rb') as source, archive.open(relative, 'w', force_zip64=True) as target:
-                        copy_bounded(source, target, self.storage)
+            self.write_export(session, output)
             yield output
+
+    def write_export(self, session, output, cancelled=lambda: False, progress=lambda done, total: None):
+        """Write a snapshot under a caller-held session lease; never buffer the archive."""
+        files = []
+        for path in session.path.rglob('*'):
+            if cancelled():
+                raise ReplayCancelled('Préparation du ZIP annulée')
+            if not path.is_file():
+                continue
+            relative = path.relative_to(session.path).as_posix()
+            safe_path(session.path, relative)
+            if relative.startswith(('recompute-', 'comparison-', '.write-', '.replay-', '.context-video-')) or relative == 'context-video.mp4':
+                continue
+            files.append((path, relative, path.stat().st_size))
+            if len(files) > MAX_FILES:
+                raise ValueError('Session trop riche en fichiers')
+        files.sort(key=lambda item: item[1])
+        total = sum(size for _, _, size in files)
+        if total > MAX_UPLOAD:
+            raise ValueError('Export supérieur à la borne technique de 128 Gio')
+        require_disk_space(self.storage, total)
+        done = 0
+        progress(done, total)
+
+        class GuardedWriter:
+            def __init__(self, raw):
+                self.raw = raw
+
+            def write(inner, data):
+                if cancelled():
+                    raise ReplayCancelled('Préparation du ZIP annulée')
+                if inner.raw.tell() + len(data) > MAX_UPLOAD:
+                    raise ValueError('ZIP supérieur à la borne technique de 128 Gio')
+                # Also cover ZIP headers and the central directory, not only payload blocks.
+                require_disk_space(self.storage, len(data))
+                return inner.raw.write(data)
+
+            def __getattr__(self, name):
+                return getattr(self.raw, name)
+
+        with output.open('xb+') as raw:
+            with zipfile.ZipFile(GuardedWriter(raw), 'w', compression=zipfile.ZIP_STORED, allowZip64=True) as archive:
+                for path, relative, size in files:
+                    if cancelled():
+                        raise ReplayCancelled('Préparation du ZIP annulée')
+                    with path.open('rb') as source, archive.open(relative, 'w', force_zip64=True) as target:
+                        copied = 0
+                        while chunk := source.read(1024 * 1024):
+                            if cancelled():
+                                raise ReplayCancelled('Préparation du ZIP annulée')
+                            target.write(chunk)
+                            copied += len(chunk)
+                            done += len(chunk)
+                            progress(done, total)
+                        if copied != size:
+                            raise ValueError('Un fichier a changé pendant la préparation du ZIP')
+            raw.flush()
+            os.fsync(raw.fileno())
 
     def _finish(self, staging):
         roots = list(staging.rglob('manifest.json'))

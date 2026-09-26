@@ -68,5 +68,53 @@ const actualShowFrame=vm.runInContext('showFrame',context);
   element('timeline').value=1;element('timeline').oninput();
   await new Promise(resolve=>setTimeout(resolve,70));
   assert.equal(vm.runInContext('JSON.stringify(seeks)',context),'[1]','Fast scrubbing should fetch only the latest image');
-  console.log('UI interaction checks passed: pans, stale play, archive confirmation, video cleanup, loading isolation, HTTP abort and seek debounce.');
+  vm.runInContext(`
+    globalThis.exportCalls=[];globalThis.exportTimers=new Map();globalThis.timerIndex=0;
+    setTimeout=(callback,delay)=>{exportTimers.set(++timerIndex,{callback,delay});return timerIndex;};
+    clearTimeout=id=>exportTimers.delete(id);
+    state.session={id:'original',displayName:'Old browser title',manifest:{sessionId:'capture'}};
+    state.exportId=null;
+    request=async(url,body,binary)=>{
+      exportCalls.push({url,binary});
+      if(binary)throw Error('ZIP export must never request a browser blob');
+      if(url==='/api/session/original/export'){
+        state.session={id:'another',displayName:'Another selection'};
+        return {id:'opaque',displayNameSnapshot:'Snapshot title',sessionId:'original',state:'preparing'};
+      }
+      if(url==='/api/export/opaque')return {id:'opaque',displayNameSnapshot:'Snapshot title',sessionId:'original',state:'ready',archiveBytes:123456,downloadUrl:'/api/export/opaque/download',downloadName:'OriaLab-capture.zip'};
+      return {state:'cancelled'};
+    };
+  `,context);
+  await element('exportSession').onclick();
+  await Promise.resolve();
+  assert.equal(element('downloadExport').hidden,false);
+  assert.equal(element('downloadExport').href,'/api/export/opaque/download');
+  assert.equal(element('downloadExport').download,'OriaLab-capture.zip');
+  assert.equal(element('exportTitle').textContent,'ZIP · Snapshot title','Server snapshot title must win over browser selection or a racing rename');
+  assert.equal(vm.runInContext('state.session.id',context),'another');
+  assert.equal(vm.runInContext('exportCalls.some(c=>c.url.endsWith("/download"))',context),false,'Only the native anchor may download the archive');
+  assert.equal(vm.runInContext('[...exportTimers.values()][0].delay',context),10000);
+  await element('cancelExport').onclick();
+  assert.equal(element('downloadExport').hidden,true);
+  assert.equal(vm.runInContext('exportTimers.size',context),0);
+  assert.match(element('exportStatus').textContent,/reste géré par le navigateur/,'Cancel must not claim to stop an already launched native download');
+  assert.equal(vm.runInContext('exportCalls.at(-1).url',context),'/api/export/opaque/cancel');
+
+  vm.runInContext(`
+    exportCalls=[];state.session={id:'pending',manifest:{sessionId:'pending'}};
+    request=async(url,body)=>{
+      exportCalls.push({url});
+      if(url==='/api/session/pending/export')return new Promise(resolve=>globalThis.finishExport=resolve);
+      return {};
+    };
+  `,context);
+  const pendingExport=element('exportSession').onclick();
+  await element('cancelExport').onclick();
+  vm.runInContext("finishExport({id:'late',state:'preparing',displayNameSnapshot:'Late snapshot'});",context);
+  await pendingExport;await Promise.resolve();
+  assert.equal(vm.runInContext('exportCalls.at(-1).url',context),'/api/export/late/cancel','A prepare result arriving after cancellation must retire its own snapshot');
+  assert.equal(element('downloadExport').hidden,true);
+  assert.equal(vm.runInContext('state.exportId',context),null);
+  assert.equal(vm.runInContext('exportTimers.size',context),0);
+  console.log('UI interaction checks passed: pans, stale play, archive confirmation, video cleanup, loading isolation, HTTP abort, seek debounce, native ZIP download, snapshot title and stale export cancellation.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

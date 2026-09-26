@@ -11,12 +11,14 @@ from urllib.parse import parse_qs, urlparse
 
 from replay import DEFAULT_STORAGE, MAX_UPLOAD, RESERVED_FREE_BYTES, ReplayJobs, SessionStore, export_context_video, safe_path, require_disk_space
 import audio_preview
+from export_jobs import ExportJobs
 
 HERE = Path(__file__).resolve().parent
 
 
 def create_server(storage=DEFAULT_STORAGE, port=8765):
     store, jobs, token = SessionStore(storage), ReplayJobs(), secrets.token_urlsafe(32)
+    exports = ExportJobs(store)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
@@ -90,6 +92,16 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                                       'audioPreviewAvailable': audio_preview.available()})
                 if url.path == '/api/library':
                     return self.json({'sessions': store.library()})
+                if len(parts) == 3 and parts[:2] == ['api', 'export']:
+                    return self.json(exports.get(parts[2]))
+                if len(parts) == 4 and parts[:2] == ['api', 'export'] and parts[3] == 'download':
+                    with exports.download(parts[2]) as (path, name):
+                        previous_timeout = self.connection.gettimeout()
+                        try:
+                            self.connection.settimeout(60)  # Inactivity, not total download duration.
+                            return self.file(path, 'application/zip', name)
+                        finally:
+                            self.connection.settimeout(previous_timeout)
                 if len(parts) == 3 and parts[:2] == ['api', 'session']:
                     with store.get(parts[2]).operation() as session:
                         return self.json(session.index())
@@ -111,7 +123,7 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                 if url.path in ('/', '/app.js', '/style.css'):
                     return self.file(HERE / 'static' / {'/': 'index.html', '/app.js': 'app.js', '/style.css': 'style.css'}[url.path])
                 raise FileNotFoundError('Page inconnue')
-            except (BrokenPipeError, ConnectionResetError):
+            except (BrokenPipeError, ConnectionResetError, TimeoutError):
                 pass
             except Exception as error:
                 self.fail(error)
@@ -135,8 +147,9 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                     if action == 'restore':
                         return self.json(store.restore(identifier))
                     if action == 'export':
-                        with store.export(identifier) as path:
-                            return self.file(path, 'application/zip')
+                        return self.json(exports.create(store.get(identifier)), 202)
+                if len(parts) == 4 and parts[:2] == ['api', 'export'] and parts[3] == 'cancel':
+                    return self.json(exports.cancel(parts[2]))
                 if len(parts) == 4 and parts[:2] == ['api', 'job'] and parts[3] == 'cancel':
                     return self.json(jobs.cancel(parts[2]))
                 if self.path == '/api/import/zip':
@@ -185,8 +198,20 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
             status = 403 if isinstance(error, PermissionError) else 404 if isinstance(error, (KeyError, IndexError, FileNotFoundError)) else 400
             self.json({'error': str(error)}, status)
 
-    server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
+    class LocalServer(ThreadingHTTPServer):
+        def server_close(self):
+            try:
+                super().server_close()
+            finally:
+                exports.close()
+
+    try:
+        server = LocalServer(('127.0.0.1', port), Handler)
+    except BaseException:
+        exports.close()
+        raise
     server.daemon_threads = True
+    server.export_jobs = exports
     return server
 
 

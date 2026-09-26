@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const state = {token:null,session:null,index:0,playing:false,timer:null,job:null,jobKind:null,
-  drawVersion:0,sessionVersion:0,loadVersion:0,libraryVersion:0,jobVersion:0,audioVersion:0,mode:'recorded',comparison:null,audioUrl:null,pendingArchive:null,frameAbort:null,seekTimer:null};
+  drawVersion:0,sessionVersion:0,loadVersion:0,libraryVersion:0,jobVersion:0,audioVersion:0,mode:'recorded',comparison:null,audioUrl:null,pendingArchive:null,frameAbort:null,seekTimer:null,exportId:null,exportVersion:0,exportTimer:null};
 const fmt=(v,d=1)=>Number.isFinite(v)?v.toFixed(d):'—';
 async function response(url,body,binary=false,signal){
   const options=body===undefined?{}:{method:'POST',headers:{'X-Oria-Lab-Token':state.token,
@@ -130,7 +130,46 @@ $('zip').onchange=e=>{const file=e.target.files[0];if(file)importCapture('/api/i
 $('openFolder').onclick=()=>importCapture('/api/import/folder',{path:$('folder').value});
 $('refreshLibrary').onclick=refreshLibrary;$('showTrash').onchange=refreshLibrary;
 $('renameSession').onclick=async()=>{const session=state.session;try{const renamed=await request(`/api/session/${session.id}/rename`,{displayName:$('displayName').value});if(state.session?.id===session.id){state.session.displayName=renamed.displayName;sessionTitle();}await refreshLibrary();}catch(e){error(e);}};
-$('exportSession').onclick=async()=>{const session=state.session;try{$('exportSession').disabled=true;const r=await response(`/api/session/${session.id}/export`,{});download(await r.blob(),`OriaLab-${session.manifest.sessionId||session.id}.zip`);}catch(e){error(e);}finally{$('exportSession').disabled=false;}};
+function exportProgressText(job){
+  const mib=value=>fmt(value/1048576,1)+' Mio';
+  if(job.state==='ready')return `ZIP prêt (${mib(job.archiveBytes)}). Télécharger avec le navigateur ; jusqu’à 30 min sans utilisation, dans la limite de quatre ZIP en cache.`;
+  if(job.state==='preparing')return `Préparation sur disque : ${mib(job.bytesCopied)} / ${mib(job.totalBytes)}. La capture reste conservée.`;
+  if(job.state==='cancelled')return 'Lien retiré. Un téléchargement déjà lancé reste géré par le navigateur. La capture est conservée.';
+  if(job.state==='expired')return 'Lien expiré ou sorti du cache. Préparez un nouveau ZIP ; la capture est conservée.';
+  return 'Export impossible : '+(job.error||'erreur locale');
+}
+async function pollExport(id,version){
+  try{
+    const job=await request(`/api/export/${id}`);
+    if(version!==state.exportVersion||id!==state.exportId)return;
+    $('exportTitle').textContent='ZIP · '+(job.displayNameSnapshot||job.captureId||job.sessionId);
+    $('exportStatus').textContent=exportProgressText(job);
+    $('downloadExport').hidden=job.state!=='ready';
+    if(job.state==='ready'){$('downloadExport').href=job.downloadUrl;$('downloadExport').download=job.downloadName;}
+    $('exportSession').disabled=job.state==='preparing';$('cancelExport').disabled=!['preparing','ready'].includes(job.state);$('cancelExport').textContent=job.state==='ready'?'Retirer le lien':'Annuler la préparation';
+    if(['preparing','ready'].includes(job.state)){clearTimeout(state.exportTimer);state.exportTimer=setTimeout(()=>pollExport(id,version),job.state==='preparing'?600:10000);}
+  }catch(e){if(version===state.exportVersion){$('exportStatus').textContent='État export indisponible : '+e.message;$('downloadExport').hidden=true;$('exportSession').disabled=false;}}
+}
+$('exportSession').onclick=async()=>{
+  if(!state.session)return;const session=state.session,version=++state.exportVersion,previous=state.exportId;
+  state.exportId=null;clearTimeout(state.exportTimer);$('exportControls').hidden=false;$('downloadExport').hidden=true;
+  $('exportTitle').textContent='ZIP · '+(session.displayName||session.manifest.sessionId||session.id);
+  $('exportStatus').textContent='Préparation du ZIP sur disque…';$('exportSession').disabled=true;$('cancelExport').disabled=false;$('cancelExport').textContent='Annuler la préparation';
+  try{
+    if(previous)await request(`/api/export/${previous}/cancel`,{}).catch(()=>{});
+    if(version!==state.exportVersion)return;
+    const job=await request(`/api/session/${session.id}/export`,{});
+    if(version!==state.exportVersion){request(`/api/export/${job.id}/cancel`,{}).catch(()=>{});return;}
+    state.exportId=job.id;$('exportTitle').textContent='ZIP · '+(job.displayNameSnapshot||job.captureId||job.sessionId);pollExport(job.id,version);
+  }catch(e){if(version===state.exportVersion){$('exportStatus').textContent='Export impossible : '+e.message;$('exportSession').disabled=false;$('cancelExport').disabled=true;}}
+};
+$('cancelExport').onclick=async()=>{
+  const id=state.exportId,version=++state.exportVersion;state.exportId=null;clearTimeout(state.exportTimer);
+  $('downloadExport').hidden=true;$('cancelExport').disabled=true;$('exportSession').disabled=false;
+  $('exportStatus').textContent='Annulation de l’export…';
+  try{if(id)await request(`/api/export/${id}/cancel`,{});if(version===state.exportVersion)$('exportStatus').textContent='Lien retiré ou préparation annulée. Un téléchargement déjà lancé reste géré par le navigateur. La capture est conservée.';}
+  catch(e){if(version===state.exportVersion)$('exportStatus').textContent='Annulation non confirmée : '+e.message;}
+};
 function resetArchiveConfirmation(){state.pendingArchive=null;$('archiveConfirmation').hidden=true;}
 $('archiveSession').onclick=()=>{
   if(!state.session)return;

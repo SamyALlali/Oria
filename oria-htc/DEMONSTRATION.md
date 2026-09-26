@@ -1,6 +1,6 @@
 # Démonstration Oria — nouveau HTC CN46V3M00284
 
-> Le 27 septembre, Oria 1.2-night a été installé sans désinstallation sur **CN46V3M00284**. Voir [le bilan de nuit](validation/NIGHT_WORK_20260927.md). Les essais de téléphone sont nouveaux ; les confirmations vidéo/voix ci-dessous restent historiques. Vérifier le numéro ADB avant chaque installation.
+> Le 27 septembre, Oria 1.3-night a été installé sans désinstallation sur **CN46V3M00284**. Voir [le bilan de nuit](validation/NIGHT_WORK_20260927.md). Les essais de téléphone sont nouveaux ; les confirmations vidéo/voix ci-dessous restent historiques. Vérifier le numéro ADB avant chaque installation.
 
 L’application livrée s’appelle **Oria**, s’ouvre directement sur Oria et conserve le package HTC autorisé. Deux onglets donnent accès à **Oria** pour l’assistance en direct et **Oria Lab** pour enregistrer une scène explicitement. **Diagnostic HTC** donne accès aux outils du starter. Les commandes de démarrage/arrêt restent visibles en bas, même lorsque l’aperçu portrait remplit le contenu.
 
@@ -117,7 +117,7 @@ Ces deux APK ciblent uniquement le harness et ses tests. Pour une mise à jour d
 
 Le rapport est `files/combined-pipeline-report.json`. Il inclut les rejets et la cadence réellement obtenue ; le seuil d’acceptation du test ne garantit pas à lui seul la cible de 4 Hz.
 
-4. **Politiques Oria, PCM stéréo et navigation** : lancer les commandes suivantes. Les sous-shells conservent le dossier courant pour la suite. Le build historique du 26 septembre avait passé 51 tests JVM ; le build 1.2-night en passe 83, dont dix tests PCM (échantillons signés, entrelacement, isolation des canaux, durée et cache intact), deux tests d’ordre d’initialisation des destinations et le test regroupant les 18 fixtures communes Swift/Kotlin. Les tests ne remplacent pas l’écoute dans les lunettes.
+4. **Politiques Oria, PCM stéréo et navigation** : lancer les commandes suivantes. Les sous-shells conservent le dossier courant pour la suite. Le build historique du 26 septembre avait passé 51 tests JVM ; les builds 1.2-night et 1.3-night en passent 83, dont dix tests PCM (échantillons signés, entrelacement, isolation des canaux, durée et cache intact), deux tests d’ordre d’initialisation des destinations et le test regroupant les 18 fixtures communes Swift/Kotlin. Les tests ne remplacent pas l’écoute dans les lunettes.
 
 ```bash
 (cd "$ORIA_ROOT/android-project" && ./gradlew :app:testDebugUnitTest)
@@ -169,3 +169,9 @@ Le 26 septembre 2026, **Oria** désigne l’assistance et **Oria Lab** la captur
 Les cinq captures du HTC, sept sessions en cache Mac et cinq exports ZIP ont été migrés après sauvegarde externe. Leur UUID, vidéo, images et événements restent conservés ; les manifestes portent maintenant `kind: oria-lab-session` et une empreinte de leur original. Les fichiers descriptifs du checkpoint et de l’ONNX ont été harmonisés ; les 708 tenseurs et le graphe ONNX ont été vérifiés identiques. Politique, cadence et gains PCM 70/30 restent inchangés.
 
 Le lanceur Mac est [Lancer Oria Lab.command](<oria-lab-desktop/Lancer Oria Lab.command>). Le stockage Mac est `~/Library/Application Support/Oria Lab/`, les exports `~/Documents/Oria Lab Captures/` et le dossier privé Android `files/oria-lab/`. Les captures migrées ont été rouvertes et la scène de 164 images recalculée sur Mac. Cette livraison n’ajoute aucune preuve d’écoute physique. Voir [la validation du renommage](validation/ORIA_RENAMING.md).
+
+## Recette galerie et export de la version 1.3-night
+
+Dans Oria Lab, vidéo arrêtée, ouvrir **Revoir les images** : le nombre annoncé, les entrées indexées, les références PNG présentes et les erreurs restent distincts. Les lignes invalides occupent leur place. Sélectionner une entrée vérifie sa PNG et ses détections ; une image absente ou indécodable affiche un motif. Sur la scène réelle de 60 s, les deux premières positions montrent bien frameId 1 puis 6, zéro puis une détection. Les 164 identités/horloges/décisions et 240 détections ont été comparées en lecture seule.
+
+Sur Mac : **Préparer un ZIP**, attendre le lien, puis **Télécharger le ZIP**. Le navigateur gère le téléchargement du fichier préparé sur disque. **Retirer le lien** retire l’export dérivé sans supprimer la capture ; un transfert déjà lancé reste géré par le navigateur. Le ZIP inactif expire après 30 minutes, jamais pendant sa lecture. Ce délai ne limite ni les enregistrements ni le mode poche. Recette navigateur acquise sur la scène réelle ; détails dans le bilan de nuit.

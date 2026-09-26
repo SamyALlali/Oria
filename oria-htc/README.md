@@ -6,11 +6,15 @@ Le package et le namespace restent `com.htc.vive.eagle.hackathon.starter`. Le SD
 
 ## Version de nuit installée — 27 septembre
 
-**Oria 1.2-night**, versionCode 3, est installé par mise à jour compatible sur **CN46V3M00284** : APK `4a1e34eebee2e6a7074b14a7d8296314c48104207cf366f04bc306fe79edc911`. Aucune désinstallation ni suppression des captures. [Bilan de nuit](validation/NIGHT_WORK_20260927.md) et [manifeste de compilation](artifacts/offline_candidate_manifest.json).
+**Oria 1.3-night**, versionCode 4, est installé par mise à jour compatible sur **CN46V3M00284** : APK `896d97d057331ede9dc4930043509763345c9701b1bf069d3e6f5f2b778eaaa3`. Aucune désinstallation ni suppression des captures. [Bilan de nuit](validation/NIGHT_WORK_20260927.md) et [manifeste de compilation](artifacts/offline_candidate_manifest.json).
 
 Les captures et le mode poche n’ont plus de durée maximale. Les quotas fixes de capture sont remplacés par une réserve réelle de **512 Mio libres** ; aucune scène n’est supprimée automatiquement. Le mode poche reste expérimental, désactivé par défaut, avec arrêt depuis la notification et arrêt sur perte de session. Oria Lab finalise toujours au passage en arrière-plan. Noms, corbeille/restauration, export et comparaison A/B sont disponibles ; le suivi `LEGACY_IOU` reste le défaut.
 
-**83 tests JVM et 10 tests instrumentés passent sur cette livraison.** Sur le HTC : six fixtures ONNX XNNPACK conformes et replay de 60 s à 3,73 décisions fraîches/s, âge p95 294 ms. Ce replay utilise la vidéo fournie et une voix factice. Les lunettes sont déconnectées pendant cette campagne : écran verrouillé avec flux réel et écoute 70/30 restent à valider. Les résultats vidéo/voix historiques ci-dessous gardent leurs APK d’origine.
+**83 tests JVM et 10 instruments de galerie passent sur 1.3-night.** Les entrées invalides restent visibles, avec leur cause ; les détections sont chargées à la sélection. Recette réelle : 164 images / 240 détections concordent avec une lecture indépendante, horloges et décisions exactes, fichiers inchangés. Index synthétique de deux heures : 21 622 entrées ouvertes en 14,18 s sur HTC ; ce n’est pas une endurance caméra. [Rapport galerie](validation/GALLERY_LONG_SESSIONS.md).
+
+Sur Mac, **45 tests Python et les interactions JavaScript passent**. Export ZIP préparé sur disque et téléchargement natif, indépendant des renommages ultérieurs ; archive réelle de 91 739 169 octets téléchargée, CRC valides et 169 fichiers identiques à la sauvegarde du téléphone.
+
+Les 10 instruments capture/modèle/replay de **1.2-night** restent des preuves de cette version : six fixtures XNNPACK et replay de 60 s à 3,73 décisions fraîches/s, âge p95 294 ms, voix factice. Les lunettes restent déconnectées : écran verrouillé avec flux réel et écoute 70/30 restent à valider. Les résultats vidéo/voix historiques ci-dessous gardent leurs APK d’origine.
 
 ## État et preuves historiques
 

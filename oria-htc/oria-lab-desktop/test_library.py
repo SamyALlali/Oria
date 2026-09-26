@@ -215,7 +215,12 @@ class LibraryHttpTests(unittest.TestCase):
                     self.assertEqual(caught.exception.code,403)
                 renamed=request(f'/api/session/{sid}/rename',{'displayName':'Mon hall'},headers)
                 self.assertEqual(renamed['displayName'],'Mon hall')
-                archive=request(f'/api/session/{sid}/export',{},headers,True)
+                exported=request(f'/api/session/{sid}/export',{},headers)
+                deadline=time.monotonic()+30
+                while exported['state']=='preparing' and time.monotonic()<deadline:
+                    time.sleep(.03);exported=request(f'/api/export/{exported["id"]}')
+                self.assertEqual(exported['state'],'ready',exported)
+                archive=request(exported['downloadUrl'],binary=True)
                 with zipfile.ZipFile(io.BytesIO(archive)) as z:self.assertIn('session-label.json',z.namelist())
                 request(f'/api/session/{sid}/archive',{},headers)
                 self.assertTrue(request('/api/library')['sessions'][0]['archived'])

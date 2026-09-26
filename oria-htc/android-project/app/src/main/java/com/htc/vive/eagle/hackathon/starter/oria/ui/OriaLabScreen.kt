@@ -25,14 +25,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.htc.vive.eagle.hackathon.starter.oria.OriaController
-import com.htc.vive.eagle.hackathon.starter.oria.core.Box as DetectionBox
 import com.htc.vive.eagle.hackathon.starter.oria.core.Detection
+import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabGallery
+import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabGalleryIndex
+import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabGalleryAnalysis
 import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabPhase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -88,16 +91,37 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
         }
     }
     val selectedSession = recording.savedSessions.firstOrNull { it.id == selectedSessionId }
-    val gallery by produceState(GalleryData(), selectedSession?.id) {
-        value = GalleryData(loading = selectedSession != null)
-        value = selectedSession?.let { session -> withContext(Dispatchers.IO) { loadGallery(session.directory) } } ?: GalleryData()
+    val loadedGallery by produceState(GalleryLoad(), selectedSession?.id) {
+        value = GalleryLoad(selectedSession?.id, OriaLabGalleryIndex(loading = selectedSession != null))
+        value = selectedSession?.let { session ->
+            val index = withContext(Dispatchers.IO) {
+                val context = currentCoroutineContext()
+                OriaLabGallery.load(session.directory) { context.ensureActive() }
+            }
+            GalleryLoad(session.id, index)
+        } ?: GalleryLoad()
     }
+    // produceState retains its previous value until the new coroutine begins. Gate it by identity.
+    val gallery = loadedGallery.takeIf { it.sessionId == selectedSession?.id }?.index
+        ?: OriaLabGalleryIndex(loading = selectedSession != null)
     val safeIndex = frameIndex.coerceIn(0, (gallery.frames.size - 1).coerceAtLeast(0))
     val selectedFrame = gallery.frames.getOrNull(safeIndex)
-    val reviewImage by produceState<Bitmap?>(null, selectedFrame?.image?.absolutePath) {
-        value = null
-        value = selectedFrame?.let { frame -> withContext(Dispatchers.IO) { BitmapFactory.decodeFile(frame.image.absolutePath) } }
+    val entryKey = selectedFrame?.let { GalleryEntryKey(selectedSession!!.id, it.lineNumber) }
+    val loadedReview by produceState(GalleryReview(), entryKey) {
+        value = GalleryReview(entryKey, loading = entryKey != null)
+        if (selectedFrame != null && selectedSession != null) {
+            value = withContext(Dispatchers.IO) {
+                val context = currentCoroutineContext()
+                val analysis = OriaLabGallery.readFrame(selectedSession.directory, selectedFrame) { context.ensureActive() }
+                val preview = selectedFrame.image?.let(::decodeGalleryPreview)
+                    ?: GalleryPreview(error = "PNG indisponible · entrée d’origine conservée")
+                context.ensureActive()
+                GalleryReview(entryKey, analysis, preview)
+            }
+        }
     }
+    val review = loadedReview.takeIf { it.key == entryKey } ?: GalleryReview(entryKey, loading = entryKey != null)
+    val reviewImage = review.preview.bitmap
     var lastAspectRatio by remember(live.running, live.rotation, live.simulator) {
         mutableFloatStateOf(if (live.rotation % 180 == 0) 480f / 856f else 856f / 480f)
     }
@@ -225,20 +249,42 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                     HorizontalDivider()
                     Text("Relecture · capture enregistrée", style = MaterialTheme.typography.titleLarge)
                     Text(selectedSession.displayName ?: selectedSession.id, style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { selectedSessionId = null }) { Text("Fermer la relecture") }
                     if (gallery.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
                     if (gallery.error != null) Text(gallery.error!!, color = Color(0xFF9E2F1A))
-                    if (!gallery.loading && gallery.frames.isEmpty()) Text("Aucune image PNG disponible dans cette capture.")
+                    if (!gallery.loading) {
+                        Text("PNG et détections sont vérifiées à la sélection, sans modifier les fichiers.", style = MaterialTheme.typography.bodySmall)
+                        Text("${gallery.expectedFrames?.toString() ?: "?"} images annoncées · ${gallery.frames.size} entrées indexées\n" +
+                            "${gallery.availableImageFiles} références PNG disponibles · ${gallery.invalidEntries} entrées d’index invalides · ${gallery.invalidEventLines} en-têtes d’événement invalides",
+                            style = MaterialTheme.typography.bodySmall)
+                        if (gallery.issueCount > 0) {
+                            var showIssues by remember(selectedSession.id) { mutableStateOf(false) }
+                            TextButton(onClick = { showIssues = !showIssues }) { Text("${gallery.issueCount} problèmes · ${if (showIssues) "masquer" else "afficher les causes"}") }
+                            if (showIssues) Text(gallery.issues.joinToString("\n") +
+                                if (gallery.issueCount > gallery.issues.size) "\nListe limitée aux ${gallery.issues.size} premières causes ; aucune entrée d’image n’est retirée." else "",
+                                style = MaterialTheme.typography.bodySmall, color = Color(0xFF9E2F1A))
+                        }
+                    }
+                    if (!gallery.loading && gallery.frames.isEmpty()) Text("Aucune entrée dans l’index des images de cette capture.")
                     if (selectedFrame != null) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             OutlinedButton(onClick = { frameIndex = (safeIndex - 1).coerceAtLeast(0) }, enabled = safeIndex > 0) { Text("Précédente") }
                             Text("${safeIndex + 1} / ${gallery.frames.size}")
                             OutlinedButton(onClick = { frameIndex = safeIndex + 1 }, enabled = safeIndex + 1 < gallery.frames.size) { Text("Suivante") }
                         }
-                        Text("Image ${selectedFrame.frameId} · réception ${selectedFrame.receivedAtMs} ms\n" +
-                            if (selectedFrame.analyzed) "${selectedFrame.detections.size} détections retenues · ${selectedFrame.reason}" else "Image enregistrée sans résultat d’inférence associé",
-                            style = MaterialTheme.typography.bodySmall)
-                        ReviewImage(reviewImage, selectedFrame.detections,
-                            reviewImage?.let { it.width.toFloat() / it.height } ?: 480f / 856f, "Chargement de l’image enregistrée…")
+                        Text("Ligne source ${selectedFrame.lineNumber} · vidéo ${selectedFrame.videoSessionId ?: "absente"} · image ${selectedFrame.frameId ?: "absente"}\n" +
+                            "Réception ${selectedFrame.receivedAtMs?.let { "$it ms" } ?: "absente"}\n" +
+                            when {
+                                review.loading -> "Chargement de cette entrée…"
+                                review.analysis.error != null -> review.analysis.error
+                                review.analysis.analyzed -> "${review.analysis.detections.size} détections retenues · ${selectedFrame.decisionReason ?: "Sans décision fraîche"}"
+                                else -> "Aucune analyse associée sans ambiguïté à cette entrée"
+                            }, style = MaterialTheme.typography.bodySmall)
+                        if (selectedFrame.issues.isNotEmpty()) Text(selectedFrame.issues.joinToString("\n"),
+                            color = Color(0xFF9E2F1A), style = MaterialTheme.typography.bodySmall)
+                        ReviewImage(reviewImage, review.analysis.detections,
+                            reviewImage?.let { it.width.toFloat() / it.height } ?: 480f / 856f,
+                            if (review.loading) "Chargement de l’image enregistrée…" else review.preview.error ?: "Image indisponible")
                     }
                 }
             }
@@ -300,49 +346,22 @@ private fun ReviewImage(bitmap: Bitmap?, detections: List<Detection>, aspect: Fl
     }
 }
 
-private data class ReviewFrame(val frameId: Long, val receivedAtMs: Long, val image: File,
-    val detections: List<Detection>, val analyzed: Boolean, val reason: String)
-private data class GalleryData(val frames: List<ReviewFrame> = emptyList(), val loading: Boolean = false, val error: String? = null)
+private data class GalleryLoad(val sessionId: String? = null, val index: OriaLabGalleryIndex = OriaLabGalleryIndex())
+private data class GalleryEntryKey(val sessionId: String, val sourceLine: Int)
+private data class GalleryReview(val key: GalleryEntryKey? = null,
+    val analysis: OriaLabGalleryAnalysis = OriaLabGalleryAnalysis(), val preview: GalleryPreview = GalleryPreview(), val loading: Boolean = false)
+internal data class GalleryPreview(val bitmap: Bitmap? = null, val error: String? = null)
 
-/** Only finalized app-owned sessions are opened; full raw tensors are not kept in UI memory. */
-private fun loadGallery(directory: File): GalleryData = try {
-    val detections = mutableMapOf<Pair<Long, Long>, List<Detection>>()
-    val reasons = mutableMapOf<Pair<Long, Long>, String>()
-    val events = directory.resolve("events.jsonl")
-    if (events.isFile) events.useLines { lines -> lines.forEach { line ->
-        val event = runCatching { JSONObject(line) }.getOrNull() ?: return@forEach
-        val key = event.optLong("videoSessionId", event.optLong("sessionId")) to event.optLong("frameId", event.optLong("frame", -1))
-        when (event.optString("type")) {
-            "inference" -> {
-                val list = event.optJSONArray("detections")
-                detections[key] = (0 until (list?.length() ?: 0)).mapNotNull { i ->
-                    runCatching {
-                        val item = list!!.getJSONObject(i)
-                        val box = item.getJSONObject("box")
-                        Detection(item.getInt("classId"), item.getDouble("confidence").toFloat(),
-                            DetectionBox(box.getDouble("left").toFloat(), box.getDouble("top").toFloat(),
-                                box.getDouble("right").toFloat(), box.getDouble("bottom").toFloat()))
-                    }.getOrNull()
-                }
-            }
-            "decision" -> reasons[key] = event.optString("reason", "")
-        }
-    } }
-    val root = directory.canonicalFile
-    val index = directory.resolve("frames.jsonl")
-    val frames = if (!index.isFile) emptyList() else index.useLines { lines -> lines.mapNotNull { line ->
-        runCatching {
-            val frame = JSONObject(line)
-            val id = frame.getLong("frameId")
-            val key = frame.optLong("videoSessionId", frame.optLong("sessionId")) to id
-            val image = directory.resolve(frame.getString("imagePath")).canonicalFile
-            require(image.path.startsWith(root.path + File.separator) && image.isFile)
-            ReviewFrame(id, frame.optLong("receivedAtMs"), image, detections[key].orEmpty(),
-                detections.containsKey(key), reasons[key] ?: "Sans décision fraîche")
-        }.getOrNull()
-    }.toList() }
-    GalleryData(frames = frames)
-} catch (e: Exception) { GalleryData(error = "Relecture indisponible : ${e.message}") }
+/** Decode only the selected PNG, at most about 1,280² pixels; originals remain untouched. */
+internal fun decodeGalleryPreview(image: File): GalleryPreview = try {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeFile(image.absolutePath, bounds)
+    require(bounds.outWidth > 0 && bounds.outHeight > 0) { "PNG présente mais indécodable" }
+    var sample = 1
+    while (bounds.outWidth / sample > 1280 || bounds.outHeight / sample > 1280) sample *= 2
+    val bitmap = BitmapFactory.decodeFile(image.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
+    if (bitmap == null) GalleryPreview(error = "PNG présente mais indécodable") else GalleryPreview(bitmap)
+} catch (e: Exception) { GalleryPreview(error = "Image non affichée : ${e.message}") }
 
 private fun mib(bytes: Long): String = String.format(Locale.FRANCE, "%.1f", bytes / (1024.0 * 1024.0))
 
