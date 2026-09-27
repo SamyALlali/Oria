@@ -3,7 +3,6 @@ package com.htc.vive.eagle.hackathon.starter
 import android.content.Context
 import android.media.AudioManager
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.WindowInsets
@@ -189,6 +188,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        // R06 has foreground-only location access: backgrounding always invalidates maneuvers.
+        oriaController?.pauseNavigation()
         if (oriaController?.canContinueInBackground() != true) {
             oriaController?.stop("Application en arrière-plan · session arrêtée")
             viveClientManager?.stopMediaForBackground()
@@ -277,7 +278,10 @@ fun SampleApp(
                 val previousEcho = AppDestination.echoItems.any { it.route == previousRoute }
                 val nextEcho = AppDestination.echoItems.any { it.route == nextRoute }
                 if (previousEcho && !nextEcho) {
+                    oriaController.stopNavigation()
                     oriaController.stop("Diagnostic HTC · session arrêtée et capture finalisée")
+                } else if (previousRoute == AppDestination.Oria.route && nextRoute == AppDestination.OriaLab.route) {
+                    oriaController.pauseNavigation()
                 } else if (!previousEcho) {
                     previousRoute?.let(viveClientManager::releasePreviousPage)
                 }
@@ -292,6 +296,7 @@ fun SampleApp(
             navController.removeOnDestinationChangedListener(destinationListener)
             notifyEchoPageChanged(null)
             if (AppDestination.echoItems.any { it.route == previousRoute }) {
+                oriaController.stopNavigation()
                 oriaController.stop("Écran fermé · session arrêtée et capture finalisée")
             }
             viveClientManager.setOriaMode(false)
@@ -332,11 +337,11 @@ fun SampleApp(
         }
     }
 
-    LaunchedEffect(viveClientManager, lifecycle) {
+    LaunchedEffect(viveClientManager, lifecycle, currentRoute) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             viveClientManager.keyEvent.collect { event ->
-                if (event == KeyEvent.AIBUTTON) {
-                    Toast.makeText(context, "KeyEvent received: $event", Toast.LENGTH_SHORT).show()
+                if (event == KeyEvent.AIBUTTON && currentRoute == AppDestination.Oria.route) {
+                    oriaController.onEagleAiButton()
                 }
             }
         }

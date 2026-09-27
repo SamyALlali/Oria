@@ -15,7 +15,9 @@ data class OriaVideoFrame(
     val mirrorApplied: Boolean,
     val deliveredAtMs: Long = 0L,
     val conversionMs: Double = 0.0,
-)
+) {
+    val generation: Long get() = sessionId
+}
 
 data class OriaVideoStatus(
     val sessionId: Long = 0,

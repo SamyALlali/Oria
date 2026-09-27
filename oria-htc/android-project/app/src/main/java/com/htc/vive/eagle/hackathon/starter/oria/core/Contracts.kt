@@ -17,4 +17,6 @@ data class DetectionFrame(
     val frameId: Long,
     val observedAtMs: Long,
     val detections: List<Detection>,
-)
+) {
+    val generation: Long get() = sessionId
+}

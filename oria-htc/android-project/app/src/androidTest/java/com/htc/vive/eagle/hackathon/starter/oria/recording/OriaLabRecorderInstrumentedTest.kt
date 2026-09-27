@@ -67,7 +67,8 @@ class OriaLabRecorderInstrumentedTest {
             }
             fun text(path: String) = zip.getInputStream(zip.getEntry(path)).bufferedReader().use { it.readText() }
             val manifest = JSONObject(text("manifest.json"))
-            assertEquals(1, manifest.getInt("schemaVersion"))
+            assertEquals(OriaLabRecorder.SCHEMA_VERSION, manifest.getInt("schemaVersion"))
+            assertEquals("omitted", manifest.getJSONObject("privacy").getString("destinationData"))
             assertEquals("complete", manifest.getString("status"))
             assertTrue(manifest.getBoolean("usableForReplay"))
             assertEquals(101L, manifest.getJSONObject("metadata").getLong("videoSessionId"))
@@ -87,7 +88,9 @@ class OriaLabRecorderInstrumentedTest {
             decoded!!.getPixels(pixels, 0, 2, 0, 0, 2, 2)
             decoded.recycle()
             assertArrayEquals("Lossless PNG owns the exact pre-recycle pixels", colors, pixels)
-            assertEquals(listOf("frame_delivery", "stop"), text("events.jsonl").lineSequence().filter { it.isNotBlank() }.map { JSONObject(it).getString("type") }.toList())
+            val events = text("events.jsonl").lineSequence().filter { it.isNotBlank() }.map(::JSONObject).toList()
+            assertEquals(listOf("frame_delivery", "stop"), events.map { it.getString("type") })
+            assertTrue(events.all { it.getInt("schemaVersion") == OriaLabRecorder.SCHEMA_VERSION })
         }
     }
 

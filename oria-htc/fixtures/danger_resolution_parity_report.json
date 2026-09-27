@@ -1,0 +1,20 @@
+{
+  "scope": "Unmodified pure Swift DangerResolutionPolicy; no ARKit, LiDAR, model or live pipeline",
+  "source_path": "External Swift source supplied through ORIA_SWIFT_SOURCE",
+  "source_sha256": "cc159da274956078119006e3738a7394d20fb22ec4ebb026b48ef8b310a86612",
+  "fixtures_sha256": "18d5f60f59a6585ced9e0d3a726745f3fa8bf5dc9da61226d833ecd7d080026d",
+  "extracted_bodies_sha256": {
+    "zones": "04d28cc995fc7e6597f349f95362d91dacbf6becc4ed731d69db79a5b94b6e62",
+    "obstruction": "72e36ab392ec6754c6d6bb86964aeff0e8e500d2cb75422def48344cc2504ca5",
+    "level": "cd5f89caeb36cbd9ad780b7f18251905d430379ababf0c2e70ef1a300a364d3d",
+    "source": "45f0b1508f858d34acb4b9a0c852ab37ac93eeac1474c34575b9f8ac57a1cb82",
+    "candidate": "b0273a69229a740f910868a35a4cabee1767c713a181c3e6dd6deed2a380a843",
+    "context": "86b2336e8760023e785065a31d1729b9aec13df9e6c80f184a82a94076bc616c",
+    "policy": "436f6157de10bcbef3e5b62b68a31b03313fb282ac9db7c444ba4da501758bc2"
+  },
+  "fixture_count": 10,
+  "swift_matches_expected": true,
+  "kotlin_results_present": true,
+  "kotlin_matches_swift": true,
+  "swift_version": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0"
+}

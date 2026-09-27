@@ -1,7 +1,7 @@
 {
   "scope": "Extracted pure Swift bodies only; no ARKit, model inference or iOS live pipeline",
   "source_path": "External Swift source supplied through ORIA_SWIFT_SOURCE",
-  "source_sha256": "f10525f34c34ab46fbf189426337e24fdb4990256ecd90d72d54a8f997c45f54",
+  "source_sha256": "cc159da274956078119006e3738a7394d20fb22ec4ebb026b48ef8b310a86612",
   "fixtures_sha256": "befe6bfb622b8d2605348153a9d3dac4a978f51c86edbfeda98434d7aac37bdf",
   "extracted_bodies_sha256": {
     "categories": "ac11c39db8b71e22f67fe3231b4d6eb854f97d9f31da1db177d3e75751771c9c",
@@ -15,5 +15,5 @@
   "swift_matches_expected": true,
   "kotlin_results_present": true,
   "kotlin_matches_swift": true,
-  "swift_version": "Apple Swift version 6.2.1 (swiftlang-6.2.1.4.8 clang-1700.4.4.1)\nTarget: arm64-apple-macosx26.0"
+  "swift_version": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)\nTarget: arm64-apple-macosx27.0.0"
 }

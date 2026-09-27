@@ -1,0 +1,10 @@
+{"id":"wall_close","result":true}
+{"id":"wall_dense","result":true}
+{"id":"wall_wide","result":true}
+{"id":"not_wall","result":false}
+{"id":"ambiguous_generic","result":true}
+{"id":"ambiguous_wide","result":true}
+{"id":"semantic_zone_conflict_wall","result":false}
+{"id":"visual_repeated_ambiguous","result":true}
+{"id":"limited_over_ground","result":true}
+{"id":"limited_not_over_high","result":false}

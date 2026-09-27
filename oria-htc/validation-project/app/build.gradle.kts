@@ -21,7 +21,10 @@ android {
             assets.srcDir("../../android-project/app/src/main/assets")
         }
         getByName("androidTest") {
-            java.srcDir("../../android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria")
+            java.setSrcDirs(listOf(
+                "../../android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/ml",
+                "../../android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/video",
+            ))
             assets.srcDir("../../android-project/app/src/androidTest/assets")
         }
     }

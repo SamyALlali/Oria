@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "release_id": "oria-1.5-jury-r11",
+  "created_at": "2026-09-27",
+  "git_tag": "oria-1.5-jury-r11",
+  "source_parent_commit": "e3310bc",
+  "package": "com.htc.vive.eagle.hackathon.starter",
+  "version_name": "1.5-jury-r11",
+  "version_code": 6,
+  "candidate_apk": {
+    "location": "local ignored bundle: artifacts/releases/oria-1.5-jury-r11/oria-1.5-jury-r11.apk",
+    "published_in_git": false,
+    "published_on_github": false,
+    "size_bytes": 211380791,
+    "sha256": "bc85469264337b8985751974eb100c1b52ab7093a9c44f1aaf565981e529a323",
+    "certificate_sha256": "15876fd1dec1cbb7a4da7e4d1d5a721a560766ed390be73bef32b3cb288ac411",
+    "certificate_dn": "C=US, O=Android, CN=Android Debug",
+    "signature_scheme": "v2",
+    "install_status": "pending_controlled_replacement_of_previous_starter_installation"
+  },
+  "authorized_rollback_apk": {
+    "location": "local ignored bundle: artifacts/releases/oria-1.5-jury-r11/rollback-authorized-v1.0.apk",
+    "version_name": "1.0",
+    "version_code": 1,
+    "size_bytes": 191528658,
+    "sha256": "f49def1953699349d1c189402c2a7b0229e6bd17db1ca7c0f29c54c9873eeb43",
+    "certificate_sha256": "60372c0d29a3e6a0ea7af9af3bf16cbaff79fd95f75912c1692a9e12a9dfbeb7"
+  },
+  "model_sha256": "abab2174c8000e219d4d40550beb4506fd1156054b6282e8e8ee34154acd4742",
+  "backup_video": {
+    "path": "validation-project/app/src/main/res/raw/video_sample.mp4",
+    "sha256": "e56dcb5ff0b2d94aa6aa82d7f2a7f3bb8d6c05811892c5b63ecd19803087cda6",
+    "scope": "HTC SDK sample for decoder/replay fallback; not a live Eagle capture"
+  },
+  "device_validation": {
+    "serial": "CN4B53M00860",
+    "model": "HTC U24 pro",
+    "android": "14",
+    "build": "1.18.2401.4",
+    "security_patch": "2025-01-05"
+  }
+}

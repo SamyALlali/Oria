@@ -95,6 +95,11 @@ class BluetoothSpeechBackend(context: Context,
         refreshState()
     }
 
+    /** Danger tones share the verified route and pause while speech PCM is written. */
+    fun setDangerPattern(pattern: DangerSoundPattern) {
+        player.setDangerPattern(pattern)
+    }
+
     private fun scheduleWarmup() {
         synchronized(lock) {
             if (closed || !sessionActive.get() || !voiceReady || !required.all { it in cache } ||

@@ -1,4 +1,4 @@
-"""OriaLab v1 local session reader and exact PNG/ONNX replay. No model conversion."""
+"""OriaLab v1/v2 local session reader and exact PNG/ONNX replay. No model conversion."""
 from __future__ import annotations
 import hashlib
 import copy
@@ -40,6 +40,7 @@ MAX_JSONL_BYTES = 8 * 1024 ** 3
 MAX_JSONL_LINE = 2 * 1024 ** 2
 MAX_JSONL_ROWS = 2_000_000
 MAX_IMAGE_PIXELS = 4096 * 4096
+SUPPORTED_SESSION_SCHEMAS = (1, 2)
 DEFAULT_STORAGE = Path.home() / 'Library/Application Support/Oria Lab/sessions'
 POLICY_FIELDS = {'maxObservationAgeMs', 'trackAssociationIou', 'trackLostAfterMs', 'confirmationSamples',
                  'confidenceExitMargin', 'minimumTrackingConfidence', 'selectionHoldMs', 'replacementScoreMargin',
@@ -427,12 +428,12 @@ class Session:
         self.display_name = read_label(self.path)
         manifest_path = self.path / 'manifest.json'
         if not manifest_path.is_file() or manifest_path.stat().st_size > MAX_METADATA:
-            raise ValueError('manifest.json v1 manquant ou invalide')
+            raise ValueError('manifest.json v1/v2 manquant ou invalide')
         self.manifest = strict_json(manifest_path.read_bytes())
         if not isinstance(self.manifest, dict):
             raise ValueError('manifest.json doit contenir un objet')
-        if self.manifest.get('schemaVersion', self.manifest.get('schema_version')) != 1:
-            raise ValueError('Seules les captures au format v1 sont prises en charge')
+        if self.manifest.get('schemaVersion', self.manifest.get('schema_version')) not in SUPPORTED_SESSION_SCHEMAS:
+            raise ValueError('Seules les captures aux formats v1 et v2 sont prises en charge')
         if self.manifest.get('kind', 'oria-lab-session') != 'oria-lab-session':
             raise ValueError('Type de session non reconnu')
         self.warnings = []

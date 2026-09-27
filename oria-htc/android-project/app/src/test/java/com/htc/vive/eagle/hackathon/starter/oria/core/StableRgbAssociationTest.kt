@@ -54,6 +54,8 @@ class StableRgbAssociationTest {
         assertEquals(2, ambiguous.tracks.size)
         assertTrue(ambiguous.tracks.none { it.id == old || it.confirmed })
         assertTrue(ambiguous.tracks.all { it.associationStatus == RgbAssociationStatus.AMBIGUOUS_NEW && it.confirmationSamples == 1 })
+        assertEquals(listOf(old), ambiguous.retiredTracks.map { it.trackId })
+        assertTrue(ambiguous.retiredTracks.all { it.reason == RgbTrackRetirementReason.AMBIGUOUS })
         assertNull(ambiguous.eligibleAlert)
         val resolved = step(e, 3, 500, person(.15f, .25f), person(.45f, .25f))
         assertTrue(resolved.tracks.all { it.confirmed })
@@ -78,9 +80,13 @@ class StableRgbAssociationTest {
         step(e, 1, 0, person(.4f))
         val alert = requireNotNull(step(e, 2, 250, person(.42f)).eligibleAlert)
         assertTrue(e.onConfirmed(requireNotNull(e.onSubmitted(alert, 250)), 251))
-        assertNull(step(e, 3, 500).selected)
+        val occluded = step(e, 3, 500)
+        assertNull(occluded.selected)
+        assertEquals(RgbTrackObservationState.OCCLUDED, occluded.tracks.single().observationState)
+        assertTrue(occluded.retiredTracks.isEmpty())
         val back = step(e, 4, 750, person(.43f))
         assertEquals(alert.trackId, back.tracks.single().id)
+        assertEquals(RgbTrackObservationState.VISIBLE, back.tracks.single().observationState)
         assertEquals(1, back.tracks.single().confirmationSamples)
         assertNull(back.eligibleAlert)
         step(e, 5, 1000, person(.43f))
@@ -97,7 +103,10 @@ class StableRgbAssociationTest {
         assertNotEquals(first, jumped.id)
         assertEquals(RgbAssociationStatus.NEW, jumped.associationStatus)
         assertFalse(jumped.confirmed)
-        val later = step(e, 4, 1501, person(.7f)).tracks.single()
+        val expired = step(e, 4, 1501, person(.7f))
+        assertEquals(setOf(first, jumped.id), expired.retiredTracks.map { it.trackId }.toSet())
+        assertTrue(expired.retiredTracks.all { it.reason == RgbTrackRetirementReason.EXPIRED })
+        val later = expired.tracks.single()
         assertNotEquals(jumped.id, later.id)
         assertFalse(later.confirmed)
     }
@@ -149,5 +158,17 @@ class StableRgbAssociationTest {
             assertEquals(16, frame.tracks.count { it.visibleInLatestFrame })
             assertEquals(24, frame.rejectedDetectionCount)
         }
+    }
+
+    @Test fun capacityRetirementIsExplicitAndDoesNotTransferConfirmation() {
+        val e = RgbAlertEngine(RgbAlertConfig(trackingMode = RgbTrackingMode.STABLE_RGB_V2,
+            maximumTracks = 1))
+        e.start(1, 0)
+        val first = step(e, 1, 0, person(.1f)).tracks.single().id
+        val replacement = step(e, 2, 250, person(.7f))
+        assertEquals(listOf(first), replacement.retiredTracks.map { it.trackId })
+        assertEquals(RgbTrackRetirementReason.CAPACITY, replacement.retiredTracks.single().reason)
+        assertFalse(replacement.tracks.single().confirmed)
+        assertEquals(RgbAssociationStatus.NEW, replacement.tracks.single().associationStatus)
     }
 }

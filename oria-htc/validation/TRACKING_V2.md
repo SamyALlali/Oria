@@ -94,3 +94,9 @@ python3 -m unittest discover -s oria-lab-policy -v
 ```
 
 Le service Pocket a fait l'objet d'une lecture croisée : renouvellement du wakelock associé à un propriétaire et un token précis, contrôle de session/connexion/enregistrement, arrêt si le verrou a expiré, retrait du callback lors de la libération. Les arrêts par notification, perte de connexion et destruction d'Activity restent requis. La suppression de la borne de 15 minutes ne vaut pas validation du comportement écran verrouillé ou des restrictions HTC ; ces essais appartiennent à la recette matérielle.
+
+## Qualification R02 — 27 septembre 2026
+
+La qualification complémentaire est détaillée dans `R02_TRACKING_QUALIFICATION.md`. Deux scènes géométriques **synthétiques et annotées** couvrent désormais croisement, occultation, sortie/retour et rotation apparente. V2 y évite deux transferts de confirmation et réduit la fragmentation de rotation de 1 à 0, mais produit une annonce supplémentaire sur le croisement. Les snapshots distinguent maintenant `VISIBLE` et `OCCLUDED`, et exposent les retraits `AMBIGUOUS`, `EXPIRED` et `CAPACITY` sans leur attribuer une identité physique.
+
+La capture privée 0548b68a n'était plus disponible pour un nouveau replay et aucune nouvelle capture Eagle n'était exportable depuis le HTC connecté. Le défaut reste donc `LEGACY_IOU` ; les fixtures synthétiques ne franchissent pas la porte terrain.

@@ -18,9 +18,9 @@ from server import create_server
 FIXTURES = ROOT / 'android-project/app/src/androidTest/assets/ml'
 
 
-def capture(path, count=3):
+def capture(path, count=3, schema_version=1):
     path.mkdir(); (path / 'frames').mkdir()
-    manifest = {'schemaVersion': 1, 'kind': 'oria-lab-session', 'sessionId': 'capture-test', 'status': 'complete',
+    manifest = {'schemaVersion': schema_version, 'kind': 'oria-lab-session', 'sessionId': 'capture-test', 'status': 'complete',
                 'monotonicOriginMs': 1000, 'endedAtMonotonicMs': max(5000, 1000 + count * 333 + 1000),
                 'metadata': {'onnxSha256': MODEL_SHA, 'policyConfig': {'confirmationSamples': 3, 'repeatIntervalMs': 4000, 'zoneLeftBoundary': .39}}}
     (path / 'manifest.json').write_text(json.dumps(manifest))
@@ -39,6 +39,19 @@ def capture(path, count=3):
 
 
 class ImportTests(unittest.TestCase):
+    def test_v1_and_v2_are_read_without_modifying_source_bytes(self):
+        import hashlib
+        for version in (1, 2):
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); source = capture(root / 'capture', schema_version=version)
+                before = {p.relative_to(source): hashlib.sha256(p.read_bytes()).hexdigest()
+                          for p in source.rglob('*') if p.is_file()}
+                session = SessionStore(root / 'store').import_folder(source)
+                self.assertEqual(session.manifest['schemaVersion'], version)
+                after = {p.relative_to(source): hashlib.sha256(p.read_bytes()).hexdigest()
+                         for p in source.rglob('*') if p.is_file()}
+                self.assertEqual(before, after)
+
     def test_folder_zip_and_navigation_join(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); source = capture(root / 'capture')

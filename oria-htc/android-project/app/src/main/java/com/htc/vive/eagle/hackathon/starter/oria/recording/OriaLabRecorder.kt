@@ -67,7 +67,8 @@ class OriaLabRecorder(
     private val availableSpaceBytes: (File) -> Long = { it.usableSpace },
 ) : Closeable {
     companion object {
-        const val SCHEMA_VERSION = 1
+        const val SCHEMA_VERSION = 2
+        const val OLDEST_READABLE_SCHEMA_VERSION = 1
         const val RESERVED_FREE_BYTES = 512L * 1024 * 1024
         const val MAX_QUEUED_BYTES = 20L * 1024 * 1024
         private const val MAX_TASKS = 160
@@ -222,7 +223,8 @@ class OriaLabRecorder(
         var reserved = false
         var bytesCount = 0L
         try {
-            copied = JSONObject(event.toString()).put("recordedAtMs", now()).put("recordingSessionId", run.id)
+            copied = OriaLabPrivacy.sanitize(event).put("schemaVersion", SCHEMA_VERSION)
+                .put("recordedAtMs", now()).put("recordingSessionId", run.id)
             val bytes = (copied.toString() + "\n").toByteArray(Charsets.UTF_8)
             if (bytes.size > MAX_JSON_BYTES) { failRun(run, "event_too_large"); return }
             bytesCount = bytes.size.toLong()
@@ -471,6 +473,10 @@ class OriaLabRecorder(
             .put("durationMs", if (run.endedAtMs == 0L) 0L else run.endedAtMs - run.originMs)
             .put("stopReason", run.stopReason).put("incompleteReason", run.incompleteReason ?: JSONObject.NULL)
             .put("metadata", run.metadata).put("unavailable", JSONArray(listOf("microphone", "depth", "pose", "glasses_capture_timestamp")))
+            .put("systemFields", JSONArray(listOf("generation", "relativeDepth", "tracks", "candidates",
+                "stabilization", "audioArbitration", "navigation")))
+            .put("privacy", JSONObject().put("capture", "explicit_opt_in")
+                .put("persistentMediaByDefault", false).put("destinationData", "omitted"))
             .put("limits", JSONObject().put("durationMs", JSONObject.NULL).put("durationPolicy", "unlimited")
                 .put("sessionBytes", JSONObject.NULL).put("totalBytes", JSONObject.NULL)
                 .put("reservedFreeBytes", RESERVED_FREE_BYTES).put("queuedBytes", MAX_QUEUED_BYTES))
@@ -496,6 +502,8 @@ class OriaLabRecorder(
                 val file = File(directory, "manifest.json")
                 check(file.isFile) { "manifest_missing" }
                 val json = JSONObject(file.readText())
+                check(json.optInt("schemaVersion", OLDEST_READABLE_SCHEMA_VERSION) in
+                    OLDEST_READABLE_SCHEMA_VERSION..SCHEMA_VERSION) { "unsupported_schema" }
                 check(json.getString("sessionId") == directory.name) { "session_id_mismatch" }
                 if (recover && json.optString("status") == "recording") {
                     json.put("status", "incomplete").put("incompleteReason", "process_interrupted_before_finalization")

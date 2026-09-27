@@ -66,6 +66,21 @@ class RgbAlertEngineTest {
         assertEquals(setOf(0, 1), r.tracks.map { it.detection.classId }.toSet())
     }
 
+    @Test fun acceptedDecisionTracksAndCandidatesCarrySessionGenerationAndObservationTime() {
+        val e = engine(RgbAlertConfig(confirmationSamples = 1))
+        val result = e.evaluate(frame(4, 250, person()), 250)
+        val track = result.tracks.single()
+        val candidate = requireNotNull(result.selected)
+        assertEquals(1L, result.sessionId)
+        assertEquals(result.generation, track.generation)
+        assertEquals(result.generation, candidate.generation)
+        assertEquals(1L, track.sessionId)
+        assertEquals(1L, candidate.sessionId)
+        assertEquals(4L, candidate.frameId)
+        assertEquals(250L, track.observedAtMs)
+        assertEquals(250L, candidate.observedAtMs)
+    }
+
     @Test fun twoPeopleUseOneToOneAssociationAndKeepIdsWhenInputOrderChanges() {
         val e = engine()
         val first = e.evaluate(frame(1, 0, person(.1f), person(.72f)), 0)

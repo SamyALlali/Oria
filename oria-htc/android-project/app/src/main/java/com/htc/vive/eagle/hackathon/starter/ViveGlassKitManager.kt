@@ -101,6 +101,15 @@ interface ViveGlassKitInterface{
     fun cleanup()
 }
 
+enum class OriaTranscriptionStatus { SUCCESS, ERROR, RESOURCE_CONFLICT, CANCELLED }
+
+data class OriaTranscriptionEvent(
+    val requestId: String,
+    val status: OriaTranscriptionStatus,
+    val text: String? = null,
+    val atMs: Long,
+)
+
 const val TAG:String = "ViveGlassKit"
 class ViveGlassKitManager(
     private val glass : ViveGlass,
@@ -175,6 +184,7 @@ class ViveGlassKitManager(
     private val legacyAudioVersion = AtomicLong()
     private val legacyVideoVersion = AtomicLong()
     private val legacyTranscriptionVersion = AtomicLong()
+    private val oriaTranscriptionVersion = AtomicLong()
     // SDK buffers are consumed synchronously while valid. Serialize their handoff with
     // local stop/start, so a buffer checked before stop cannot enter the next decoder run.
     private val legacyMediaLock = Any()
@@ -192,6 +202,10 @@ class ViveGlassKitManager(
     val synthesisTransportEpoch: Long get() = _synthesisTransportChanges.value
     private val _synthesisEvents = MutableSharedFlow<OriaSynthesisEvent>(extraBufferCapacity = 16, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     val synthesisEvents: SharedFlow<OriaSynthesisEvent> = _synthesisEvents
+    private val _oriaTranscriptionEvents = MutableSharedFlow<OriaTranscriptionEvent>(
+        extraBufferCapacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    val oriaTranscriptionEvents: SharedFlow<OriaTranscriptionEvent> = _oriaTranscriptionEvents
+    @Volatile private var activeOriaTranscriptionId: String? = null
     private var manualSpeechHandler: ((String) -> Unit)? = null
 
     /** Share one in-flight voice owner across the HTC Chat and Oria tabs. Called on Main. */
@@ -221,6 +235,7 @@ class ViveGlassKitManager(
      */
     fun stopMediaForBackground() {
         legacyRequestVersion.incrementAndGet()
+        cancelOriaTranscription("background")
         stopOriaVideo()
         stopLegacyTranscription()
         stopSampleAudio()
@@ -476,6 +491,20 @@ class ViveGlassKitManager(
             text: String?
         ) {
             log.d(TAG, "onSpeechTranscribed() event: [$event], text: [$text]")
+            val oriaRequest = activeOriaTranscriptionId
+            if (oriaRequest != null) {
+                activeOriaTranscriptionId = null
+                _isStartTranscribe.value = false
+                val status = when (event) {
+                    TranscribedEvent.SUCCESS -> OriaTranscriptionStatus.SUCCESS
+                    TranscribedEvent.ERROR_RESOURCE_CONFLICT -> OriaTranscriptionStatus.RESOURCE_CONFLICT
+                    TranscribedEvent.ERROR, null -> OriaTranscriptionStatus.ERROR
+                }
+                _oriaTranscriptionEvents.tryEmit(OriaTranscriptionEvent(
+                    oriaRequest, status, text?.takeIf { status == OriaTranscriptionStatus.SUCCESS },
+                    SystemClock.elapsedRealtime()))
+                return
+            }
             when(event)
             {
                 TranscribedEvent.SUCCESS -> {
@@ -800,6 +829,7 @@ class ViveGlassKitManager(
     }
 
     private fun onDisconnected(){
+        cancelOriaTranscription("disconnected")
         invalidateSynthesisTransport()
         stopOriaVideo()
         _connection.value = false
@@ -846,6 +876,42 @@ class ViveGlassKitManager(
         if (!legacyStartAllowed(token) || request != legacyTranscriptionVersion.get()) return
         glass.startTranscription(false)
         _isStartTranscribe.value = true
+    }
+
+    /** Dedicated Oria transaction. The controller must first release video/audio ownership. */
+    suspend fun startOriaTranscription(requestId: String): Boolean {
+        require(requestId.isNotBlank())
+        val request = oriaTranscriptionVersion.incrementAndGet()
+        if (!oriaMode || echoSessionId != null || !glass.isConnected || activeOriaTranscriptionId != null) return false
+        val permissionResult = ensurePermission(Permission.MICROPHONE)
+        if (!permissionResult.granted) return false
+        if (permissionResult.requested) delay(1_000)
+        if (request != oriaTranscriptionVersion.get() || !oriaMode || echoSessionId != null ||
+            !glass.isConnected || activeOriaTranscriptionId != null) return false
+        return withContext(Dispatchers.Main) {
+            activeOriaTranscriptionId = requestId
+            _isStartTranscribe.value = true
+            try {
+                glass.startTranscription(false)
+                true
+            } catch (error: Exception) {
+                activeOriaTranscriptionId = null
+                _isStartTranscribe.value = false
+                log.e(TAG, "Oria transcription start failed", error)
+                false
+            }
+        }
+    }
+
+    fun cancelOriaTranscription(reason: String = "cancelled") {
+        oriaTranscriptionVersion.incrementAndGet()
+        val requestId = activeOriaTranscriptionId ?: return
+        activeOriaTranscriptionId = null
+        _isStartTranscribe.value = false
+        runCatching { glass.stopTranscription() }
+            .onFailure { log.e(TAG, "Oria transcription stop failed: $reason", it) }
+        _oriaTranscriptionEvents.tryEmit(OriaTranscriptionEvent(requestId,
+            OriaTranscriptionStatus.CANCELLED, null, SystemClock.elapsedRealtime()))
     }
 
     override fun stopTranscription() {
@@ -1027,6 +1093,7 @@ class ViveGlassKitManager(
     }
 
     override fun cleanup() {
+        cancelOriaTranscription("cleanup")
         manualSpeechHandler = null
         stopMediaForBackground()
         oriaLabRecorder.close()

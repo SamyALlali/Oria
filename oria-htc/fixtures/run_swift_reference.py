@@ -90,7 +90,7 @@ kotlin_path = ROOT / 'results_kotlin.jsonl'
 kotlin = {row['id']: row['result'] for row in map(json.loads, kotlin_path.read_text().splitlines())} if kotlin_path.exists() else None
 report = {
     'scope': 'Extracted pure Swift bodies only; no ARKit, model inference or iOS live pipeline',
-    'source_path': str(SOURCE),
+    'source_path': 'External Swift source supplied through ORIA_SWIFT_SOURCE',
     'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
     'fixtures_sha256': hashlib.sha256((ROOT / 'policy_cases.jsonl').read_bytes()).hexdigest(),
     'extracted_bodies_sha256': {k: hashlib.sha256(v.encode()).hexdigest() for k, v in snippets.items()},

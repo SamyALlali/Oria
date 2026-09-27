@@ -12,26 +12,15 @@
   "inference_ms_p95": 161.161041,
   "pipeline_errors": 0,
   "speech_submitted": [
-    {
-      "pan": "LEFT",
-      "backend": "BLUETOOTH"
-    },
-    {
-      "pan": "CENTER",
-      "backend": "BLUETOOTH"
-    },
-    {
-      "pan": "RIGHT",
-      "backend": "BLUETOOTH"
-    }
+    {"pan": "LEFT", "backend": "BLUETOOTH"},
+    {"pan": "CENTER", "backend": "BLUETOOTH"},
+    {"pan": "RIGHT", "backend": "BLUETOOTH"}
   ],
   "speech_completed": 3,
   "speech_failed": 0,
   "automatic_announcements_enabled": false,
   "pocket_mode": false,
-  "stop": {
-    "reason": "Session arrêtée"
-  },
+  "stop": {"reason": "Session arrêtée"},
   "human_audio_confirmation": "USER_CONFIRMED_LEFT_CENTER_RIGHT_70_30",
   "human_orientation_confirmation": "USER_CONFIRMED_UPRIGHT_AND_NO_MIRROR",
   "orientation_confirmation_applied_after_session": true,

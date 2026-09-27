@@ -1,0 +1,10 @@
+{"id":"wall_close","type":"wallLike","depth":0.87,"occupancy":0.10,"wide":false,"expected":true}
+{"id":"wall_dense","type":"wallLike","depth":1.60,"occupancy":0.59,"wide":false,"expected":true}
+{"id":"wall_wide","type":"wallLike","depth":1.21,"occupancy":0.20,"wide":true,"expected":true}
+{"id":"not_wall","type":"wallLike","depth":1.50,"occupancy":0.20,"wide":false,"expected":false}
+{"id":"ambiguous_generic","type":"ambiguous","source":"generic_fallback","depth":1.50,"occupancy":0.27,"wide":false,"expected":true}
+{"id":"ambiguous_wide","type":"ambiguous","source":"wide_fallback","depth":1.36,"occupancy":0.21,"wide":true,"expected":true}
+{"id":"semantic_zone_conflict_wall","type":"preferSemantic","semanticSource":"semantic_current","semanticScore":2.0,"semanticDistance":1.1,"semanticZone":"left","fallbackSource":"wide_fallback","fallbackScore":1.8,"fallbackZone":"center","depth":0.8,"occupancy":0.65,"wide":true,"repeated":true,"expected":false}
+{"id":"visual_repeated_ambiguous","type":"preferSemantic","semanticSource":"semantic_visual_proxy","semanticScore":1.5,"semanticDistance":2.0,"semanticZone":"left","fallbackSource":"generic_fallback","fallbackScore":1.52,"fallbackZone":"center","depth":1.5,"occupancy":0.20,"wide":false,"repeated":true,"expected":true}
+{"id":"limited_over_ground","type":"preferLimited","limitedScore":1.4,"fallbackSource":"wide_fallback","fallbackScore":1.1,"depth":1.4,"occupancy":0.2,"wide":true,"baseLevel":"medium","expected":true}
+{"id":"limited_not_over_high","type":"preferLimited","limitedScore":1.0,"fallbackSource":"generic_fallback","fallbackScore":1.4,"depth":0.8,"occupancy":0.65,"wide":true,"baseLevel":"high","expected":false}

@@ -1,12 +1,14 @@
 # Oria × HTC VIVE Eagle — prototype SILMO
 
+## Candidat jury R11
+
+Le candidat gelé est **Oria 1.5-jury-r11 / code 6**, package HTC inchangé. Son APK release local porte le SHA-256 `bc85469264337b8985751974eb100c1b52ab7093a9c44f1aaf565981e529a323`. Il passe 174 tests JVM, 68/68 tests Mac, les 28 fixtures Swift/Kotlin et trois recettes instrumentées stables sur HTC. Voir le [rapport de gel R11](validation/R11_JURY_FREEZE_REPORT.md), le [manifeste](artifacts/r11-release-manifest.json) et la [checklist jury](validation/R11_OPERATOR_CHECKLIST.md).
+
+Ce candidat n’est pas encore installé : sa clé debug locale diffère de celle de l’ancien starter présent, donc Android refuse une mise à jour `-r`. Le flux prévu par l’organisateur consiste bien à modifier ce starter autorisé en conservant son package, puis à remplacer son ancienne installation par notre version après sauvegarde. Il ne faut ni créer un second package ni rechercher une clé HTC. L’APK n’est ni suivi dans Git ni publié sur GitHub ; il se trouve uniquement dans le bundle local ignoré `artifacts/releases/oria-1.5-jury-r11/`. Les trois scénarios de cinq minutes réussis sont virtuels ; les trois démonstrations physiques restent en cours de validation.
+
 L’application **Oria** s’ouvre sur l’assistance en direct et propose deux onglets : **Oria** et **Oria Lab**. Oria Lab enregistre explicitement une scène des lunettes et sa télémétrie pour les examiner sur le téléphone ou les rejouer sur Mac. Les commandes restent fixes sous le contenu défilant, même avec un aperçu portrait. **Diagnostic HTC** conserve Glasses, Chat, Audio et Camera ; son retour ramène à l’onglet principal précédent.
 
 Le package et le namespace restent `com.htc.vive.eagle.hackathon.starter`. Le SDK, les dépendances locales et la clé debug sont conservés. Les paramètres numériques du modèle, les règles RGB, les seuils et les fixtures partagées Swift sont inchangés ; seules les métadonnées descriptives du modèle ont été renommées.
-
-## Candidat 1.5 — interface et accessibilité
-
-**1.5-accessibility / code 6 est compilé, pas encore installé.** Accueil simplifié, thèmes clair/sombre, grandes commandes, aperçu et réglages repliables, contrôles nommés pour les services d’accessibilité ; Oria Lab reprend le même style. Les 83 tests JVM passent et la revue indépendante ne relève pas de blocage. Le HTC a été débranché avant la mise à jour : rendu à 200 % et TalkBack restent à tester. [Livraison et recette restante](validation/ACCESSIBILITY_DELIVERY_20260927.md).
 
 ## Version de nuit installée — 27 septembre
 
@@ -48,6 +50,10 @@ Les essais précédents restent distincts :
 Résultats du nouveau téléphone : [modèle XNNPACK](validation/new-device-CN46V3M00284/files/ml_validation/onnx_xnnpack.json), [décodage vidéo](validation/new-device-CN46V3M00284/files/video-decoder-report.json), [replay combiné](validation/new-device-CN46V3M00284/files/combined-pipeline-report.json). Ces tests ne prouvent pas une phrase audible pendant la caméra réelle.
 
 **Stéréo actuelle :** demande utilisateur du 26 septembre : amplitude gauche/droite 70/30 pour avant-gauche, 30/70 pour avant-droite ; devant reste identique dans les deux canaux au volume précédent. L’utilisateur a confirmé les trois positions pendant la vidéo sur 1.4-night le 27 septembre ; voir la [recette réelle](validation/LIVE_20260927_V14.md). La confirmation historique 100/0 reste distincte. Modèle, cœur déterministe et règles de fraîcheur restent inchangés.
+
+**Profondeur expérimentale :** MiDaS v2.1 Small peut être activé dans les réglages pour produire une proximité relative et une confiance. Il reste désactivé par défaut, n'annonce jamais de mètres et ne modifie pas encore la politique RGB. Voir [R03](validation/R03_MONOCULAR_DEPTH.md).
+
+**Résolution R04 :** le moteur complet porte les sept provenances Swift, leur propriétaire, l'arbitrage et la stabilisation. Sur Eagle, RGB et MiDaS restent explicitement visuels/relatifs ; les branches métriques LiDAR ne s'activent pas sans preuve métrique. Le moteur tourne en comparaison silencieuse et son snapshot est enregistré dans Oria Lab ; la voix RGB historique reste la référence jusqu'à R05. L'approche relative est séparée et désactivée par défaut, sans TTC inventé. Voir [R04](validation/R04_DANGER_RESOLUTION.md).
 
 [Audit de la dernière scène utilisateur de 60 s](validation/user-scene-0548b68a/AUDIT.md) : 164 décisions reproduites exactement, 164 images examinées, et limites de perception/suivi illustrées. Cette capture précède le nouveau mélange 70/30.
 

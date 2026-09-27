@@ -54,18 +54,25 @@ def replay(rows, command, mode, confirmation_delay_ms):
     finally:
         if process.poll() is None:
             process.kill()
+            process.wait()
+        process.stdout.close()
+        process.stderr.close()
     return config, frames
 
 
 def describe(frames):
     visible = [t for frame in frames for t in frame['tracks'] if t['visibleInLatestFrame']]
+    retirements = [t for frame in frames for t in frame.get('retiredTracks', [])]
     return {
         'frames': len(frames),
         'accepted_frames': sum(f['frameStatus'] == 'ACCEPTED' for f in frames),
         'distinct_track_ids': len({t['id'] for t in visible}),
         'visible_track_observations': len(visible),
         'confirmed_track_observations': sum(t['confirmed'] for t in visible),
+        'occluded_track_observations': sum(
+            t.get('observationState') == 'OCCLUDED' for frame in frames for t in frame['tracks']),
         'association_statuses': dict(sorted(Counter(t['associationStatus'] for t in visible).items())),
+        'retirement_reasons': dict(sorted(Counter(t['reason'] for t in retirements).items())),
         'suppression_reasons': dict(sorted(Counter(f['suppressionReason'] for f in frames).items())),
         'synthetic_announcements': [dict(frame_id=f['frameId'], track_id=f['eligibleAlert']['trackId'],
                                         text=f['eligibleAlert']['text']) for f in frames if f.get('eligibleAlert')],

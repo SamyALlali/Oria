@@ -33,12 +33,14 @@ internal class BluetoothPcmPlayer(private val manager: AudioManager,
         var written = 0L
         var lastHead = 0L
         var wraps = 0L
+        var tonePhase = 0.0
         var failure: String? = null
     }
     private val lock = Any()
     private val main = Handler(Looper.getMainLooper())
     private var current: Lease? = null
     private var keepWarm = false
+    private var dangerPattern = DangerSoundPattern.silent()
     private var version = 0L
     private val silenceWorker = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, "oria-audio-silence") }
 
@@ -46,7 +48,11 @@ internal class BluetoothPcmPlayer(private val manager: AudioManager,
 
     fun setSessionActive(active: Boolean) = synchronized(lock) {
         if (keepWarm != active) { keepWarm = active; version++ }
-        if (!active) releaseLocked(current)
+        if (!active) { dangerPattern = DangerSoundPattern.silent(); releaseLocked(current) }
+    }
+
+    fun setDangerPattern(pattern: DangerSoundPattern) = synchronized(lock) {
+        dangerPattern = if (keepWarm) pattern else DangerSoundPattern.silent()
     }
 
     fun isWarmReady(): Boolean = synchronized(lock) {
@@ -98,11 +104,32 @@ internal class BluetoothPcmPlayer(private val manager: AudioManager,
         try {
             check(lease.track.routedDevice?.id == lease.device.id) { "Route VIVE perdue" }
             // Never accumulates an unbounded queue of silence between utterances.
-            silenceLocked(lease, lease.rate * 40 / 1000)
+            backgroundLocked(lease, lease.rate * 40 / 1000)
         } catch (e: Exception) {
             lease.failure = e.message ?: "Route VIVE perdue"
             releaseLocked(lease)
         }
+    }
+
+    private fun backgroundLocked(lease: Lease, maxQueuedFrames: Int) {
+        val queued = (lease.written - consumedLocked(lease)).coerceAtLeast(0)
+        val frames = minOf(lease.silence.size / lease.frameBytes,
+            (maxQueuedFrames - queued).coerceAtLeast(0).toInt())
+        if (frames == 0) return
+        val bytes = lease.silence
+        val pattern = dangerPattern
+        if (!pattern.audible || lease.channels != 2) {
+            bytes.fill(0)
+        } else {
+            val rendered = DangerToneRenderer.render(pattern, lease.rate, frames,
+                SystemClock.elapsedRealtime(), lease.tonePhase)
+            rendered.pcm16Stereo.copyInto(bytes)
+            lease.tonePhase = rendered.nextPhase
+        }
+        if (!lease.speaking) lease.track.setVolume(if (pattern.audible) 1f else 0f)
+        val count = lease.track.write(bytes, 0, frames * lease.frameBytes, AudioTrack.WRITE_NON_BLOCKING)
+        check(count >= 0) { "Maintien audio refusé ($count)" }
+        lease.written += count / lease.frameBytes
     }
 
     /** Only the single speech worker creates tracks. Main/route callbacks may invalidate them. */
