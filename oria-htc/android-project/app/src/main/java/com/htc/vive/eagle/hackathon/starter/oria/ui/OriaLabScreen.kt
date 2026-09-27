@@ -54,6 +54,7 @@ private val TestInk = Color(0xFF101A23)
 fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDiagnostics: () -> Unit) {
     val live by controller.state.collectAsStateWithLifecycle()
     val recording by controller.oriaLabState.collectAsStateWithLifecycle()
+    val selectedModelReady = if (live.obstacleMode) live.obstacleModelReady else live.modelReady
     val scope = rememberCoroutineScope()
     var simulatorChoice by rememberSaveable { mutableStateOf(false) }
     var pendingExport by rememberSaveable { mutableStateOf<String?>(null) }
@@ -141,7 +142,7 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (!live.running && !recordingActive && !finalizing) {
                             Button(onClick = onRecord,
-                                enabled = live.connected && live.modelReady && !recordingActive && !finalizing && !storageBusy,
+                                enabled = live.connected && selectedModelReady && !recordingActive && !finalizing && !storageBusy,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) { Text("Enregistrer une scène") }
                         }
                         if (recordingActive || live.running) {
@@ -171,10 +172,10 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                             Button(onClick = { controller.connect(simulatorChoice) },
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text("Connecter la source") }
                         }
-                        Text(if (live.modelReady) "Modèle prêt" else "Chargement du modèle…")
+                        Text(if (live.obstacleMode) live.obstacleStatus else if (selectedModelReady) "Modèle prêt" else "Chargement du modèle…")
                         if (live.running && !recordingActive && !finalizing) {
                             Button(onClick = onRecord,
-                                enabled = live.connected && live.modelReady && !recordingActive && !finalizing && !storageBusy,
+                                enabled = live.connected && selectedModelReady && !recordingActive && !finalizing && !storageBusy,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) { Text("Enregistrer cette scène") }
                         }
                         OutlinedButton(onClick = onOpenHtcDiagnostics,

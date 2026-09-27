@@ -186,7 +186,8 @@ class PocketSessionService : Service() {
         fun request(context: Context, controller: OriaController, visible: () -> Boolean) {
             if (requested != null || active != null || !visible()) return
             val state = controller.state.value
-            if (!state.pocketEnabled || state.running || !state.connected || !state.modelReady || state.simulator) {
+            val selectedModelReady = if (state.obstacleMode) state.obstacleModelReady else state.modelReady
+            if (!state.pocketEnabled || state.running || !state.connected || !selectedModelReady || state.simulator) {
                 controller.reportPocketError("Mode poche : connecter les lunettes réelles et attendre le modèle")
                 return
             }

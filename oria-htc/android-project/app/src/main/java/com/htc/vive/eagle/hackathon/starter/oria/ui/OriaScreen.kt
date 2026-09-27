@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -53,7 +55,11 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
             lastPreviewAspectRatio = currentPreviewAspectRatio
         }
     }
-    val canStart = state.connected && state.modelReady && !state.running &&
+    val selectedModelReady = if (state.obstacleMode) state.obstacleModelReady else state.modelReady
+    val selectedModelLoading = if (state.obstacleMode) state.obstacleModelLoading else state.modelLoading
+    val canSelectMode = !state.running && !state.pocketPreparing && !state.modelLoading &&
+        !state.obstacleModelLoading && !state.audioBusy && !state.audioUnknown && !capture.storageBusy
+    val canStart = state.connected && selectedModelReady && !selectedModelLoading && !state.running &&
         !state.pocketPreparing && !capture.storageBusy
     val voiceTestEnabled = state.connected && !state.audioBusy && !state.audioUnknown &&
         (state.voiceBackend == OriaVoiceBackend.HTC || (state.localVoiceReady && !state.simulator))
@@ -73,8 +79,8 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
         state.pocketPreparing -> "Préparation du mode poche…"
         capture.storageBusy -> "Attendez la fin de l’enregistrement"
         !state.connected -> "Connectez vos lunettes pour commencer"
-        state.modelLoading -> "Préparation d’Oria…"
-        !state.modelReady -> "Oria n’est pas prête · voir les réglages"
+        selectedModelLoading -> if (state.obstacleMode) "Préparation du mode obstacles…" else "Préparation d’Oria…"
+        !selectedModelReady -> if (state.obstacleMode) "Mode obstacles indisponible · consultez son état ci-dessous" else "Oria n’est pas prête · voir les réglages"
         voiceBlock != null -> voiceBlock
         !state.orientationVerified -> "Démarrez pour vérifier les directions"
         else -> "Prête à démarrer"
@@ -116,7 +122,8 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Votre environnement, à l’écoute", style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-                    Text("Les objets et leurs directions, annoncés dans vos lunettes.",
+                    Text(if (state.obstacleMode) "Les obstacles possibles et leurs directions, annoncés dans vos lunettes."
+                        else "Les objets et leurs directions, annoncés dans vos lunettes.",
                         style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
@@ -127,8 +134,9 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                         if (state.simulator) "Simulateur connecté" else "Lunettes connectées"
                     } else "Lunettes déconnectées")
                     Text(startHelp, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                    Text(state.status, style = MaterialTheme.typography.bodyMedium)
-                    if (state.modelLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Text(if (state.obstacleMode) state.obstacleStatus else state.status,
+                        style = MaterialTheme.typography.bodyMedium)
+                    if (selectedModelLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
                     if (!state.connected) {
                         Text("Allumez vos lunettes et connectez-les dans VIVE Connect, puis revenez ici.",
                             style = MaterialTheme.typography.bodyMedium)
@@ -148,6 +156,38 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                         Text("Les images proviennent du simulateur. La voix Bluetooth exige les lunettes réelles.",
                             style = MaterialTheme.typography.bodyMedium)
                     }
+                }
+
+                OriaHomeSection {
+                    OriaSectionTitle("Choisir ce qu’Oria annonce")
+                    OriaPerceptionSelector(
+                        obstacleMode = state.obstacleMode,
+                        enabled = canSelectMode,
+                        onObstacleModeChange = controller::setObstacleMode,
+                    )
+                    Text("Un seul mode fonctionne à la fois.", style = MaterialTheme.typography.bodyMedium)
+                    if (state.obstacleMode) {
+                        Text("Obstacle possible · sans distance mesurée", style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.SemiBold)
+                        Text(state.obstacleStatus, style = MaterialTheme.typography.bodyMedium)
+                        if (state.running && state.suppression.isNotBlank()) {
+                            Text("Décision : ${state.suppression}", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (state.obstacleLatencyMs > 0.0) {
+                            Text("Âge de l’image analysée : ${String.format(Locale.FRANCE, "%.0f", state.obstacleLatencyMs)} ms",
+                                style = MaterialTheme.typography.bodyMedium)
+                        }
+                        Text("La caméra estime le relief. Une image sombre ou peu structurée peut rendre l’analyse incertaine. Le silence ne garantit pas un passage libre.",
+                            style = MaterialTheme.typography.bodyMedium)
+                    }
+                    if (!canSelectMode) Text(
+                        when {
+                            state.running || state.pocketPreparing -> "Arrêtez Oria pour changer de mode."
+                            state.audioUnknown -> "Le changement de mode est suspendu : une demande vocale reste incertaine."
+                            state.audioBusy -> "Attendez la fin de la phrase pour changer de mode."
+                            state.modelLoading || state.obstacleModelLoading -> "Attendez la fin du chargement pour changer de mode."
+                            else -> "Attendez la fin de la capture pour changer de mode."
+                        }, style = MaterialTheme.typography.bodyMedium)
                 }
 
                 if (capture.phase == OriaLabPhase.RECORDING || capture.phase == OriaLabPhase.FINALIZING) {
@@ -205,7 +245,7 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                             fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
                         Text("Démarrez Oria, puis ouvrez l’aperçu ci-dessous. Faites vérifier, avec un accompagnant si besoin, qu’un objet placé à gauche puis à droite apparaît du bon côté. Vérifiez aussi les tests vocaux.",
                             style = MaterialTheme.typography.bodyLarge)
-                        Text("Cochez seulement après ces vérifications. Sans validation, les annonces d’objets restent désactivées.",
+                        Text("Cochez seulement après ces vérifications. Sans validation, les annonces automatiques restent désactivées.",
                             style = MaterialTheme.typography.bodyMedium)
                         OriaHomeCheck(
                             checked = state.orientationVerified,
@@ -257,7 +297,7 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                                     Image(bitmap.asImageBitmap(), "Aperçu de la caméra des lunettes", Modifier.fillMaxSize(),
                                         contentScale = ContentScale.FillBounds)
                                     Canvas(Modifier.fillMaxSize()) {
-                                        state.detections.forEach { detection ->
+                                        if (!state.obstacleMode) state.detections.forEach { detection ->
                                             val b = detection.box
                                             drawRect(Color(0xFF63FFC3), Offset(b.left * size.width, b.top * size.height),
                                                 Size(b.width * size.width, b.height * size.height), style = Stroke(2.dp.toPx()))
@@ -298,7 +338,7 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                             checked = state.trackingMode == RgbTrackingMode.STABLE_RGB_V2,
                             onCheckedChange = { controller.setTrackingMode(if (it) RgbTrackingMode.STABLE_RGB_V2 else RgbTrackingMode.LEGACY_IOU) },
                             title = "Suivi stable V2 · expérimental",
-                            enabled = !state.running && !state.pocketPreparing && !state.audioBusy && !state.audioUnknown,
+                            enabled = !state.obstacleMode && !state.running && !state.pocketPreparing && !state.audioBusy && !state.audioUnknown,
                         )
                         Text("Le suivi habituel reste activé par défaut. Comparez les deux modes dans Oria Lab avant un essai terrain.",
                             style = MaterialTheme.typography.bodyMedium)
@@ -310,17 +350,17 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                                 label = { Text("Rotation : $rotation degrés") })
                         }
                         OriaSettingToggle("Corriger une image miroir", state.mirrored, { controller.setGeometry(state.rotation, it) })
-                        OriaSettingToggle("XNNPACK · accélération locale", state.xnnpack, controller::loadModel,
-                            enabled = !state.running && !state.modelLoading)
+                        OriaSettingToggle("XNNPACK · accélération des objets", state.xnnpack, controller::loadModel,
+                            enabled = !state.obstacleMode && !state.running && !state.modelLoading)
                         Text("Images reçues pour analyse : ${state.received}\nRésultats frais : ${state.analyzed} · périmés : ${state.stale}\nCadence utile : ${String.format(Locale.FRANCE, "%.1f", state.fps)} Hz\nRéception → décision : ${state.lastLatencyMs} ms · p95 accepté ${state.p95Ms} ms\nP95 toutes inférences : ${state.allInferenceP95Ms} ms\nPrétraitement : ${state.preprocessMs.toInt()} ms · modèle : ${state.inferenceMs.toInt()} ms\nPolitique : ${state.suppression}",
                             style = MaterialTheme.typography.bodyMedium)
                         Text("La réception est mesurée sur le téléphone. Le délai de capture et le son audible restent à mesurer séparément.",
                             style = MaterialTheme.typography.bodyMedium)
-                        if (!state.xnnpack) Text("CPU expérimental : un échec de parité stricte a été observé sur le téléphone précédent.",
+                        if (!state.obstacleMode && !state.xnnpack) Text("CPU expérimental : un échec de parité stricte a été observé sur le téléphone précédent.",
                             style = MaterialTheme.typography.bodyMedium)
-                        OutlinedButton(onClick = { controller.loadModel(state.xnnpack) }, enabled = !state.running && !state.modelLoading,
+                        OutlinedButton(onClick = { controller.loadModel(state.xnnpack) }, enabled = !state.obstacleMode && !state.running && !state.modelLoading,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), contentPadding = PaddingValues(16.dp)) {
-                            Text("Recharger le modèle")
+                            Text("Recharger le modèle d’objets")
                         }
                         OutlinedButton(onClick = onOpenHtcDiagnostics, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                             contentPadding = PaddingValues(16.dp)) { Text("Ouvrir le diagnostic HTC") }
@@ -363,5 +403,37 @@ private fun OriaHomeCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit, 
         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.clearAndSetSemantics { })
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+    }
+}
+
+
+/** Exclusive, named radio choices; each complete row remains one accessible touch target. */
+@Composable
+internal fun OriaPerceptionSelector(
+    obstacleMode: Boolean,
+    enabled: Boolean,
+    onObstacleModeChange: (Boolean) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().selectableGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf(
+            Triple(false, "Objets", "Personnes, véhicules, deux-roues et poteaux."),
+            Triple(true, "Obstacles caméra · expérimental", "Relief seul, indépendant des catégories d’objets."),
+        ).forEach { (obstacles, label, description) ->
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 64.dp)
+                    .selectable(selected = obstacleMode == obstacles, enabled = enabled,
+                        role = Role.RadioButton, onClick = { if (obstacleMode != obstacles) onObstacleModeChange(obstacles) })
+                    .padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                RadioButton(selected = obstacleMode == obstacles, enabled = enabled, onClick = null,
+                    modifier = Modifier.clearAndSetSemantics { })
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(description, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
     }
 }

@@ -1,0 +1,7 @@
+name	a	b	y0	y1	x0	x1	pythonCandidatePixels	pythonReferenceStatus
+plane	0.1	0.7	0	0	0	0	0	supported
+moderate_roll	0.35	0.7	0	0	0	0	0	supported
+center_relief	0.1	0.7	40	75	50	80	1050	supported
+small_relief	0.1	0.7	40	44	50	54	0	supported
+low_relief	0.1	0.7	82	100	45	85	400	supported
+below_roi	0.1	0.7	100	120	45	85	0	supported

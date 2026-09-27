@@ -21,6 +21,7 @@ class OriaVideoDecoder(
     private val onFatalError: (String) -> Unit,
     private val sampleIntervalMs: Long = 250,
     private val maxBitmapSide: Int = 832,
+    private val shouldSampleFrame: () -> Boolean = { true },
 ) : AutoCloseable {
     private data class Packet(val bytes: ByteArray, val ptsUs: Long, val flags: Int, val receivedAtMs: Long)
     private val thread = HandlerThread("OriaVideoCodec").apply { start() }
@@ -165,6 +166,10 @@ class OriaVideoDecoder(
                         lastDecodedAtMs = now
                         if (now - receivedAtMs > 500) { staleBeforeConversion++; continue }
                         if (now - lastSampleAtMs < sampleIntervalMs) continue
+                        // Consult only after decoding: H.264 dependencies always reach the codec.
+                        // This does not reserve ownership; a failed/stale conversion leaves the
+                        // consumer's demand available for the next decoded image.
+                        if (!shouldSampleFrame()) continue
                         val image = checkNotNull(c.getOutputImage(index)) { "Codec exposes no YUV Image in buffer mode" }
                         try {
                             val conversionStartedNs = SystemClock.elapsedRealtimeNanos()

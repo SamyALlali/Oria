@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "modelSha256": "3467d320122172aa5e28a961ff2a1ee6e9e3d52db6f0fa8b04ab663efa4c0cba",
+  "source": "deterministic synthetic RGB only",
+  "pillow": "12.3.0",
+  "onnxruntime": "1.22.0",
+  "criteria": {
+    "preprocessingMaxAbsError": 1e-06,
+    "rawRelativeMaxAbsError": 0.001,
+    "normalizedMaxAbsError": 0.002,
+    "compactFloatMaxAbsError": 1e-05
+  },
+  "fixtures": [
+    {
+      "name": "synthetic_portrait",
+      "width": 319,
+      "height": 547,
+      "quality": {
+        "version": "rgb-quality-v1",
+        "status": "usable",
+        "reasons": [],
+        "metrics": {
+          "lumaP05": 64.0,
+          "lumaP50": 119.0,
+          "lumaP95": 188.0,
+          "lumaSpanP95P05": 124.0,
+          "meanGradient": 19.914749145507812,
+          "p95Gradient": 44.5,
+          "edgeFraction": 0.8376836753673508,
+          "darkFraction": 0.0
+        },
+        "config": {
+          "thumbnailWidth": 128,
+          "thumbnailHeight": 128,
+          "conversion": "Pillow RGB then L (8-bit luminance), bilinear resize; source orientation unchanged",
+          "gradient": "(|L[y,x+1]-L[y,x]| + |L[y+1,x]-L[y,x]|) / 2 on 127x127 interior",
+          "lowLightLumaP95Below": 24.0,
+          "darkLumaAtMost": 8.0,
+          "lowLightDarkFractionAtLeast": 0.9,
+          "edgeGradientAtLeast": 8.0,
+          "lowTextureMeanGradientAtMost": 1.5,
+          "lowTextureEdgeFractionAtMost": 0.01,
+          "lowLightTakesPrecedence": true,
+          "metric": false,
+          "calibrated": false,
+          "limitations": "Luminance-only heuristic; usable is not reliable detection, proximity or free passage."
+        }
+      },
+      "depthStats": {
+        "min": 1.9738916158676147,
+        "max": 2.755441904067993,
+        "compactMin": 1.975877046585083,
+        "compactMax": 2.747130870819092,
+        "p02": 1.986513111591339,
+        "p98": 2.6848572969436644
+      },
+      "available": true
+    },
+    {
+      "name": "synthetic_landscape",
+      "width": 823,
+      "height": 461,
+      "quality": {
+        "version": "rgb-quality-v1",
+        "status": "usable",
+        "reasons": [],
+        "metrics": {
+          "lumaP05": 65.0,
+          "lumaP50": 118.0,
+          "lumaP95": 185.0,
+          "lumaSpanP95P05": 120.0,
+          "meanGradient": 22.532798767089844,
+          "p95Gradient": 54.5,
+          "edgeFraction": 0.8556637113274227,
+          "darkFraction": 0.0
+        },
+        "config": {
+          "thumbnailWidth": 128,
+          "thumbnailHeight": 128,
+          "conversion": "Pillow RGB then L (8-bit luminance), bilinear resize; source orientation unchanged",
+          "gradient": "(|L[y,x+1]-L[y,x]| + |L[y+1,x]-L[y,x]|) / 2 on 127x127 interior",
+          "lowLightLumaP95Below": 24.0,
+          "darkLumaAtMost": 8.0,
+          "lowLightDarkFractionAtLeast": 0.9,
+          "edgeGradientAtLeast": 8.0,
+          "lowTextureMeanGradientAtMost": 1.5,
+          "lowTextureEdgeFractionAtMost": 0.01,
+          "lowLightTakesPrecedence": true,
+          "metric": false,
+          "calibrated": false,
+          "limitations": "Luminance-only heuristic; usable is not reliable detection, proximity or free passage."
+        }
+      },
+      "depthStats": {
+        "min": 1.672723412513733,
+        "max": 2.7246553897857666,
+        "compactMin": 1.6728607416152954,
+        "compactMax": 2.7198879718780518,
+        "p02": 1.6878565645217896,
+        "p98": 2.598138298988342
+      },
+      "available": true
+    }
+  ]
+}

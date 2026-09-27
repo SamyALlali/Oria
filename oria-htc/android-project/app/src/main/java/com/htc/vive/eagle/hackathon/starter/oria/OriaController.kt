@@ -8,6 +8,8 @@ import android.os.SystemClock
 import android.util.Log
 import com.htc.vive.eagle.hackathon.starter.ViveGlassKitManager
 import com.htc.vive.eagle.hackathon.starter.oria.core.*
+import com.htc.vive.eagle.hackathon.starter.oria.ml.OnnxDepthDetector
+import com.htc.vive.eagle.hackathon.starter.oria.ml.DepthInference
 import com.htc.vive.eagle.hackathon.starter.oria.ml.OnnxObjectDetector
 import com.htc.vive.eagle.hackathon.starter.oria.ml.LetterboxTransform
 import com.htc.vive.eagle.hackathon.starter.oria.video.OriaVideoFrame
@@ -39,6 +41,11 @@ data class OriaUiState(
     val modelReady: Boolean = false,
     val modelLoading: Boolean = true,
     val xnnpack: Boolean = true,
+    val obstacleMode: Boolean = false,
+    val obstacleModelReady: Boolean = false,
+    val obstacleModelLoading: Boolean = false,
+    val obstacleStatus: String = "Mode expérimental à activer",
+    val obstacleLatencyMs: Double = 0.0,
     val trackingMode: RgbTrackingMode = RgbTrackingMode.LEGACY_IOU,
     val status: String = "Chargement du modèle…",
     val audio: String = "Voix à tester sur les lunettes",
@@ -78,6 +85,10 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     private val traceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val worker = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private var engine = RgbAlertEngine()
+    private val depthPolicy = DepthObstaclePolicy()
+    private var depthObservationIndex = 0L
+    private var depthDetector: OnnxDepthDetector? = null
+    private var depthModelJob: Job? = null
     // Preserve unresolved-delivery state across compatible updates, including the Oria rename.
     private val audioPersistence = appContext.getSharedPreferences("oria_audio_delivery", Context.MODE_PRIVATE)
     private val previousUncertainDelivery = audioPersistence.getBoolean("delivery_pending_or_unknown", false)
@@ -104,18 +115,16 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         val preprocessMs: Double, val inferenceMs: Double, val diagnosticOutput: JSONObject?)
     private data class PendingSpeech(val ticket: VoiceTicket?, val epoch: Long, val submittedAt: Long,
         val text: String, val id: String, val backend: OriaVoiceBackend, val sessionGeneration: Long,
-        val pan: SpeechPan)
+        val pan: SpeechPan, val depthTicket: DepthVoiceTicket? = null)
     @Volatile private var pendingSpeech: PendingSpeech? = null
+    @Volatile private var playableDepthTicketId: Long? = null
     private val localSpeech = BluetoothSpeechBackend(appContext, ::onLocalSpeechResult)
 
     init {
         scope.launch { localSpeech.state.collect { voice ->
             _state.update { it.copy(localVoiceReady = voice.ready, localVoiceStatus = voice.detail) }
         } }
-        val phrases = RgbCategory.entries.filter { it.alertable }.flatMap { category ->
-            RgbZone.entries.map { zone -> "${category.label} ${zone.voiceSuffix}" }
-        }.toSet() + TEST_PHRASE
-        localSpeech.prepare(phrases)
+        prepareModeSpeech()
         traceScope.launch {
             appContext.filesDir.resolve("oria-trace-${System.currentTimeMillis()}.jsonl").bufferedWriter().use { writer ->
                 for (line in traces) { writer.appendLine(line); writer.flush() }
@@ -146,7 +155,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
             }
             when (event.event) {
                 "SUCCESS" -> {
-                    val accepted = pending.ticket?.let { applyVoiceResult(it, "confirmed") } ?: true
+                    val accepted = applySpeechResult(pending, "confirmed")
                     if (!accepted) {
                         uncertainAudio("Confirmation vocale refusée par le moteur")
                         return@collect
@@ -158,7 +167,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
                         "videoSessionId" to pending.sessionGeneration, "delayMs" to (now() - pending.submittedAt))
                 }
                 "ERROR", "ERROR_RESOURCE_CONFLICT", "ERROR_UNSUPPORTED_LOCALE" -> {
-                    val accepted = pending.ticket?.let { applyVoiceResult(it, "failed") } ?: true
+                    val accepted = applySpeechResult(pending, "failed")
                     if (!accepted) {
                         uncertainAudio("Retour d’échec vocal non corrélé")
                         return@collect
@@ -177,7 +186,20 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
                 try {
                     if (!_state.value.running || frame.sessionId != generation) continue
                     val sourceTime = frame.receivedAtMs
-                    if (now() - sourceTime > MAX_AGE_MS || sourceTime > now()) { staleFrame(); continue }
+                    // Both modes start from a recently decoded frame; depth has a separate post-inference budget.
+                    if (now() - sourceTime > MAX_AGE_MS || sourceTime > now()) {
+                        if (_state.value.obstacleMode) {
+                            val at = now()
+                            depthPolicy.evaluate(generation, depthObservationIndex++, sourceTime, null, at)
+                            playableDepthTicketId = null
+                            _state.update { it.copy(obstacleStatus = "Image d’entrée trop ancienne · attente d’une image fraîche") }
+                            trace("depth_input_rejected", "frameId" to frame.frameId, "ageMs" to (at - sourceTime),
+                                "videoSessionId" to frame.sessionId, "observedAtMs" to sourceTime,
+                                "observationIndex" to (depthObservationIndex - 1))
+                        }
+                        staleFrame(); continue
+                    }
+                    if (_state.value.obstacleMode) { analyzeDepthFrame(frame); continue }
                     val activeDetector = detector ?: continue
                     val result = withContext(worker) {
                         val detections = activeDetector.detect(frame.bitmap,
@@ -261,8 +283,9 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         scope.launch {
             while (isActive) {
                 delay(250)
-                if (_state.value.running && lastAcceptedObservationAt > 0L && now() - lastAcceptedObservationAt > MAX_AGE_MS) {
-                    _state.update { it.copy(status = "Perception en attente d’images fraîches", detections = emptyList(), preview = null, suppression = "observation_expired") }
+                if (_state.value.running && lastAcceptedObservationAt > 0L && now() - lastAcceptedObservationAt > activeObservationMaxAgeMs()) {
+                    _state.update { it.copy(status = "Perception en attente d’images fraîches", detections = emptyList(), preview = null, suppression = "observation_expired",
+                        obstacleStatus = if (it.obstacleMode) "En attente d’images fraîches · aucune nouvelle alerte" else it.obstacleStatus) }
                 }
                 if (_state.value.running && streamStartedAt != 0L && now() - maxOf(streamStartedAt, lastFrameAt) > 5_000) stop("Flux vidéo figé ou absent")
                 pendingSpeech?.let {
@@ -278,6 +301,128 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         loadModel(true)
     }
 
+    private data class DepthFrameAnalysis(val inference: DepthInference,
+        val zones: List<DepthZoneEvidence>?, val preview: Bitmap, val geometryMs: Double,
+        val diagnostic: JSONObject?)
+
+    /** Own the full source bitmap until the worker returns; never append depth results to YOLO events. */
+    private suspend fun analyzeDepthFrame(frame: OriaVideoFrame) {
+        val activeDetector = depthDetector ?: return
+        val result = withContext(worker) {
+            val inference = activeDetector.detect(frame.bitmap)
+            val geometryStarted = SystemClock.elapsedRealtimeNanos()
+            val geometry = DepthObstacleGeometry.compute(if (inference.available) inference.values else null)
+            val geometryMs = (SystemClock.elapsedRealtimeNanos() - geometryStarted) / 1_000_000.0
+            val scale = minOf(1f, 480f / maxOf(frame.bitmap.width, frame.bitmap.height))
+            val scaled = Bitmap.createScaledBitmap(frame.bitmap,
+                (frame.bitmap.width * scale).toInt().coerceAtLeast(1),
+                (frame.bitmap.height * scale).toInt().coerceAtLeast(1), true)
+            val preview = if (scaled === frame.bitmap) scaled.copy(Bitmap.Config.ARGB_8888, false) else scaled
+            val diagnostic = if (oriaLabState.value.phase == OriaLabPhase.RECORDING) JSONObject()
+                .put("analysisMode", "depth_only_experimental")
+                .put("modelSha256", OnnxDepthDetector.MODEL_SHA256)
+                .put("modelProvider", activeDetector.requestedProvider)
+                .put("preprocessMs", inference.preprocessMs).put("inferenceMs", inference.inferenceMs)
+                .put("postprocessMs", inference.postprocessMs).put("geometryMs", geometryMs)
+                .put("qualityUsable", inference.qualityUsable).put("qualityReason", inference.qualityReason ?: JSONObject.NULL)
+                .put("relativeDepth", JSONObject().put("available", inference.available)
+                    .put("reason", inference.unavailableReason ?: JSONObject.NULL)
+                    .put("width", inference.width).put("height", inference.height)
+                    .put("metric", false).put("temporallyComparable", false)
+                    .put("normalization", "per_frame_percentile").put("convention", "higher_is_nearer")
+                    .put("p02", inference.p02).put("p98", inference.p98)
+                    .put("values", if (inference.available) JSONArray().apply {
+                        for (y in 0 until inference.height) put(JSONArray().apply {
+                            for (x in 0 until inference.width) put(inference.values[y * inference.width + x].toDouble())
+                        })
+                    } else JSONObject.NULL))
+                .put("zones", depthZonesJson(geometry.zones))
+                .put("geometry", JSONObject().put("version", geometry.version)
+                    .put("reason", geometry.reason ?: JSONObject.NULL)
+                    .put("candidatePixels", geometry.candidatePixels ?: JSONObject.NULL)
+                    .put("rawCandidatePixels", geometry.rawCandidatePixels ?: JSONObject.NULL)
+                    .put("referenceRemovedPixels", geometry.referenceRemovedPixels ?: JSONObject.NULL)
+                    .put("referenceStatus", geometry.reference.status).put("referenceReason", geometry.reference.reason)) else null
+            DepthFrameAnalysis(inference, geometry.zones, preview, geometryMs, diagnostic)
+        }
+        if (closed || !_state.value.running || !_state.value.obstacleMode || frame.sessionId != generation) {
+            result.preview.recycle(); return
+        }
+        val evaluatedAt = now()
+        val age = evaluatedAt - frame.receivedAtMs
+        val evaluation = depthPolicy.evaluate(generation, depthObservationIndex++, frame.receivedAtMs,
+            result.zones, evaluatedAt, result.inference.qualityUsable, result.inference.qualityReason)
+        playableDepthTicketId = pendingSpeech?.depthTicket?.takeIf { depthPolicy.canPlay(it, evaluatedAt) }?.id
+        if (oriaLabState.value.phase == OriaLabPhase.RECORDING) {
+            result.diagnostic?.let { diagnostic ->
+                val event = frameRecord("depth_inference", frame).put("resultAgeMs", age)
+                    .put("observationIndex", depthObservationIndex - 1)
+                diagnostic.keys().forEach { event.put(it, diagnostic.get(it)) }
+                manager.oriaLabRecorder.recordEvent(event)
+            }
+            manager.oriaLabRecorder.recordEvent(frameRecord("depth_decision", frame)
+                .put("evaluatedAtMs", evaluatedAt).put("observationIndex", depthObservationIndex - 1)
+                .put("status", evaluation.status).put("reason", evaluation.reason)
+                .put("audioState", evaluation.audioState.name)
+                .put("orientationVerified", _state.value.orientationVerified)
+                .put("observationMaxAgeMs", DEPTH_MAX_AGE_MS)
+                .put("eligibleAlert", evaluation.eligibleAlert?.let {
+                    JSONObject().put("id", it.id).put("zone", it.zone.name).put("text", it.text)
+                        .put("observedAtMs", it.observedAtMs)
+                } ?: JSONObject.NULL))
+        }
+        trace("depth_timing", "frameId" to frame.frameId, "ageMs" to age,
+            "inferenceMs" to result.inference.inferenceMs, "preprocessMs" to result.inference.preprocessMs,
+            "postprocessMs" to result.inference.postprocessMs, "geometryMs" to result.geometryMs,
+            "qualityUsable" to result.inference.qualityUsable, "status" to evaluation.status,
+            "reason" to evaluation.reason, "zones" to depthZonesJson(result.zones))
+        if (age < 0 || age > DEPTH_MAX_AGE_MS) {
+            result.preview.recycle(); staleFrame()
+            _state.update { it.copy(obstacleLatencyMs = age.toDouble(),
+                obstacleStatus = "Image trop ancienne · aucune alerte obstacle", suppression = evaluation.reason) }
+            return
+        }
+        if (evaluation.status !in setOf("rejected", "invalid", "missing", "uncertain")) lastAcceptedObservationAt = frame.receivedAtMs
+        val explanation = when (evaluation.status) {
+            "uncertain" -> "Image trop sombre ou sans structure · analyse incertaine"
+            "missing", "invalid", "rejected" -> "Relief inexploitable · aucune alerte obstacle"
+            "no_candidate" -> "Aucun obstacle confirmé · passage libre non garanti"
+            "confirming" -> "Obstacle possible · confirmation en cours"
+            "proposal" -> evaluation.eligibleAlert?.text ?: "Obstacle possible"
+            "suppressed" -> when (evaluation.reason) {
+                "audio_in_flight" -> "Annonce obstacle en cours"
+                "audio_unknown" -> "Voix à vérifier avant reprise"
+                "zone_cooldown" -> "Obstacle encore présent · annonce espacée"
+                else -> "Obstacle possible · attente avant annonce"
+            }
+            else -> "Relief expérimental actif"
+        }
+        _state.update { old -> old.copy(analyzed = old.analyzed + 1, detections = emptyList(), preview = result.preview,
+            status = "Obstacles caméra · expérimental", obstacleStatus = explanation, obstacleLatencyMs = age.toDouble(),
+            lastLatencyMs = age, inferenceMs = result.inference.inferenceMs, preprocessMs = result.inference.preprocessMs,
+            fps = (old.analyzed + 1) * 1000.0 / (now() - startedAt).coerceAtLeast(1), suppression = evaluation.reason) }
+        evaluation.eligibleAlert?.let { alert ->
+            if (_state.value.orientationVerified && pendingSpeech == null && !_state.value.audioUnknown &&
+                !_state.value.audioAutomaticPaused && voiceBackendReady() && _state.value.voiceBackend == OriaVoiceBackend.BLUETOOTH) {
+                depthPolicy.onSubmitted(alert, now())?.let { ticket ->
+                    val pan = when (alert.zone) {
+                        RgbZone.LEFT -> SpeechPan.LEFT
+                        RgbZone.CENTER -> SpeechPan.CENTER
+                        RgbZone.RIGHT -> SpeechPan.RIGHT
+                    }
+                    trace("depth_voice", "action" to "submitted", "ticketId" to ticket.id,
+                        "videoSessionId" to ticket.sessionId, "frameId" to frame.frameId, "text" to alert.text)
+                    sendSpeech(alert.text, null, alert.observedAtMs, pan, ticket)
+                }
+            }
+        }
+    }
+
+    private fun depthZonesJson(zones: List<DepthZoneEvidence>?) = zones?.let { values ->
+        JSONArray().apply { values.forEach { put(JSONObject().put("zone", it.zone.name)
+            .put("candidateFraction", it.candidateFraction.toDouble()).put("relativeDepthMedian", it.relativeDepthMedian.toDouble())) } }
+    } ?: JSONObject.NULL
+
     fun setTrackingMode(mode: RgbTrackingMode) {
         if (closed || _state.value.running || _state.value.pocketPreparing ||
             _state.value.audioBusy || _state.value.audioUnknown || oriaLabState.value.storageBusy) return
@@ -285,6 +430,56 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         _state.update { it.copy(trackingMode = mode) }
         trace("tracking_mode_changed", "trackingMode" to mode.name)
     }
+
+    private fun prepareModeSpeech() {
+        val phrases = if (_state.value.obstacleMode) setOf(
+            "Obstacle possible devant", "Obstacle possible à gauche", "Obstacle possible à droite")
+        else RgbCategory.entries.filter { it.alertable }.flatMap { category ->
+            RgbZone.entries.map { zone -> "${category.label} ${zone.voiceSuffix}" }
+        }.toSet()
+        localSpeech.prepare(phrases + TEST_PHRASE)
+    }
+
+    fun setObstacleMode(enabled: Boolean) {
+        if (closed || _state.value.running || _state.value.pocketPreparing || _state.value.audioBusy ||
+            _state.value.audioUnknown || _state.value.modelLoading || _state.value.obstacleModelLoading ||
+            oriaLabState.value.storageBusy || enabled == _state.value.obstacleMode) return
+        depthPolicy.stop()
+        if (enabled && _state.value.voiceBackend != OriaVoiceBackend.BLUETOOTH) setVoiceBackend(OriaVoiceBackend.BLUETOOTH)
+        _state.update { it.copy(obstacleMode = enabled, preview = null, detections = emptyList(),
+            suppression = "", status = "Mode sélectionné · session arrêtée") }
+        prepareModeSpeech()
+        if (enabled && depthDetector == null) loadDepthModel()
+        trace("perception_mode", "mode" to if (enabled) "depth_only_experimental" else "yolo")
+    }
+
+    private fun loadDepthModel() {
+        if (closed || depthModelJob?.isActive == true) return
+        _state.update { it.copy(obstacleModelLoading = true, obstacleModelReady = false,
+            obstacleStatus = "Chargement du relief expérimental…") }
+        depthModelJob = scope.launch {
+            try {
+                val loaded = withContext(worker) {
+                    OnnxDepthDetector(appContext, useXnnpack = false).also {
+                        if (closed) it.close() else depthDetector = it
+                    }
+                }
+                if (closed) return@launch
+                depthDetector = loaded
+                _state.update { it.copy(obstacleModelLoading = false, obstacleModelReady = true,
+                    obstacleStatus = "Relief prêt · obstacles possibles, sans distance mesurée") }
+                trace("depth_model_loaded")
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) {
+                _state.update { it.copy(obstacleModelLoading = false, obstacleModelReady = false,
+                    obstacleStatus = "Relief indisponible : ${e.message}") }
+                trace("depth_model_error", "error" to e.toString())
+            }
+        }
+    }
+
+    private fun activeModelReady() = if (_state.value.obstacleMode) _state.value.obstacleModelReady else _state.value.modelReady
+    private fun activeObservationMaxAgeMs() = if (_state.value.obstacleMode) DEPTH_MAX_AGE_MS else MAX_AGE_MS
 
     fun loadModel(xnnpack: Boolean) {
         if (closed || _state.value.running || modelJob?.isActive == true) return
@@ -344,7 +539,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
 
     /** Explicit user action only. Restart the stream so its H.264 headers belong to the capture. */
     fun startOriaLab() {
-        if (closed || !manager.isConnected() || !_state.value.modelReady ||
+        if (closed || !manager.isConnected() || !activeModelReady() ||
             oriaLabState.value.phase in setOf(OriaLabPhase.RECORDING, OriaLabPhase.FINALIZING)) return
         stop("Préparation d’une nouvelle capture Oria Lab")
         val metadata = recordingMetadata(generation + 1)
@@ -379,29 +574,36 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     }
 
     fun start() {
-        if (closed || _state.value.running || !manager.isConnected() || !_state.value.modelReady || oriaLabState.value.storageBusy) return
+        if (closed || _state.value.running || !manager.isConnected() || !activeModelReady() || oriaLabState.value.storageBusy) return
         val id = ++generation
         startedAt = now(); streamStartedAt = 0L; lastFrameAt = 0L; lastAcceptedObservationAt = 0L
         latencies.clear(); allInferenceLatencies.clear()
+        playableDepthTicketId = null
         engine.start(id, startedAt)
-        _state.update { it.copy(running = true, status = "Démarrage de la vidéo…", received = 0,
+        depthPolicy.start(id, startedAt); depthObservationIndex = 0L
+        _state.update { it.copy(running = true, status = "Démarrage de la vidéo…",
+            obstacleStatus = if (it.obstacleMode) "Démarrage de la vidéo…" else it.obstacleStatus, received = 0,
             analyzed = 0, stale = 0, fps = 0.0, lastLatencyMs = 0, p95Ms = 0, allInferenceP95Ms = 0,
             preprocessMs = 0.0, inferenceMs = 0.0, detections = emptyList(), preview = null) }
         localSpeech.setSessionActive(_state.value.voiceBackend == OriaVoiceBackend.BLUETOOTH && !_state.value.simulator)
         trace("start", "policyAtMs" to startedAt, "rotation" to _state.value.rotation, "mirrored" to _state.value.mirrored,
-            "sampleIntervalMs" to ViveGlassKitManager.ORIA_SAMPLE_INTERVAL_MS,
-            "trackingMode" to engine.config.trackingMode.name, "pocketMode" to _state.value.pocketActive)
+            "sampleIntervalMs" to ViveGlassKitManager.ORIA_SAMPLE_INTERVAL_MS, "samplingMode" to "fixed_interval_after_decode",
+            "trackingMode" to engine.config.trackingMode.name, "pocketMode" to _state.value.pocketActive,
+            "perceptionMode" to if (_state.value.obstacleMode) "depth_only_experimental" else "yolo",
+            "observationMaxAgeMs" to activeObservationMaxAgeMs())
         startJob = scope.launch {
             try {
                 val started = manager.startOriaVideo(id, _state.value.rotation, _state.value.mirrored) { frame ->
                     if (!_state.value.running || frame.sessionId != generation || closed) false
                     else {
-                        frames.trySend(frame).isSuccess.also { accepted -> if (accepted) scope.launch {
-                            if (frame.sessionId == generation) {
-                                lastFrameAt = now()
-                                _state.update { it.copy(received = it.received + 1) }
+                        frames.trySend(frame).isSuccess.also { accepted ->
+                            if (accepted) scope.launch {
+                                if (frame.sessionId == generation) {
+                                    lastFrameAt = now()
+                                    _state.update { it.copy(received = it.received + 1) }
+                                }
                             }
-                        } }
+                        }
                     }
                 }
                 if (started && id == generation) streamStartedAt = now()
@@ -422,11 +624,12 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         else if (pendingSpeech != null) uncertainAudio("Arrêt demandé · parole déjà soumise possiblement en cours")
         localSpeech.setSessionActive(false)
         engine.stop()
+        depthPolicy.stop(); playableDepthTicketId = null
         // The recorder filters by the old pipeline ID and must see this before the manager closes it.
         trace("stop", "reason" to reason, "sessionId" to stoppedSession)
         manager.stopOriaVideo()
         while (true) { (frames.tryReceive().getOrNull() ?: break).bitmap.recycle() }
-        _state.update { it.copy(running = false, status = reason, detections = emptyList(), preview = null, suppression = "session_stopped") }
+        _state.update { it.copy(running = false, status = reason, obstacleStatus = reason, detections = emptyList(), preview = null, suppression = "session_stopped") }
     }
 
     fun setGeometry(rotation: Int, mirrored: Boolean) {
@@ -468,25 +671,29 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     }
 
     private fun sendSpeech(text: String, ticket: VoiceTicket?, observedAtMs: Long? = null,
-                           pan: SpeechPan = SpeechPan.CENTER) {
+                           pan: SpeechPan = SpeechPan.CENTER, depthTicket: DepthVoiceTicket? = null) {
+        val automatic = ticket != null || depthTicket != null
+        val maximumAge = if (depthTicket != null) DEPTH_MAX_AGE_MS else MAX_AGE_MS
         // Persist before dispatch so an activity/process restart cannot invent a clean transport.
         if (!persistUncertainDelivery(true)) {
-            if (!releaseLocalSpeech(ticket)) return
+            if (!releaseLocalSpeech(ticket, depthTicket)) return
             _state.update { it.copy(audio = "Impossible de journaliser la demande vocale") }
             return
         }
         val pending = PendingSpeech(ticket, manager.synthesisTransportEpoch, now(), text,
-            UUID.randomUUID().toString(), _state.value.voiceBackend, generation, pan)
+            UUID.randomUUID().toString(), _state.value.voiceBackend, generation, pan, depthTicket)
         pendingSpeech = pending
+        playableDepthTicketId = depthTicket?.takeIf { depthPolicy.canPlay(it, now()) }?.id
         _state.update { it.copy(audioBusy = true,
             audio = if (pending.backend == OriaVoiceBackend.HTC) "Phrase remise au SDK HTC" else "Lecture locale vers Bluetooth VIVE",
             lastAlert = text) }
         try {
             // Disk persistence and UI bookkeeping may have taken time after engine reservation.
             // No blocking work is allowed between this last observation check and SDK dispatch.
-            if (ticket != null && (observedAtMs == null || now() - observedAtMs > MAX_AGE_MS ||
-                    observedAtMs > now() || !_state.value.running || ticket.sessionId != generation)) {
-                if (!releaseLocalSpeech(ticket)) return
+            if (automatic && (observedAtMs == null || now() - observedAtMs > maximumAge ||
+                    observedAtMs > now() || !_state.value.running ||
+                    (ticket?.sessionId ?: depthTicket?.sessionId) != generation)) {
+                if (!releaseLocalSpeech(ticket, depthTicket)) return
                 pendingSpeech = null
                 persistUncertainDelivery(false)
                 _state.update { it.copy(audioBusy = false, audio = "Annonce expirée avant envoi") }
@@ -497,25 +704,28 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
             val accepted = if (pending.backend == OriaVoiceBackend.HTC) manager.speakOriaText(text)
             else localSpeech.submit(pending.id, text, pan = pending.pan,
                 canStart = {
-                    val allowed = localRequestCurrent(pending) && (ticket == null ||
-                        (observedAtMs != null && observedAtMs <= now() && now() - observedAtMs <= MAX_AGE_MS))
+                    val allowed = localRequestCurrent(pending) &&
+                        (depthTicket == null || playableDepthTicketId == depthTicket.id) && (!automatic ||
+                        (observedAtMs != null && observedAtMs <= now() && now() - observedAtMs <= maximumAge))
                     if (startGuardRecorded.compareAndSet(false, true)) trace("speech_pcm_start_guard",
                         "requestId" to pending.id, "allowed" to allowed, "videoSessionId" to pending.sessionGeneration,
                         "observationAgeMs" to (observedAtMs?.let { now() - it } ?: -1L))
                     // Trace bookkeeping must not weaken the final freshness boundary.
-                    allowed && localRequestCurrent(pending) && (ticket == null ||
-                        (observedAtMs != null && observedAtMs <= now() && now() - observedAtMs <= MAX_AGE_MS))
+                    allowed && localRequestCurrent(pending) &&
+                        (depthTicket == null || playableDepthTicketId == depthTicket.id) && (!automatic ||
+                        (observedAtMs != null && observedAtMs <= now() && now() - observedAtMs <= maximumAge))
                 },
                 canContinue = { localRequestCurrent(pending) })
             if (!accepted) {
-                if (!releaseLocalSpeech(ticket)) return
+                if (!releaseLocalSpeech(ticket, depthTicket)) return
                 pendingSpeech = null
                 persistUncertainDelivery(false)
                 _state.update { it.copy(audioBusy = false, audioAutomaticPaused = true, audio = "Soumission vocale refusée") }
                 trace("speech_rejected")
             } else trace("speech_submitted", "text" to text, "backend" to pending.backend.name,
                 "requestId" to pending.id, "observedAtMs" to (observedAtMs ?: -1L),
-                "videoSessionId" to pending.sessionGeneration, "ticketId" to (ticket?.id ?: -1L),
+                "videoSessionId" to pending.sessionGeneration, "ticketId" to (ticket?.id ?: depthTicket?.id ?: -1L),
+                "perceptionMode" to if (depthTicket != null) "depth_only_experimental" else "yolo_or_manual",
                 "pan" to if (pending.backend == OriaVoiceBackend.BLUETOOTH) pending.pan.name else "HTC_UNCONTROLLED")
         }
         catch (error: Exception) { uncertainAudio("Envoi vocal interrompu : ${error.message}") }
@@ -525,16 +735,14 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     private fun localRequestCurrent(pending: PendingSpeech): Boolean =
         !closed && pendingSpeech?.id == pending.id && generation == pending.sessionGeneration &&
             !_state.value.audioUnknown && _state.value.connected &&
-            (pending.ticket == null || _state.value.running)
+            ((pending.ticket == null && pending.depthTicket == null) || _state.value.running)
 
     /** Android delivery has a real request ID; unrelated and late results are ignored. */
     private fun onLocalSpeechResult(id: String, result: SpeechDelivery, detail: String) {
         if (closed) return
         val pending = pendingSpeech ?: return
         if (pending.backend != OriaVoiceBackend.BLUETOOTH || pending.id != id) return
-        val accepted = pending.ticket?.let {
-            applyVoiceResult(it, if (result == SpeechDelivery.COMPLETED) "confirmed" else "failed")
-        } ?: true
+        val accepted = applySpeechResult(pending, if (result == SpeechDelivery.COMPLETED) "confirmed" else "failed")
         if (!accepted) { uncertainAudio("Retour local refusé par le moteur"); return }
         pendingSpeech = null
         persistUncertainDelivery(false)
@@ -556,7 +764,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         if (pending.backend != OriaVoiceBackend.BLUETOOTH) return
         pendingSpeech = null // The worker's canContinue becomes false before stopping the player.
         localSpeech.stop()
-        if (!releaseLocalSpeech(pending.ticket)) return
+        if (!releaseLocalSpeech(pending.ticket, pending.depthTicket)) return
         persistUncertainDelivery(false)
         _state.update { it.copy(audioBusy = false, audioAutomaticPaused = true, audio = reason) }
         trace("speech_local_cancelled", "requestId" to pending.id, "reason" to reason,
@@ -564,8 +772,13 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     }
 
     /** A known local refusal releases the reservation only if the engine recognizes it. */
-    private fun releaseLocalSpeech(ticket: VoiceTicket?): Boolean {
-        if (ticket == null || applyVoiceResult(ticket, "failed")) return true
+    private fun releaseLocalSpeech(ticket: VoiceTicket?, depthTicket: DepthVoiceTicket? = null): Boolean {
+        val accepted = when {
+            depthTicket != null -> applyDepthVoiceResult(depthTicket, "failed")
+            ticket != null -> applyVoiceResult(ticket, "failed")
+            else -> true
+        }
+        if (accepted) return true
         uncertainAudio("Réservation vocale incohérente · reprise à vérifier")
         return false
     }
@@ -573,11 +786,30 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     private fun uncertainAudio(reason: String) {
         persistUncertainDelivery(true)
         val pending = pendingSpeech
-        pending?.ticket?.let { applyVoiceResult(it, "ambiguous") }
+        pending?.let { applySpeechResult(it, "ambiguous") }
         pendingSpeech = null
         _state.update { it.copy(audioUnknown = true, audioBusy = false, audio = reason) }
         trace("audio_uncertain", "reason" to reason, "requestId" to (pending?.id ?: "none"),
             "videoSessionId" to (pending?.sessionGeneration ?: generation))
+    }
+
+    private fun applySpeechResult(pending: PendingSpeech, action: String): Boolean = when {
+        pending.depthTicket != null -> applyDepthVoiceResult(pending.depthTicket, action)
+        pending.ticket != null -> applyVoiceResult(pending.ticket, action)
+        else -> true
+    }
+
+    private fun applyDepthVoiceResult(ticket: DepthVoiceTicket, action: String): Boolean {
+        val at = now()
+        val accepted = when (action) {
+            "confirmed" -> depthPolicy.onCompleted(ticket, at)
+            "failed" -> depthPolicy.onFailed(ticket, at)
+            "ambiguous" -> depthPolicy.onAudioUnknown(ticket)
+            else -> false
+        }
+        trace("depth_voice", "action" to action, "accepted" to accepted,
+            "ticketId" to ticket.id, "videoSessionId" to ticket.sessionId, "policyAtMs" to at)
+        return accepted
     }
 
     /** Record the exact clock supplied to policy, independently from transport/logging latency. */
@@ -612,6 +844,25 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     }
 
     private fun recordingMetadata(videoSessionId: Long): JSONObject {
+        if (_state.value.obstacleMode) return JSONObject()
+            .put("videoSessionId", videoSessionId).put("perceptionMode", "depth_only_experimental")
+            .put("source", if (_state.value.simulator) "htc_simulator" else "htc_live")
+            .put("depthModelSha256", OnnxDepthDetector.MODEL_SHA256)
+            .put("depthModelProvider", depthDetector?.requestedProvider ?: "unknown")
+            .put("depthModelManifest", appContext.assets.open(OnnxDepthDetector.MANIFEST_ASSET).bufferedReader().use { JSONObject(it.readText()) })
+            .put("depthGeometryVersion", DepthObstacleGeometry.VERSION)
+            .put("rgbInferenceEnabled", false).put("rawModelOutputIncluded", false)
+            .put("depthEvidenceIncluded", true).put("depthMetric", false)
+            .put("depthPolicyVersion", "relative-depth-occupancy-android-v1-experimental")
+            .put("depthPolicyConfig", JSONObject().put("maxObservationAgeMs", DEPTH_MAX_AGE_MS)
+                .put("minimumObservations", 3).put("minimumHoldMs", 500).put("maxGapMs", 1500)
+                .put("minCandidateFraction", 0.12).put("repeatAfterPlaybackMs", 8000).put("failureRetryMs", 1000))
+            .put("deviceModel", Build.MODEL).put("androidApi", Build.VERSION.SDK_INT)
+            .put("rotationAppliedDegrees", _state.value.rotation).put("mirrored", _state.value.mirrored)
+            .put("orientationVerified", _state.value.orientationVerified).put("voiceBackend", _state.value.voiceBackend.name)
+            .put("sampleIntervalMs", ViveGlassKitManager.ORIA_SAMPLE_INTERVAL_MS).put("samplingMode", "fixed_interval_after_decode")
+            .put("clock", "Android elapsedRealtime milliseconds")
+            .apply { appProvenance?.let { provenance -> provenance.keys().forEach { key -> put(key, provenance.get(key)) } } }
         val config = engine.config
         val policy = JSONObject()
             .put("maxObservationAgeMs", config.maxObservationAgeMs)
@@ -644,7 +895,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
             .put("rotationAppliedDegrees", _state.value.rotation).put("mirrored", _state.value.mirrored)
             .put("orientationVerified", _state.value.orientationVerified)
             .put("voiceBackend", _state.value.voiceBackend.name)
-            .put("sampleIntervalMs", ViveGlassKitManager.ORIA_SAMPLE_INTERVAL_MS)
+            .put("sampleIntervalMs", ViveGlassKitManager.ORIA_SAMPLE_INTERVAL_MS).put("samplingMode", "fixed_interval_after_decode")
             .put("detectionConfidenceFloor", 0.70).put("rawModelOutputIncluded", true)
             .put("rawModelOutputContract", "float32 flat [1,300,6], xyxy input pixels / score / classId")
             .put("modelDetectionsContract", "300 normalized rows, including empty clipped boxes; no confidence filter")
@@ -747,12 +998,13 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         if (closed) return
         closed = true; stop(); frames.cancel(); traces.close()
         // Closing is serialized behind any ongoing inference, never on the UI thread.
-        CoroutineScope(worker).launch { detector?.close(); worker.close() }
+        CoroutineScope(worker).launch { detector?.close(); depthDetector?.close(); worker.close() }
         localSpeech.close()
         scope.cancel()
     }
 
     companion object {
+        const val DEPTH_MAX_AGE_MS = DepthObstacleConfig.DEFAULT_MAX_OBSERVATION_AGE_MS // Experimental depth only; never changes YOLO freshness.
         const val MAX_AGE_MS = 500L
         const val TEST_PHRASE = "Oria. Test de la voix dans les lunettes."
         private fun now() = SystemClock.elapsedRealtime()

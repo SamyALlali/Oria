@@ -1,0 +1,43 @@
+{
+  "versionName": "1.6-obstacles-experimental",
+  "versionCode": 7,
+  "packageName": "com.htc.vive.eagle.hackathon.starter",
+  "deviceSerial": "CN46V3M00284",
+  "apkSha256": "7d3d3a14e5d56d17e5c288136fde5ebf51f534711b0d89ff9877bd2f14ac51c2",
+  "apkBytes": 343190814,
+  "signatureSha256": "60372c0d29a3e6a0ea7af9af3bf16cbaff79fd95f75912c1692a9e12a9dfbeb7",
+  "unitTestsPassed": 117,
+  "installation": "adb install -r: Success",
+  "depthInputSize": 252,
+  "depthProvider": "CPU",
+  "depthOnnxSha256": "3467d320122172aa5e28a961ff2a1ee6e9e3d52db6f0fa8b04ab663efa4c0cba",
+  "depth252PhoneBenchmarkExecuted": true,
+  "humanVoiceConfirmationOnThisBuild": false,
+  "userRequestedSelfTesting": true,
+  "backupFilesVerifiedBeforeUpdate": 697,
+  "originalDataCleared": false,
+  "instrumentedParityAndUiTestsPassed": 4,
+  "depthReplayVariantsPassed": 8,
+  "depthThreads": 4,
+  "sampleIntervalMs": 333,
+  "samplingMode": "fixed_interval_after_decode",
+  "finalLaunch": "MainActivity started; no stream or capture started",
+  "liveGlassesLatencyMeasured": false,
+  "hardwareReplayRadioUsed": false,
+  "hardwareReplayActualAudio": false,
+  "latencyPhoneLocalReplay": {
+    "baselineCpu2Fixed333P50Ms": [
+      720,
+      717
+    ],
+    "finalCpu4Fixed333P50Ms": [
+      388,
+      389
+    ],
+    "finalCpu4Fixed333P95Ms": [
+      529,
+      413
+    ],
+    "scope": "phone-local paced SDK MP4, decoder through geometry/policy, no SDK radio/UI preview/recording/audio; cold calls included"
+  }
+}

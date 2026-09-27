@@ -289,8 +289,8 @@ class ViveGlassKitManager(
             return false
         }
         val decoder = OriaVideoDecoder(sessionId, rotationDegrees, mirrored,
-            // Live warm-phone service time is ~310 ms: avoid queuing faster than inference.
-            // The decoder still consumes every encoded packet and selects only after decoding.
+            // CPU4 depth replay favored 333 ms over 250/167 ms and demand-only sampling.
+            // Decode every H.264 dependency; the consumer keeps only the latest pending bitmap.
             sampleIntervalMs = ORIA_SAMPLE_INTERVAL_MS,
             onFrame = { frame ->
                 if (token != echoRequestVersion.get() || echoSessionId != sessionId) false
