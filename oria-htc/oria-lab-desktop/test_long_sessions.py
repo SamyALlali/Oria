@@ -55,7 +55,7 @@ class LongIndexTests(unittest.TestCase):
             self.assertNotIn(b'rawModelOutput',encoded)
             self.assertNotIn('events',session.index())
             self.assertEqual(session.index()['eventCount'],1024)
-            self.assertLess(len(encoded),300_000)
+            self.assertLess(len(encoded),400_000)  # Includes source positions and integrity diagnostics.
             self.assertLess(peak,32*1024**2)
             self.assertLessEqual(len(session.events.cache),16)
             self.assertIsNone(session.index()['manifest']['limits']['durationMs'])
@@ -77,7 +77,7 @@ class LongIndexTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp); source=capture(root/'capture')
             with (source/'events.jsonl').open('a') as stream:
-                stream.write(json.dumps({'type':'speech_complete','atMs':1333})+'\n')
+                stream.write(json.dumps({'type':'speech_complete','sessionId':7,'atMs':1333})+'\n')
                 stream.write('{"type":')
             session=Session(source,'b'*32)
             self.assertTrue(any('incomplète' in w for w in session.warnings))

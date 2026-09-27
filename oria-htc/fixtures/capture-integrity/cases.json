@@ -1,0 +1,1634 @@
+{
+  "schemaVersion": 1,
+  "kind": "oria-capture-integrity-fixtures",
+  "synthetic": true,
+  "contract": "D27",
+  "cases": [
+    {
+      "id": "01-preserve-damaged-positions",
+      "description": "A valide, JSON invalide, B PNG absente, C valide : quatre positions.",
+      "frames": [
+        {
+          "json": {
+            "videoSessionId": 7,
+            "frameId": 101,
+            "receivedAtMs": 1100,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "text": "{broken",
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 7,
+            "frameId": 102,
+            "receivedAtMs": 2200,
+            "imagePath": "frames/missing.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 7,
+            "frameId": 103,
+            "receivedAtMs": 3300,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        }
+      ],
+      "events": [
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 7,
+            "frameId": 101,
+            "receivedAtMs": 1100,
+            "observedAtMs": 1100,
+            "detections": [
+              {
+                "classId": 0,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 7,
+            "frameId": 102,
+            "receivedAtMs": 2200,
+            "observedAtMs": 2200,
+            "detections": [
+              {
+                "classId": 1,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 7,
+            "frameId": 103,
+            "receivedAtMs": 3300,
+            "observedAtMs": 3300,
+            "detections": [
+              {
+                "classId": 2,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "decision",
+            "videoSessionId": 7,
+            "frameId": 103,
+            "receivedAtMs": 3300,
+            "observedAtMs": 3300,
+            "reason": "NONE",
+            "atMs": 3400
+          },
+          "newline": true
+        }
+      ],
+      "images": {
+        "frames/solid.png": {
+          "kind": "solid-rgb",
+          "rgb": [
+            20,
+            120,
+            220
+          ]
+        }
+      },
+      "expected": {
+        "positionCount": 4,
+        "rows": [
+          {
+            "sourceLine": 1,
+            "identity": {
+              "videoSessionId": 7,
+              "frameId": 101
+            },
+            "issueKinds": [],
+            "receivedAtMs": 1100,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              0
+            ],
+            "filePresent": true,
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          },
+          {
+            "sourceLine": 2,
+            "identity": null,
+            "issueKinds": [
+              "invalid_json"
+            ],
+            "identityWellFormed": false,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 3,
+            "identity": {
+              "videoSessionId": 7,
+              "frameId": 102
+            },
+            "issueKinds": [
+              "missing_png"
+            ],
+            "receivedAtMs": 2200,
+            "imagePath": "frames/missing.png",
+            "filePresent": false,
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true,
+            "detectionClassIds": [
+              1
+            ]
+          },
+          {
+            "sourceLine": 4,
+            "identity": {
+              "videoSessionId": 7,
+              "frameId": 103
+            },
+            "issueKinds": [],
+            "receivedAtMs": 3300,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              2
+            ],
+            "filePresent": true,
+            "decisionReason": "NONE",
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "02-source-order-and-processing-clocks",
+      "description": "L’ordre des lignes prime ; atMs et recordedAtMs ultérieurs ne changent pas l’observation.",
+      "frames": [
+        {
+          "json": {
+            "videoSessionId": 8,
+            "frameId": 31,
+            "receivedAtMs": 3000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "text": "  ",
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 8,
+            "frameId": 12,
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 8,
+            "frameId": 23,
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        }
+      ],
+      "events": [
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 8,
+            "frameId": 31,
+            "receivedAtMs": 3000,
+            "observedAtMs": 3000,
+            "detections": [
+              {
+                "classId": 1,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ],
+            "atMs": 9000,
+            "recordedAtMs": 10000
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 8,
+            "frameId": 12,
+            "receivedAtMs": 1000,
+            "observedAtMs": 1000,
+            "detections": [
+              {
+                "classId": 2,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ],
+            "atMs": 8000
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 8,
+            "frameId": 23,
+            "receivedAtMs": 2000,
+            "observedAtMs": 2000,
+            "detections": [
+              {
+                "classId": 3,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ],
+            "recordedAtMs": 12000
+          },
+          "newline": true
+        }
+      ],
+      "images": {
+        "frames/solid.png": {
+          "kind": "solid-rgb",
+          "rgb": [
+            20,
+            120,
+            220
+          ]
+        }
+      },
+      "expected": {
+        "positionCount": 3,
+        "rows": [
+          {
+            "sourceLine": 1,
+            "identity": {
+              "videoSessionId": 8,
+              "frameId": 31
+            },
+            "issueKinds": [],
+            "receivedAtMs": 3000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              1
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          },
+          {
+            "sourceLine": 3,
+            "identity": {
+              "videoSessionId": 8,
+              "frameId": 12
+            },
+            "issueKinds": [],
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              2
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          },
+          {
+            "sourceLine": 4,
+            "identity": {
+              "videoSessionId": 8,
+              "frameId": 23
+            },
+            "issueKinds": [],
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              3
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "03-no-id-coercion",
+      "description": "Chaîne, booléen, ID absent/null et alias session contradictoires ne forment aucune identité exploitable.",
+      "frames": [
+        {
+          "json": {
+            "videoSessionId": 9,
+            "frameId": "1",
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 9,
+            "frameId": true,
+            "receivedAtMs": 1001,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "frameId": 3,
+            "receivedAtMs": 1002,
+            "imagePath": "frames/solid.png"
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 9,
+            "frameId": null,
+            "receivedAtMs": 1003,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 9,
+            "frameId": 5,
+            "receivedAtMs": 1004,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2,
+            "sessionId": 10
+          },
+          "newline": true
+        }
+      ],
+      "events": [
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 9,
+            "frameId": 1,
+            "receivedAtMs": 1000,
+            "observedAtMs": 1000,
+            "detections": [
+              {
+                "classId": 0,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 9,
+            "frameId": 3,
+            "receivedAtMs": 1002,
+            "observedAtMs": 1002,
+            "detections": [
+              {
+                "classId": 0,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 9,
+            "frameId": 5,
+            "receivedAtMs": 1004,
+            "observedAtMs": 1004,
+            "detections": [
+              {
+                "classId": 0,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        }
+      ],
+      "images": {
+        "frames/solid.png": {
+          "kind": "solid-rgb",
+          "rgb": [
+            20,
+            120,
+            220
+          ]
+        }
+      },
+      "expected": {
+        "positionCount": 5,
+        "rows": [
+          {
+            "sourceLine": 1,
+            "identity": null,
+            "issueKinds": [
+              "invalid_identity"
+            ],
+            "identityWellFormed": false,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 2,
+            "identity": null,
+            "issueKinds": [
+              "invalid_identity"
+            ],
+            "identityWellFormed": false,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 3,
+            "identity": null,
+            "issueKinds": [
+              "invalid_identity"
+            ],
+            "identityWellFormed": false,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 4,
+            "identity": null,
+            "issueKinds": [
+              "invalid_identity"
+            ],
+            "identityWellFormed": false,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 5,
+            "identity": null,
+            "issueKinds": [
+              "invalid_identity"
+            ],
+            "identityWellFormed": false,
+            "recordedInferenceConsistent": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "04-duplicate-frames-and-distinct-video-sessions",
+      "description": "Deux mêmes clés sont ambiguës ; le même frameId dans une autre vidéo reste distinct.",
+      "frames": [
+        {
+          "json": {
+            "videoSessionId": 10,
+            "frameId": 4,
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 10,
+            "frameId": 4,
+            "receivedAtMs": 1001,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 11,
+            "frameId": 4,
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 12,
+            "frameId": 4,
+            "receivedAtMs": 3000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        }
+      ],
+      "events": [
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 10,
+            "frameId": 4,
+            "receivedAtMs": 1000,
+            "observedAtMs": 1000,
+            "detections": [
+              {
+                "classId": 0,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 11,
+            "frameId": 4,
+            "receivedAtMs": 2000,
+            "observedAtMs": 2000,
+            "detections": [
+              {
+                "classId": 1,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 12,
+            "frameId": 4,
+            "receivedAtMs": 3000,
+            "observedAtMs": 3000,
+            "detections": [
+              {
+                "classId": 2,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        }
+      ],
+      "images": {
+        "frames/solid.png": {
+          "kind": "solid-rgb",
+          "rgb": [
+            20,
+            120,
+            220
+          ]
+        }
+      },
+      "expected": {
+        "positionCount": 4,
+        "rows": [
+          {
+            "sourceLine": 1,
+            "identity": {
+              "videoSessionId": 10,
+              "frameId": 4
+            },
+            "issueKinds": [
+              "duplicate_frame_identity"
+            ],
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 2,
+            "identity": {
+              "videoSessionId": 10,
+              "frameId": 4
+            },
+            "issueKinds": [
+              "duplicate_frame_identity"
+            ],
+            "receivedAtMs": 1001,
+            "imagePath": "frames/solid.png",
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 3,
+            "identity": {
+              "videoSessionId": 11,
+              "frameId": 4
+            },
+            "issueKinds": [],
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              1
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          },
+          {
+            "sourceLine": 4,
+            "identity": {
+              "videoSessionId": 12,
+              "frameId": 4
+            },
+            "issueKinds": [],
+            "receivedAtMs": 3000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              2
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "05-duplicate-inference",
+      "description": "Une inférence doublonnée ne peut pas être remplacée arbitrairement par la dernière.",
+      "frames": [
+        {
+          "json": {
+            "videoSessionId": 13,
+            "frameId": 1,
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 13,
+            "frameId": 2,
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        }
+      ],
+      "events": [
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 13,
+            "frameId": 1,
+            "receivedAtMs": 1000,
+            "observedAtMs": 1000,
+            "detections": [
+              {
+                "classId": 0,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 13,
+            "frameId": 1,
+            "receivedAtMs": 1000,
+            "observedAtMs": 1000,
+            "detections": [
+              {
+                "classId": 4,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 13,
+            "frameId": 2,
+            "receivedAtMs": 2000,
+            "observedAtMs": 2000,
+            "detections": [
+              {
+                "classId": 2,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        }
+      ],
+      "images": {
+        "frames/solid.png": {
+          "kind": "solid-rgb",
+          "rgb": [
+            20,
+            120,
+            220
+          ]
+        }
+      },
+      "expected": {
+        "positionCount": 2,
+        "rows": [
+          {
+            "sourceLine": 1,
+            "identity": {
+              "videoSessionId": 13,
+              "frameId": 1
+            },
+            "issueKinds": [
+              "duplicate_inference"
+            ],
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 2,
+            "identity": {
+              "videoSessionId": 13,
+              "frameId": 2
+            },
+            "issueKinds": [],
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              2
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "06-observation-clock-mismatch",
+      "description": "Une horloge source erronée ne doit pas être confondue avec la réception PNG ; les timestamps de traitement sont permis.",
+      "frames": [
+        {
+          "json": {
+            "videoSessionId": 14,
+            "frameId": 1,
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 14,
+            "frameId": 2,
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 14,
+            "frameId": 3,
+            "receivedAtMs": 3000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        }
+      ],
+      "events": [
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 14,
+            "frameId": 1,
+            "receivedAtMs": 99,
+            "observedAtMs": 99,
+            "detections": [
+              {
+                "classId": 0,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 14,
+            "frameId": 2,
+            "receivedAtMs": 2000,
+            "observedAtMs": 99,
+            "detections": [
+              {
+                "classId": 1,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 14,
+            "frameId": 3,
+            "receivedAtMs": 3000,
+            "observedAtMs": 3000,
+            "detections": [
+              {
+                "classId": 3,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ],
+            "atMs": 12000,
+            "recordedAtMs": 15000
+          },
+          "newline": true
+        }
+      ],
+      "images": {
+        "frames/solid.png": {
+          "kind": "solid-rgb",
+          "rgb": [
+            20,
+            120,
+            220
+          ]
+        }
+      },
+      "expected": {
+        "positionCount": 3,
+        "rows": [
+          {
+            "sourceLine": 1,
+            "identity": {
+              "videoSessionId": 14,
+              "frameId": 1
+            },
+            "issueKinds": [
+              "inference_clock_mismatch"
+            ],
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 2,
+            "identity": {
+              "videoSessionId": 14,
+              "frameId": 2
+            },
+            "issueKinds": [
+              "contradictory_observation_clock"
+            ],
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 3,
+            "identity": {
+              "videoSessionId": 14,
+              "frameId": 3
+            },
+            "issueKinds": [],
+            "receivedAtMs": 3000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              3
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "07-truncated-final-line",
+      "description": "La dernière ligne JSON tronquée sans retour à la ligne garde sa position.",
+      "frames": [
+        {
+          "json": {
+            "videoSessionId": 15,
+            "frameId": 1,
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "text": "{\"frameId\":",
+          "newline": false
+        }
+      ],
+      "events": [
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 15,
+            "frameId": 1,
+            "receivedAtMs": 1000,
+            "observedAtMs": 1000,
+            "detections": [
+              {
+                "classId": 0,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        }
+      ],
+      "images": {
+        "frames/solid.png": {
+          "kind": "solid-rgb",
+          "rgb": [
+            20,
+            120,
+            220
+          ]
+        }
+      },
+      "expected": {
+        "positionCount": 2,
+        "rows": [
+          {
+            "sourceLine": 1,
+            "identity": {
+              "videoSessionId": 15,
+              "frameId": 1
+            },
+            "issueKinds": [],
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              0
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          },
+          {
+            "sourceLine": 2,
+            "identity": null,
+            "issueKinds": [
+              "invalid_json"
+            ],
+            "identityWellFormed": false,
+            "recordedInferenceConsistent": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "08-invalid-utf8-and-duplicate-json-key",
+      "description": "Une ligne UTF-8 invalide et des clés JSON dupliquées restent distinctes de la ligne valide suivante.",
+      "frames": [
+        {
+          "bytesHex": "c328",
+          "newline": true
+        },
+        {
+          "text": "{\"videoSessionId\":16,\"frameId\":1,\"frameId\":2,\"receivedAtMs\":1000,\"imagePath\":\"frames/solid.png\"}",
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 16,
+            "frameId": 3,
+            "receivedAtMs": 3000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        }
+      ],
+      "events": [
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 16,
+            "frameId": 3,
+            "receivedAtMs": 3000,
+            "observedAtMs": 3000,
+            "detections": [
+              {
+                "classId": 3,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        }
+      ],
+      "images": {
+        "frames/solid.png": {
+          "kind": "solid-rgb",
+          "rgb": [
+            20,
+            120,
+            220
+          ]
+        }
+      },
+      "expected": {
+        "positionCount": 3,
+        "rows": [
+          {
+            "sourceLine": 1,
+            "identity": null,
+            "issueKinds": [
+              "invalid_utf8"
+            ],
+            "identityWellFormed": false,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 2,
+            "identity": null,
+            "issueKinds": [
+              "duplicate_json_field"
+            ],
+            "identityWellFormed": false,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 3,
+            "identity": {
+              "videoSessionId": 16,
+              "frameId": 3
+            },
+            "issueKinds": [],
+            "receivedAtMs": 3000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              3
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "09-oversized-line",
+      "description": "Une ligne supérieure à 2 Mio est drainée, signalée et ne masque pas la suivante.",
+      "frames": [
+        {
+          "repeatText": {
+            "prefix": "{\"padding\":\"",
+            "unit": "x",
+            "count": 2097152,
+            "suffix": "\"}"
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 17,
+            "frameId": 2,
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        }
+      ],
+      "events": [
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 17,
+            "frameId": 2,
+            "receivedAtMs": 2000,
+            "observedAtMs": 2000,
+            "detections": [
+              {
+                "classId": 2,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        }
+      ],
+      "images": {
+        "frames/solid.png": {
+          "kind": "solid-rgb",
+          "rgb": [
+            20,
+            120,
+            220
+          ]
+        }
+      },
+      "expected": {
+        "positionCount": 2,
+        "rows": [
+          {
+            "sourceLine": 1,
+            "identity": null,
+            "issueKinds": [
+              "oversized_jsonl_line"
+            ],
+            "identityWellFormed": false,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 2,
+            "identity": {
+              "videoSessionId": 17,
+              "frameId": 2
+            },
+            "issueKinds": [],
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              2
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "10-invalid-detection",
+      "description": "Une boîte invalide invalide l’analyse sélectionnée sans retrait silencieux de la boîte.",
+      "frames": [
+        {
+          "json": {
+            "videoSessionId": 18,
+            "frameId": 1,
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 18,
+            "frameId": 2,
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        }
+      ],
+      "events": [
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 18,
+            "frameId": 1,
+            "receivedAtMs": 1000,
+            "observedAtMs": 1000,
+            "detections": [
+              {
+                "classId": 0,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": -1,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 18,
+            "frameId": 2,
+            "receivedAtMs": 2000,
+            "observedAtMs": 2000,
+            "detections": [
+              {
+                "classId": 2,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        }
+      ],
+      "images": {
+        "frames/solid.png": {
+          "kind": "solid-rgb",
+          "rgb": [
+            20,
+            120,
+            220
+          ]
+        }
+      },
+      "expected": {
+        "positionCount": 2,
+        "rows": [
+          {
+            "sourceLine": 1,
+            "identity": {
+              "videoSessionId": 18,
+              "frameId": 1
+            },
+            "issueKinds": [
+              "invalid_detection"
+            ],
+            "receivedAtMs": 1000,
+            "imagePath": "frames/solid.png",
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": false
+          },
+          {
+            "sourceLine": 2,
+            "identity": {
+              "videoSessionId": 18,
+              "frameId": 2
+            },
+            "issueKinds": [],
+            "receivedAtMs": 2000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              2
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "11-escaping-path",
+      "description": "Un chemin hors capture reste une position inspectable mais ne doit pas être lu.",
+      "frames": [
+        {
+          "json": {
+            "videoSessionId": 19,
+            "frameId": 1,
+            "receivedAtMs": 1000,
+            "imagePath": "../outside.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 19,
+            "frameId": 2,
+            "receivedAtMs": 2000,
+            "imagePath": "/tmp/private.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "videoSessionId": 19,
+            "frameId": 3,
+            "receivedAtMs": 3000,
+            "imagePath": "frames/solid.png",
+            "width": 2,
+            "height": 2
+          },
+          "newline": true
+        }
+      ],
+      "events": [
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 19,
+            "frameId": 1,
+            "receivedAtMs": 1000,
+            "observedAtMs": 1000,
+            "detections": [
+              {
+                "classId": 0,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 19,
+            "frameId": 2,
+            "receivedAtMs": 2000,
+            "observedAtMs": 2000,
+            "detections": [
+              {
+                "classId": 0,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        },
+        {
+          "json": {
+            "type": "inference",
+            "videoSessionId": 19,
+            "frameId": 3,
+            "receivedAtMs": 3000,
+            "observedAtMs": 3000,
+            "detections": [
+              {
+                "classId": 3,
+                "confidence": 0.875,
+                "box": {
+                  "left": 0.125,
+                  "top": 0.25,
+                  "right": 0.75,
+                  "bottom": 0.875
+                }
+              }
+            ]
+          },
+          "newline": true
+        }
+      ],
+      "images": {
+        "frames/solid.png": {
+          "kind": "solid-rgb",
+          "rgb": [
+            20,
+            120,
+            220
+          ]
+        }
+      },
+      "expected": {
+        "positionCount": 3,
+        "rows": [
+          {
+            "sourceLine": 1,
+            "identity": {
+              "videoSessionId": 19,
+              "frameId": 1
+            },
+            "issueKinds": [
+              "unsafe_image_path"
+            ],
+            "receivedAtMs": 1000,
+            "imagePath": "../outside.png",
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true,
+            "detectionClassIds": [
+              0
+            ]
+          },
+          {
+            "sourceLine": 2,
+            "identity": {
+              "videoSessionId": 19,
+              "frameId": 2
+            },
+            "issueKinds": [
+              "unsafe_image_path"
+            ],
+            "receivedAtMs": 2000,
+            "imagePath": "/tmp/private.png",
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true,
+            "detectionClassIds": [
+              0
+            ]
+          },
+          {
+            "sourceLine": 3,
+            "identity": {
+              "videoSessionId": 19,
+              "frameId": 3
+            },
+            "issueKinds": [],
+            "receivedAtMs": 3000,
+            "imagePath": "frames/solid.png",
+            "detectionClassIds": [
+              3
+            ],
+            "identityWellFormed": true,
+            "recordedInferenceConsistent": true
+          }
+        ]
+      }
+    }
+  ],
+  "fieldContract": {
+    "identity": "Exact numeric pair when structurally well formed, null otherwise. A duplicate may retain its exact pair but remains ambiguous.",
+    "identityWellFormed": "Numeric JSON integer IDs, neither boolean nor string; aliases consistent. This does not imply uniqueness.",
+    "receivedAtMs": "Exact source observation timestamp when included; absent expectations do not authorize synthesizing one.",
+    "recordedInferenceConsistent": "Unique, structurally valid recorded inference with matching frame identity and source clock. Independent of PNG availability; an app may block rendering/replay for a missing/unsafe PNG.",
+    "detectionClassIds": "Ordered classes of a consistent recorded inference; optional when no such inference is attributable.",
+    "issueKinds": "Semantic causes required somewhere in inspection (entry or global diagnostics), not exact translated message strings.",
+    "imagePath": "Exact recorded value, including malicious fixture strings; never permission to read outside capture."
+  }
+}

@@ -110,8 +110,7 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                         return self.json(session.frame(int(parts[4])))
                 if len(parts) == 5 and parts[:2] == ['api', 'session'] and parts[3] == 'image':
                     with store.get(parts[2]).operation() as session:
-                        frame = session.frame(int(parts[4]))['frame']
-                        return self.file(safe_path(session.path, frame['imagePath']), 'image/png')
+                        return self.file(session.image_path(int(parts[4])), 'image/png')
                 if len(parts) == 4 and parts[:2] == ['api', 'session'] and parts[3] == 'video':
                     with store.get(parts[2]).operation() as session:
                         return self.file(safe_path(session.path, 'context-video.mp4'), 'video/mp4')

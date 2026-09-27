@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const state = {token:null,session:null,index:0,playing:false,timer:null,job:null,jobKind:null,
-  drawVersion:0,sessionVersion:0,loadVersion:0,libraryVersion:0,jobVersion:0,audioVersion:0,mode:'recorded',comparison:null,audioUrl:null,pendingArchive:null,frameAbort:null,seekTimer:null,exportId:null,exportVersion:0,exportTimer:null};
+  drawVersion:0,sessionVersion:0,loadVersion:0,libraryVersion:0,jobVersion:0,audioVersion:0,mode:'recorded',comparison:null,audioUrl:null,pendingArchive:null,frameAbort:null,seekTimer:null,exportId:null,exportVersion:0,exportTimer:null,jobBusy:false};
 const fmt=(v,d=1)=>Number.isFinite(v)?v.toFixed(d):'—';
 async function response(url,body,binary=false,signal){
   const options=body===undefined?{}:{method:'POST',headers:{'X-Oria-Lab-Token':state.token,
@@ -36,11 +36,33 @@ async function refreshLibrary(){
 async function openSession(id){const version=++state.loadVersion;try{await loadSession(await request(`/api/session/${id}`),version);}catch(e){if(version===state.loadVersion)error(e);}}
 async function restoreSession(id){const version=++state.loadVersion;try{const restored=await request(`/api/session/${id}/restore`,{});if(version!==state.loadVersion)return;$('showTrash').checked=false;await loadSession(restored,version);}catch(e){if(version===state.loadVersion)error(e);}}
 function sessionTitle(){if(state.session){$('sessionTitle').textContent=state.session.displayName||'Images capturées';$('displayName').value=state.session.displayName||'';}}
+function replayAllowed(source){
+  const session=state.session;
+  return Boolean(session?.frames.length)&&session.integrity?.[source==='mac'?'macReplayAllowed':'recordedReplayAllowed']!==false;
+}
+function playbackAllowed(){
+  const frames=state.session?.frames||[];
+  return frames.length>0&&frames.every((frame,index)=>Number.isFinite(frame.timeSeconds)&&(index===0||frame.timeSeconds>=frames[index-1].timeSeconds));
+}
+function refreshReplayControls(){
+  $('recompute').disabled=state.jobBusy||!replayAllowed('mac');
+  $('compare').disabled=state.jobBusy||!replayAllowed($('compareSource').value);
+  $('play').disabled=!playbackAllowed();
+}
+function integritySummary(session){
+  const integrity=session.integrity;
+  if(!integrity)return '';
+  const messages=[`${integrity.frameEntryCount} entrées source · ${integrity.invalidFrameCount} entrées invalides · ${integrity.missingImageCount} PNG indisponibles · ${integrity.invalidEventCount} événements invalides.`];
+  if(!integrity.recordedReplayAllowed)messages.push('Recalculs refusés : données ou associations ambiguës. Inspection image par image disponible.');
+  else if(!integrity.macReplayAllowed)messages.push('Couverture visuelle incomplète : comparaison des détections enregistrées possible, recalcul ONNX indisponible.');
+  if(!playbackAllowed())messages.push('Lecture automatique indisponible : horloges absentes ou non chronologiques. Utilisez les flèches.');
+  return messages.join('\n');
+}
 async function loadSession(session,version){
   if(version!==state.loadVersion)return;
   const oldJob=state.job;if(oldJob)request(`/api/job/${oldJob}/cancel`,{}).catch(()=>{});
   stop();stopAudio();resetArchiveConfirmation();state.frameAbort?.abort();clearFrameView();++state.sessionVersion;++state.drawVersion;++state.jobVersion;
-  state.session=session;state.index=0;state.job=null;state.jobKind=null;state.comparison=null;state.mode='recorded';
+  state.session=session;state.index=0;state.job=null;state.jobKind=null;state.comparison=null;state.mode='recorded';state.jobBusy=false;
   const config=session.manifest.metadata?.policyConfig||{};
   for(const id of ['confirmationSamples','samplesA','samplesB'])$(id).value=config.confirmationSamples??2;
   for(const id of ['repeatInterval','repeatA','repeatB'])$(id).value=config.repeatIntervalMs??6500;
@@ -49,18 +71,19 @@ async function loadSession(session,version){
   $('videoControls').hidden=true;$('videoStatus').textContent='';$('jobStatus').textContent='Aucun recalcul.';
   $('comparisonPanel').hidden=true;$('exportReport').disabled=true;$('nextDifference').disabled=true;$('cancelJob').disabled=true;
   $('sessionActions').hidden=false;sessionTitle();$('warnings').textContent=session.warnings.join('\n');$('sessionInfo').replaceChildren();
-  for(const [a,b]of [['Capture',session.manifest.sessionId],['État',session.manifest.status],['PNG',session.frames.length],
+  $('integritySummary').textContent=integritySummary(session);
+  for(const [a,b]of [['Capture',session.manifest.sessionId],['État déclaré',session.manifest.status],['Entrées source',session.frames.length],
     ['Paquets H264',session.packetCount],['Modèle',session.modelSha256?session.modelSha256.slice(0,16)+'…':'SHA non renseigné']]){
     const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=a;dd.textContent=b??'—';$('sessionInfo').append(dt,dd);
   }
-  const has=session.frames.length>0;for(const id of ['previous','play','next','timeline','recompute','compare'])$(id).disabled=!has;
+  const has=session.frames.length>0;for(const id of ['previous','next','timeline'])$(id).disabled=!has;refreshReplayControls();
   $('videoButton').disabled=!session.videoAvailable||!session.ffmpegAvailable;
   $('videoButton').textContent=session.ffmpegAvailable?'Préparer la vidéo avec FFmpeg local':'FFmpeg non disponible';
   $('timeline').max=Math.max(0,session.frames.length-1);$('timeStart').textContent=fmt(session.frames[0]?.timeSeconds)+' s';
   $('timeEnd').textContent=fmt(session.frames.at(-1)?.timeSeconds)+' s';
-  $('importStatus').textContent=`Session ouverte : ${session.frames.length} PNG. Traitement local sur ce Mac.`;$('importStatus').className='muted';
+  $('importStatus').textContent=`Session ouverte : ${session.frames.length} entrées source. Traitement local sur ce Mac.`;$('importStatus').className='muted';
   await refreshLibrary();if(version!==state.loadVersion)return;
-  if(has)await showFrame(0);else{$('empty').hidden=false;$('empty').textContent='Cette capture ne contient aucune PNG exploitable.';$('decision').textContent='Aucune image exploitable.';$('audio').textContent='Aucun événement associé à une image.';}
+  if(has)await showFrame(0);else{$('empty').hidden=false;$('empty').textContent='Cette capture ne contient aucune entrée d’image.';$('decision').textContent='Aucune image indexée.';$('audio').textContent='Aucun événement associé à une image.';}
 }
 function draw(image,detections){
   const canvas=$('canvas'),ctx=canvas.getContext('2d');canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;ctx.drawImage(image,0,0);
@@ -75,7 +98,7 @@ function draw(image,detections){
 function clearFrameView(){
   $('canvas').hidden=true;$('empty').hidden=false;$('empty').textContent='Chargement de l’image…';
   $('decision').textContent='Chargement de la décision…';$('audio').textContent='Chargement des événements…';
-  for(const id of ['decisionJson','audioJson','differenceJson','rawDetails'])$(id).textContent='';
+  for(const id of ['decisionJson','audioJson','differenceJson','rawDetails','frameIntegrity'])$(id).textContent='';
   $('metrics').replaceChildren();
   for(const label of ['Image','Détections','Inférence','Âge enregistré']){
     const div=document.createElement('div'),span=document.createElement('span'),strong=document.createElement('strong');
@@ -89,39 +112,46 @@ async function showFrame(index){
   const version=++state.drawVersion,session=state.session,mode=state.mode,jobId=state.job,item=session.frames[index];
   clearFrameView();
   $('timeline').value=index;$('position').textContent=`${index+1} / ${session.frames.length}`;
-  $('frameSubtitle').textContent=`Image ${item.frameId} · ${fmt(item.timeSeconds,3)} s · PNG dans le repère analysé`;
+  $('frameSubtitle').textContent=`${item.sourceLine==null?'':`Ligne source ${item.sourceLine} · `}Image ${item.frameId??'non identifiée'} · ${fmt(item.timeSeconds,3)} s`;
   $('modeBadge').textContent=mode==='recorded'?'TÉLÉPHONE · ENREGISTRÉ':mode==='comparison'?'MAC · COMPARAISON A/B':'MAC · RECALCUL';
   const usableJob=jobId&&((mode==='comparison')===(state.jobKind==='comparison'));
   try{
     const [recorded,calculated]=await Promise.all([request(`/api/session/${session.id}/frame/${index}`,undefined,false,signal),
       mode!=='recorded'&&usableJob?request(`/api/job/${jobId}?frame=${index}`,undefined,false,signal):Promise.resolve(null)]);
     if(version!==state.drawVersion)return;
-    const ready=calculated&&!calculated.pending,boxes=mode==='recorded'?recorded.detections:ready?calculated.detections:[];
-    const image=new Image();image.onload=()=>{if(version===state.drawVersion){draw(image,boxes);$('canvas').hidden=false;$('empty').hidden=true;}};
-    image.onerror=()=>{if(version===state.drawVersion){$('empty').hidden=false;$('empty').textContent='PNG absente ou illisible.';}};
-    image.src=`/api/session/${session.id}/image/${index}`;
-    const phone=recorded.recordedInference||{},time=ready?calculated.macTimingsMs?.inference:mode==='recorded'?phone.inferenceMs:null;
-    const labels=[['Image',String(item.frameId)],['Détections',mode!=='recorded'&&!ready?'En attente':String(boxes.length)],
+    const integrity=recorded.integrity||{},unsafe=integrity.entryValid===false||['invalid','ambiguous'].includes(integrity.analysisStatus);
+    const ready=calculated&&!calculated.pending,skipped=ready&&(calculated.policy?.skipped||Object.values(calculated.variants||{}).some(value=>value.policy?.skipped)),boxes=unsafe?[]:mode==='recorded'?recorded.detections:ready?calculated.detections:[];
+    $('frameIntegrity').textContent=(integrity.issues||[]).join('\n');
+    if(unsafe)$('frameIntegrity').textContent+='\nDonnées non exploitables pour une décision : aucune détection ne leur est attribuée.';
+    if(integrity.imageAvailable===false){$('empty').textContent='PNG indisponible · position d’origine conservée.';}
+    else{
+      const image=new Image();image.onload=()=>{if(version===state.drawVersion){draw(image,boxes);$('canvas').hidden=false;$('empty').hidden=true;}};
+      image.onerror=()=>{if(version===state.drawVersion){$('empty').hidden=false;$('empty').textContent='PNG absente ou illisible · position d’origine conservée.';}};
+      image.src=`/api/session/${session.id}/image/${index}`;
+    }
+    const phone=unsafe?{}:recorded.recordedInference||{},time=unsafe?null:ready?calculated.macTimingsMs?.inference:mode==='recorded'?phone.inferenceMs:null;
+    const labels=[['Image',item.frameId==null?'—':String(item.frameId)],['Détections',unsafe?'Non exploitables':integrity.analysisStatus==='not_recorded'&&mode==='recorded'?'Non enregistrées':mode!=='recorded'&&!ready?'En attente':String(boxes.length)],
       [ready&&calculated.macTimingsMs?'Inférence Mac':'Inférence téléphone',fmt(time??(mode==='comparison'?phone.inferenceMs:null))+' ms'],
       ['Âge téléphone enregistré',fmt(phone.resultAgeMs??phone.ageMs,0)+' ms']];
     $('metrics').replaceChildren();for(const[a,b]of labels){const div=document.createElement('div'),span=document.createElement('span'),strong=document.createElement('strong');span.textContent=a;strong.textContent=b;div.append(span,strong);$('metrics').append(div);}
-    const decisions=recorded.events.filter(e=>e.type==='decision');
-    $('decision').textContent=mode==='recorded'?(decisions.length?'Décision enregistrée sur le téléphone.':'Aucune décision enregistrée pour cette image.'):
-      ready?(mode==='comparison'?(calculated.decisionDifferent?'Les décisions A et B diffèrent.':'Même décision A et B (identifiants et diagnostics exclus).'):'Moteur Kotlin rejoué dans l’ordre.'):'Lancez le traitement complet pour inspecter cette image.';
-    textJson('decisionJson',mode==='recorded'?decisions:ready?(calculated.variants||calculated.policy):{});
+    const decisions=unsafe?[]:recorded.events.filter(e=>e.type==='decision');
+    $('decision').textContent=unsafe?'Association refusée : consulter le diagnostic de cette entrée.':mode==='recorded'?(decisions.length?'Décision enregistrée sur le téléphone.':'Aucune décision enregistrée pour cette image.'):
+      ready?(skipped?'Position non comparée : inférence ou horloge enregistrée absente.':mode==='comparison'?(calculated.decisionDifferent?'Les décisions A et B diffèrent.':'Même décision A et B (identifiants et diagnostics exclus).'):'Moteur Kotlin rejoué dans l’ordre.'):'Lancez le traitement complet pour inspecter cette image.';
+    textJson('decisionJson',unsafe?{}:mode==='recorded'?decisions:ready?(calculated.variants||calculated.policy):{});
     let audio=[];
-    if(mode==='recorded'){audio=recorded.audioEvents;$('audio').textContent=`${audio.length} événement(s) enregistré(s). Aucune piste sonore.`;}
+    if(unsafe){$('audio').textContent='Aucun événement attribué à cette entrée ambiguë.';}
+    else if(mode==='recorded'){audio=recorded.audioEvents;$('audio').textContent=`${audio.length} événement(s) enregistré(s). Aucune piste sonore.`;}
     else if(ready){
       audio=mode==='comparison'?calculated.simulatedAudioByVariant:calculated.simulatedAudioEvents;
       $('audio').textContent='Événements simulés. Aucun son automatique, aucune confirmation physique.';
     }else $('audio').textContent='Simulation en attente de traitement.';
     textJson('audioJson',audio);
-    textJson('differenceJson',ready&&mode==='comparison'?{champsModifiés:calculated.changedPaths,identifiantsDifférents:calculated.identityDifferent,entréeCommune:calculated.sharedInput}:{});
-    textJson('rawDetails',{detections:boxes,...(ready?{macTimingsMs:calculated.macTimingsMs,rawParity:calculated.rawParity,rawModelOutput:calculated.rawOutput,transform:calculated.transform,scope:calculated.scope}:{confidenceFloor:recorded.recordedDetectionConfidenceFloor,rawModelOutputIncluded:recorded.rawModelOutputIncluded,rawModelOutput:phone.rawModelOutput??null,modelDetections:phone.modelDetections??null})});
+    textJson('differenceJson',!unsafe&&ready&&mode==='comparison'?{champsModifiés:calculated.changedPaths,identifiantsDifférents:calculated.identityDifferent,entréeCommune:calculated.sharedInput}:{});
+    textJson('rawDetails',unsafe?{}:{detections:boxes,...(ready?{macTimingsMs:calculated.macTimingsMs,rawParity:calculated.rawParity,rawModelOutput:calculated.rawOutput,transform:calculated.transform,scope:calculated.scope}:{confidenceFloor:recorded.recordedDetectionConfidenceFloor,rawModelOutputIncluded:recorded.rawModelOutputIncluded,rawModelOutput:phone.rawModelOutput??null,modelDetections:phone.modelDetections??null})});
   }catch(e){if(e.name==='AbortError')return;if(version===state.drawVersion){$('empty').textContent='Image indisponible.';$('decision').textContent='Décision indisponible pour cette image.';$('audio').textContent='Résultat indisponible.';textJson('audioJson',[]);error(e);}}
 }
 async function tick(){
-  if(!state.playing||!state.session)return;const current=state.session.frames[state.index],next=state.session.frames[state.index+1];
+  if(!state.playing||!state.session)return;if(!playbackAllowed()){stop();return;}const current=state.session.frames[state.index],next=state.session.frames[state.index+1];
   if(!next){stop();return;}const version=state.sessionVersion,delay=Math.max(20,1000*(next.timeSeconds-current.timeSeconds)/Number($('speed').value));
   state.timer=setTimeout(async()=>{if(version!==state.sessionVersion||!state.playing)return;await showFrame(state.index+1);if(version===state.sessionVersion)tick();},delay);
 }
@@ -187,7 +217,12 @@ $('confirmArchive').onclick=async()=>{
     await request(`/api/session/${session.id}/archive`,{});
     if(pending.version===state.sessionVersion&&state.session?.id===session.id){
       stop();stopAudio();state.frameAbort?.abort();++state.loadVersion;++state.sessionVersion;++state.drawVersion;++state.jobVersion;
-      state.session=null;state.job=null;state.jobKind=null;state.comparison=null;
+      state.session=null;state.job=null;state.jobKind=null;state.comparison=null;state.jobBusy=false;
+      clearFrameView();
+      for(const id of ['integritySummary','warnings','frameSubtitle'])$(id).textContent='';
+      $('position').textContent='0 / 0';$('timeline').value=0;$('timeline').max=0;
+      $('timeStart').textContent='—';$('timeEnd').textContent='—';
+      $('decision').textContent='Aucune capture ouverte.';$('audio').textContent='Aucun événement sélectionné.';
       $('contextVideo').pause();$('contextVideo').removeAttribute('src');$('contextVideo').hidden=true;
       $('videoControls').hidden=true;$('sessionInfo').replaceChildren();$('canvas').width=$('canvas').width;
       $('sessionActions').hidden=true;$('sessionTitle').textContent='Capture dans la corbeille';
@@ -200,13 +235,16 @@ $('confirmArchive').onclick=async()=>{
 };
 $('previous').onclick=()=>{stop();showFrame(state.index-1);};$('next').onclick=()=>{stop();showFrame(state.index+1);};
 $('timeline').oninput=()=>{stop();state.frameAbort?.abort();const index=Number($('timeline').value),version=state.sessionVersion;state.seekTimer=setTimeout(()=>{if(version===state.sessionVersion)showFrame(index);},50);};
-$('play').onclick=async()=>{if(state.playing){stop();return;}if(!state.session)return;const version=state.sessionVersion;if(state.index===state.session.frames.length-1)await showFrame(0);if(version!==state.sessionVersion)return;state.playing=true;$('play').textContent='Pause';tick();};
+$('play').onclick=async()=>{if(state.playing){stop();return;}if(!playbackAllowed())return;const version=state.sessionVersion;if(state.index===state.session.frames.length-1)await showFrame(0);if(version!==state.sessionVersion)return;state.playing=true;$('play').textContent='Pause';tick();};
 $('speed').onchange=()=>{if(state.playing){clearTimeout(state.timer);tick();}};
 $('mode').onchange=()=>{state.mode=$('mode').value;$('comparisonPanel').hidden=state.mode!=='comparison';showFrame(state.index);};
 function variantConfig(name){return {trackingMode:$('tracking'+name).value,confirmationSamples:Number($('samples'+name).value),repeatIntervalMs:Number($('repeat'+name).value)};}
 async function runJob(kind){
-  if(!state.session)return;const session=state.session,version=++state.jobVersion,sessionVersion=state.sessionVersion;
+  if(!state.session||state.jobBusy)return;
+  if(!replayAllowed(kind==='comparison'?$('compareSource').value:'mac')){error(Error('Traitement refusé : consultez les diagnostics d’intégrité de la capture.'));return;}
+  const session=state.session,version=++state.jobVersion,sessionVersion=state.sessionVersion;
   try{
+    state.jobBusy=true;
     for(const id of ['compare','recompute'])$(id).disabled=true;
     const shared={sessionId:session.id,confirmationMs:Number($('confirmation').value)};
     const body=kind==='comparison'?{...shared,configA:variantConfig('A'),configB:variantConfig('B'),source:$('compareSource').value}:
@@ -217,14 +255,17 @@ async function runJob(kind){
     $('mode').value=state.mode;$('cancelJob').disabled=false;$('exportReport').disabled=true;$('comparisonPanel').hidden=kind!=='comparison';
     $('comparisonSummary').textContent='Comparaison en cours…';$('differenceFrames').replaceChildren();$('announcementsA').replaceChildren();$('announcementsB').replaceChildren();
     pollJob(r.jobId,version);
-  }catch(e){if(version===state.jobVersion){error(e);for(const id of ['compare','recompute'])$(id).disabled=false;}}
+  }catch(e){if(version===state.jobVersion){error(e);state.jobBusy=false;refreshReplayControls();}}
 }
 $('recompute').onclick=()=>runJob('recompute');$('compare').onclick=()=>runJob('comparison');
+$('compareSource').onchange=refreshReplayControls;
 $('cancelJob').onclick=async()=>{const id=state.job;try{if(id)await request(`/api/job/${id}/cancel`,{});}catch(e){error(e);}};
 function comparisonSummary(job){
   if(!job.summary)return;state.comparison=job;
   const summary=job.summary,differences=summary.differentFrames;
   $('comparisonSummary').textContent=`${summary.comparedFrames} images comparées · ${job.skippedFrames.length} ignorées faute d’horloge/inférence · ${differences.length} décisions différentes · ${summary.announcementDifferentFrames.length} images avec une annonce différente · ${summary.identityDifferentFrames.length} images avec des identifiants différents (diagnostic). Source : ${job.detectionSource==='recorded'?'détections enregistrées':'un recalcul ONNX commun'}.`;
+  if(summary.comparedFrames===0)$('comparisonSummary').textContent+=' Aucune comparaison possible sur les positions de cette capture.';
+  if(job.integrity?.visualCoverageComplete===false)$('comparisonSummary').textContent+=' Couverture visuelle incomplète : certaines PNG sont indisponibles, seules les données enregistrées sont comparées.';
   $('differenceFrames').replaceChildren();for(const index of differences.slice(0,100)){const button=document.createElement('button');button.className='secondary';button.textContent=`Image ${index+1}`;button.onclick=()=>{stop();showFrame(index);};$('differenceFrames').append(button);}
   $('nextDifference').disabled=!differences.length;
   for(const name of ['A','B']){$('announcements'+name).replaceChildren();for(const event of summary.announcements[name]){const li=document.createElement('li');li.textContent=`${fmt((event.submittedAtMs-state.session.originMs)/1000,2)} s · ${event.text}`;const button=document.createElement('button');button.className='secondary';button.textContent='Inspecter';button.onclick=()=>{stop();showFrame(event.frameIndex);$('previewText').value=event.text||'';$('previewPan').value=['LEFT','CENTER','RIGHT'].includes(event.zone)?event.zone:'CENTER';};li.append(button);$('announcements'+name).append(li);}}
@@ -233,14 +274,14 @@ async function pollJob(id,version){
   try{
     const job=await request(`/api/job/${id}`);if(id!==state.job||version!==state.jobVersion)return;
     const terminal=['complete','failed','cancelled'].includes(job.state);
-    $('jobStatus').textContent=job.state==='failed'?`Erreur : ${job.error}`:job.state==='cancelled'?'Traitement annulé.':job.state==='complete'?`Terminé : ${job.done} PNG · ${fmt(job.macBatchSeconds)} s sur Mac.`:`Traitement ${job.done}/${job.total} · ${job.state==='queued'?'en attente':'en cours'}…`;
+    $('jobStatus').textContent=job.state==='failed'?`Erreur : ${job.error}`:job.state==='cancelled'?'Traitement annulé.':job.state==='complete'?`Terminé : ${job.done} entrées · ${fmt(job.macBatchSeconds)} s sur Mac.`:`Traitement ${job.done}/${job.total} · ${job.state==='queued'?'en attente':'en cours'}…`;
     if(job.kind==='comparison'&&job.state==='complete')comparisonSummary(job);
     $('exportReport').disabled=job.state!=='complete';$('cancelJob').disabled=terminal;
     if(state.mode!=='recorded'&&!state.playing)await showFrame(state.index);
     if(id!==state.job||version!==state.jobVersion)return;
-    if(terminal){for(const name of ['compare','recompute'])$(name).disabled=false;}
+    if(terminal){state.jobBusy=false;refreshReplayControls();}
     else setTimeout(()=>pollJob(id,version),700);
-  }catch(e){if(id===state.job&&version===state.jobVersion){error(e);for(const name of ['compare','recompute'])$(name).disabled=false;}}
+  }catch(e){if(id===state.job&&version===state.jobVersion){error(e);state.jobBusy=false;refreshReplayControls();}}
 }
 $('nextDifference').onclick=()=>{const frames=state.comparison?.summary?.differentFrames||[];if(frames.length){stop();showFrame(frames.find(i=>i>state.index)??frames[0]);}};
 $('exportReport').onclick=()=>{if(!state.job)return;const link=document.createElement('a');link.href=`/api/job/${state.job}/report`;link.download=`OriaLab-comparaison-${state.job}.json`;link.click();};

@@ -21,7 +21,7 @@ FIXTURES = ROOT / 'android-project/app/src/androidTest/assets/ml'
 def capture(path, count=3):
     path.mkdir(); (path / 'frames').mkdir()
     manifest = {'schemaVersion': 1, 'kind': 'oria-lab-session', 'sessionId': 'capture-test', 'status': 'complete',
-                'monotonicOriginMs': 1000, 'endedAtMonotonicMs': 5000,
+                'monotonicOriginMs': 1000, 'endedAtMonotonicMs': max(5000, 1000 + count * 333 + 1000),
                 'metadata': {'onnxSha256': MODEL_SHA, 'policyConfig': {'confirmationSamples': 3, 'repeatIntervalMs': 4000, 'zoneLeftBoundary': .39}}}
     (path / 'manifest.json').write_text(json.dumps(manifest))
     frames, events = [], []
@@ -85,7 +85,11 @@ class ImportTests(unittest.TestCase):
             rows = [json.loads(line) for line in (source / 'frames.jsonl').read_text().splitlines()]
             rows[0]['width'] = 666
             (source / 'frames.jsonl').write_text(''.join(json.dumps(x) + '\n' for x in rows))
-            with self.assertRaisesRegex(ValueError, 'Dimension width'): SessionStore(root / 'store2').import_folder(source)
+            damaged = SessionStore(root / 'store2').import_folder(source)
+            self.assertEqual(len(damaged.frames), 3)
+            self.assertFalse(damaged.frame(0)['integrity']['imageAvailable'])
+            self.assertTrue(any('Dimension width' in cause for cause in damaged.frame(0)['integrity']['issues']))
+            self.assertFalse(damaged.index()['integrity']['macReplayAllowed'])
 
     def test_frame_path_escape_refused(self):
         with tempfile.TemporaryDirectory() as tmp:

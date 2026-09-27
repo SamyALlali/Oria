@@ -5,3 +5,5 @@
 .archiveConfirmation{border:1px solid #dac6a8;background:#fffaf0;border-radius:9px;padding:12px;margin-top:12px;font-size:12px}.archiveConfirmation h3{font-size:13px;margin:0 0 8px}
 
 .downloadLink{display:inline-block;text-decoration:none;padding:11px 15px;border-radius:9px;font-weight:650}#exportControls{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}#exportTitle{font-size:13px;margin:0}
+
+#integritySummary,#frameIntegrity{white-space:pre-line}#frameIntegrity:empty{display:none}

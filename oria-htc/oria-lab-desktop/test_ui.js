@@ -27,7 +27,7 @@ const actualShowFrame=vm.runInContext('showFrame',context);
     const button=element('announcementsA').children[0].children[0];
     button.onclick();assert.equal(element('previewPan').value,zone,'Inspecter must retain the Kotlin zone');
   }
-  vm.runInContext("state.session={id:'test',frames:[{}]};state.index=0;state.sessionVersion=1;state.playing=false;showFrame=()=>new Promise(resolve=>globalThis.finishFrame=resolve);",context);
+  vm.runInContext("state.session={id:'test',frames:[{timeSeconds:0}]};state.index=0;state.sessionVersion=1;state.playing=false;showFrame=()=>new Promise(resolve=>globalThis.finishFrame=resolve);",context);
   const play=element('play').onclick();
   vm.runInContext('state.sessionVersion=2;finishFrame();',context);await play;
   assert.equal(vm.runInContext('state.playing',context),false,'A stale rewind must not start a new session');
@@ -44,12 +44,18 @@ const actualShowFrame=vm.runInContext('showFrame',context);
   await element('confirmArchive').onclick();
   assert.equal(vm.runInContext('mutations.length',context),0,'Stale session confirmation must not archive either capture');
   assert.equal(element('archiveConfirmation').hidden,true);
+  element('integritySummary').textContent='OLD_INTEGRITY';element('frameIntegrity').textContent='OLD_ISSUE';
+  element('decisionJson').textContent='OLD_DECISION';element('frameSubtitle').textContent='OLD_FRAME';
+  element('position').textContent='4 / 4';
   element('archiveSession').onclick();await element('confirmArchive').onclick();
   assert.equal(vm.runInContext('mutations[0]',context),'/api/session/other/archive');
   assert.equal(element('contextVideo').paused,1);
   assert.equal(element('contextVideo').hidden,true);
   assert.equal(element('contextVideo').src,undefined);
   assert.equal(element('videoControls').hidden,true);
+  for(const id of ['integritySummary','frameIntegrity','decisionJson','frameSubtitle'])assert.equal(element(id).textContent,'','Archiving must clear the previously selected capture');
+  assert.equal(element('position').textContent,'0 / 0');
+  assert.equal(element('canvas').hidden,true);
   vm.runInContext("globalThis.frameSignals=[];request=(url,body,binary,signal)=>{frameSignals.push(signal);return new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject({name:'AbortError'})));};state.session={id:'test',frames:[{frameId:1,timeSeconds:0},{frameId:2,timeSeconds:1}]};state.mode='recorded';state.job=null;",context);
   const older=actualShowFrame(0);
   element('canvas').hidden=false;element('decisionJson').textContent='previous frame decision';
@@ -116,5 +122,66 @@ const actualShowFrame=vm.runInContext('showFrame',context);
   assert.equal(element('downloadExport').hidden,true);
   assert.equal(vm.runInContext('state.exportId',context),null);
   assert.equal(vm.runInContext('exportTimers.size',context),0);
-  console.log('UI interaction checks passed: pans, stale play, archive confirmation, video cleanup, loading isolation, HTTP abort, seek debounce, native ZIP download, snapshot title and stale export cancellation.');
+  vm.runInContext(`
+    globalThis.imageRequests=[];
+    globalThis.Image=class {set src(value){imageRequests.push(value);}};
+    state.mode='recorded';state.job=null;state.jobBusy=false;state.session={id:'corrupt',frames:[
+      {frameId:1,sourceLine:1,timeSeconds:0},{frameId:null,sourceLine:2,timeSeconds:null},
+      {frameId:3,sourceLine:3,timeSeconds:2},{frameId:4,sourceLine:4,timeSeconds:3}],
+      integrity:{frameEntryCount:4,invalidFrameCount:1,missingImageCount:2,invalidEventCount:0,
+        recordedReplayAllowed:false,macReplayAllowed:false}};
+    request=async url=>({detections:[{classId:0,confidence:.9,box:{left:0,top:0,right:1,bottom:1}}],
+      events:[{type:'decision',reason:'MUST_NOT_ATTACH'}],audioEvents:[{type:'MUST_NOT_ATTACH'}],
+      recordedInference:{inferenceMs:42,rawOutput:'MUST_NOT_ATTACH'},
+      integrity:url.endsWith('/1')?{entryValid:false,imageAvailable:false,analysisStatus:'invalid',issues:['JSON invalide ligne2']}:
+        {entryValid:true,imageAvailable:!url.endsWith('/2'),analysisStatus:'available',issues:url.endsWith('/2')?['PNG absente']:[]}});
+  `,context);
+  await actualShowFrame(1);
+  assert.equal(element('position').textContent,'2 / 4','Invalid rows retain their original positions');
+  assert.match(element('frameSubtitle').textContent,/Ligne source 2.*non identifiée/);
+  assert.equal(vm.runInContext('imageRequests.length',context),0,'Unavailable PNG must not make a misleading image request');
+  assert.equal(element('canvas').hidden,true);
+  assert.equal(element('metrics').children[1].children[1].textContent,'Non exploitables','Invalid detections must not be represented by zero detections');
+  assert.equal(element('decisionJson').textContent,'{}');
+  assert.equal(element('audioJson').textContent,'[]');
+  assert.doesNotMatch(element('rawDetails').textContent,/MUST_NOT_ATTACH/);
+  vm.runInContext(`
+    globalThis.recordedRequest=request;
+    request=async url=>url.startsWith('/api/job/')?{detections:[],policy:{unsafe:'UNSAFE_CALCULATED_POLICY'},rawOutput:'UNSAFE_CALCULATED_RAW'}:recordedRequest(url);
+    state.job='old';state.jobKind='recompute';state.mode='recomputed';
+  `,context);
+  await actualShowFrame(1);
+  assert.equal(element('rawDetails').textContent,'{}','Calculated details must also be suppressed on an invalid recorded entry');
+  assert.equal(element('decisionJson').textContent,'{}');
+  vm.runInContext("state.job=null;state.mode='recorded';request=recordedRequest;refreshReplayControls();",context);
+  assert.equal(element('play').disabled,true,'An invalid time cannot become a fabricated playback delay');
+  assert.equal(element('compare').disabled,true);
+  assert.equal(element('recompute').disabled,true);
+  await actualShowFrame(2);
+  assert.equal(element('position').textContent,'3 / 4');
+  assert.match(element('empty').textContent,/position d’origine conservée/);
+  assert.equal(element('metrics').children[1].children[1].textContent,'1','Valid recorded detections remain inspectable even if the PNG is missing');
+  await actualShowFrame(3);
+  assert.equal(vm.runInContext('imageRequests.at(-1)',context),'/api/session/corrupt/image/3','Navigation uses the original position after invalid entries');
+  assert.equal(element('frameIntegrity').textContent,'','Prior diagnostics must not remain on the next valid entry');
+  vm.runInContext("state.session.integrity.recordedReplayAllowed=true;state.session.frames=[{timeSeconds:0},{timeSeconds:1}];",context);
+  element('compareSource').value='recorded';element('compareSource').onchange();
+  assert.equal(element('compare').disabled,false);
+  assert.equal(element('recompute').disabled,true);
+  element('compareSource').value='mac';element('compareSource').onchange();
+  assert.equal(element('compare').disabled,true,'Missing visual data blocks an ONNX comparison');
+  vm.runInContext('state.jobBusy=true',context);element('compareSource').value='recorded';element('compareSource').onchange();
+  assert.equal(element('compare').disabled,true,'Changing source must not re-enable controls during a job');
+  vm.runInContext(`
+    state.jobBusy=false;state.mode='comparison';state.job='comparison';state.jobKind='comparison';
+    state.session={id:'unanalysed',originMs:0,frames:[{frameId:1,sourceLine:1,timeSeconds:0}]};
+    request=async url=>url.startsWith('/api/job/')?{detections:[],decisionDifferent:false,
+      variants:{A:{policy:{skipped:true}},B:{policy:{skipped:true}}}}:
+      {detections:[],events:[],audioEvents:[],integrity:{entryValid:true,imageAvailable:true,analysisStatus:'not_recorded',issues:[]}};
+  `,context);
+  await actualShowFrame(0);
+  assert.match(element('decision').textContent,/Position non comparée/,'Two skipped policies are not equal observed decisions');
+  vm.runInContext("comparisonSummary({detectionSource:'recorded',skippedFrames:[0],summary:{comparedFrames:0,differentFrames:[],announcementDifferentFrames:[],identityDifferentFrames:[],announcements:{A:[],B:[]}}})",context);
+  assert.match(element('comparisonSummary').textContent,/Aucune comparaison possible/);
+  console.log('UI interaction checks passed: pans, stale play, archive confirmation, video cleanup, loading isolation, HTTP abort, seek debounce, native ZIP download, snapshot title, stale export cancellation, preserved invalid positions, integrity gates and explicitly skipped comparisons.');
 })().catch(error=>{console.error(error);process.exitCode=1;});

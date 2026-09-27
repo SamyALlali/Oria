@@ -129,49 +129,101 @@ def safe_path(root, relative):
     return path
 
 
+def strict_json(data):
+    if isinstance(data, bytes):
+        data = data.decode('utf-8', errors='strict')
+    def object_pairs(pairs):
+        output = {}
+        for key, value in pairs:
+            if len(key) > 128:
+                raise ValueError('Nom de champ JSON supérieur à 128 caractères')
+            if key in output:
+                raise ValueError(f'Champ JSON dupliqué : {key}')
+            output[key] = value
+        return output
+    def constant(value):
+        raise ValueError('Nombre JSON non fini')
+    def decimal(value):
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError('Nombre JSON non fini')
+        return number
+    return json.loads(data, object_pairs_hook=object_pairs, parse_constant=constant, parse_float=decimal)
+
+
 class JsonlRows(Sequence):
-    """Validated offsets, not a resident list of every model output in the capture."""
+    """One position per nonblank source line, including malformed rows; bounded payload cache."""
     CACHE_ROWS = 16
 
     def __init__(self, path, on_row=None):
         self.path = path
-        self.offsets = []
-        self.warnings = []
+        self.offsets, self.source_lines = [], []
+        self.errors, self.warnings = {}, []
         self.cache = OrderedDict()
         self.lock = threading.RLock()
+        self.signature = None
         if not path.exists():
             return
-        if path.stat().st_size > MAX_JSONL_BYTES:
+        metadata = path.stat()
+        self.signature = (metadata.st_size, metadata.st_mtime_ns)
+        size = metadata.st_size
+        if size > MAX_JSONL_BYTES:
             raise ValueError('Index JSONL supérieur à la limite technique de 8 Gio')
         with path.open('rb') as source:
             line_number = 0
             while True:
                 offset = source.tell()
-                line = source.readline(MAX_JSONL_LINE + 1)
+                line = source.readline(MAX_JSONL_LINE + 2)
                 if not line:
                     break
                 line_number += 1
-                if len(line) > MAX_JSONL_LINE:
-                    raise ValueError(f'{path.name}:{line_number}: ligne JSONL supérieure à 2 Mio')
-                if not line.strip():
-                    continue
-                try:
-                    row = json.loads(line)
-                except (json.JSONDecodeError, UnicodeDecodeError):
-                    if not line.endswith(b'\n') and source.tell() == path.stat().st_size:
-                        self.warnings.append(f'{path.name}: dernière ligne incomplète ignorée')
-                        break
-                    raise ValueError(f'{path.name}:{line_number}: JSON invalide')
-                if not isinstance(row, dict):
-                    raise ValueError('Ligne JSONL non objet')
+                oversized = len(line) - int(line.endswith(b'\n')) > MAX_JSONL_LINE
+                if oversized:
+                    # Drain this same physical line without storing an unbounded buffer.
+                    while not line.endswith(b'\n'):
+                        line = source.readline(MAX_JSONL_LINE + 2)
+                        if not line:
+                            break
+                    error = 'ligne JSONL supérieure à 2 Mio'
+                else:
+                    if not line.strip():
+                        continue
+                    error = None
+                length = source.tell() - offset
+                row = {}
+                if not error:
+                    try:
+                        row = strict_json(line)
+                        if not isinstance(row, dict):
+                            raise ValueError('Ligne JSONL non objet')
+                    except (ValueError, UnicodeDecodeError, RecursionError) as cause:
+                        suffix = ' ; dernière ligne incomplète' if not line.endswith(b'\n') and source.tell() == size else ''
+                        error = 'JSON invalide : ' + str(cause)[:200] + suffix
+                        row = {}
                 if len(self.offsets) >= MAX_JSONL_ROWS:
                     raise ValueError('Trop de lignes JSONL dans cet index')
-                self.offsets.append((offset, len(line)))
+                index = len(self.offsets)
+                self.offsets.append((offset, length))
+                self.source_lines.append(line_number)
+                if error:
+                    error = f'{path.name}:{line_number}: {error}'
+                    self.errors[index] = error
+                    if len(self.warnings) < 100:
+                        self.warnings.append(error)
                 if on_row:
-                    on_row(len(self.offsets) - 1, row)
+                    on_row(index, row, {'sourceLine':line_number, 'sourceOffset':offset}, error)
 
     def __len__(self):
         return len(self.offsets)
+
+    def assert_unchanged(self):
+        if self.signature is None:
+            if self.path.exists():
+                raise ValueError(self.path.name + ' ajouté depuis l’indexation ; rouvrir la capture')
+            return
+        metadata = self.path.stat()
+        if (metadata.st_size, metadata.st_mtime_ns) != self.signature:
+            raise ValueError(self.path.name + ' modifié depuis l’indexation ; rouvrir la capture')
 
     def __getitem__(self, index):
         if isinstance(index, slice):
@@ -180,12 +232,15 @@ class JsonlRows(Sequence):
             index += len(self)
         if not 0 <= index < len(self):
             raise IndexError('Événement hors limites')
+        self.assert_unchanged()
+        if index in self.errors:
+            return {}
         with self.lock:
             if index not in self.cache:
                 offset, length = self.offsets[index]
                 with self.path.open('rb') as source:
                     source.seek(offset)
-                    self.cache[index] = json.loads(source.read(length))
+                    self.cache[index] = strict_json(source.read(length))
                 while len(self.cache) > self.CACHE_ROWS:
                     self.cache.popitem(last=False)
             self.cache.move_to_end(index)
@@ -210,71 +265,142 @@ class EventLookup(Mapping):
         self.indices.clear()
 
 
+def alias_integer(row, names, required=False):
+    values = [row[name] for name in names if row.get(name) is not None]
+    if any(type(value) is not int or not 0 <= value <= 2**63-1 for value in values):
+        raise ValueError('/'.join(names) + ' : entier non négatif de 64 bits attendu')
+    if len(set(values)) > 1:
+        raise ValueError('/'.join(names) + ' : valeurs contradictoires')
+    if not values and required:
+        raise ValueError('/'.join(names) + ' : valeur absente')
+    return values[0] if values else None
+
+
 def frame_key(row):
-    return (str(row.get('videoSessionId', row.get('sessionId', ''))),
-            str(row.get('frameId', row.get('frame', ''))))
+    try:
+        return (alias_integer(row, ('videoSessionId','sessionId'), True),
+                alias_integer(row, ('frameId','frame'), True))
+    except ValueError:
+        return None
+
+
+def observation_clock(row, required=False):
+    return alias_integer(row, ('receivedAtMs','observedAtMs'), required)
 
 
 def finite_number(value, fallback=None):
-    return value if isinstance(value, (float, int)) and math.isfinite(value) else fallback
+    try:
+        return value if type(value) in (float, int) and math.isfinite(value) else fallback
+    except OverflowError:
+        return fallback
 
 
 def normalize_detections(value):
-    if not isinstance(value, list):
-        return []
+    if not isinstance(value, list) or len(value) > 300:
+        raise ValueError('Détections : liste de 0 à 300 boîtes attendue')
     output = []
-    for d in value:
+    for index, d in enumerate(value):
         if not isinstance(d, dict) or not isinstance(d.get('box'), dict):
-            continue
+            raise ValueError(f'Détection {index} : boîte absente ou invalide')
         box = d['box']
         coords = [finite_number(box.get(k)) for k in ('left', 'top', 'right', 'bottom')]
         confidence = finite_number(d.get('confidence'))
         cls = d.get('classId')
-        if None in coords or confidence is None or not isinstance(cls, int) or cls not in range(6):
-            continue
+        if (None in coords or confidence is None or type(cls) is not int or cls not in range(6)
+                or not 0 <= confidence <= 1 or not all(0 <= value <= 1 for value in coords)
+                or coords[0] >= coords[2] or coords[1] >= coords[3]):
+            raise ValueError(f'Détection {index} : classe, confiance ou géométrie invalide')
         output.append({'classId': cls, 'className': CLASSES[cls], 'confidence': confidence,
                        'box': dict(zip(('left', 'top', 'right', 'bottom'), coords))})
     return output
 
 
 class FrameIndex(Sequence):
-    """Keep only timeline descriptors in RAM; arbitrary frame metadata stays in JSONL."""
+    """Source order and explicit defects; raw metadata remains at its original JSONL offset."""
     def __init__(self, root, warnings):
-        keys = set()
-        descriptors = []
+        keys, descriptors = {}, []
+        last_observed = None
 
-        def index_frame(index, frame):
+        def index_frame(index, frame, source, parse_error):
+            nonlocal last_observed
             if index >= MAX_FRAMES:
                 raise ValueError('Session supérieure à la borne technique de 100 000 images')
-            key = frame_key(frame)
-            if key in keys:
-                raise ValueError('Identifiant vidéo/image dupliqué dans frames.jsonl')
-            keys.add(key)
-            descriptor = {key: frame[key] for key in ('frameId', 'videoSessionId', 'sessionId', 'receivedAtMs',
-                                                     'observedAtMs', 'width', 'height') if key in frame}
-            descriptor['_sourceIndex'] = index
+            descriptor = {'_index':index, '_sourceIndex':index, **source, 'frameId':None,
+                          'videoSessionId':None, 'receivedAtMs':None, 'width':None,
+                          'height':None, 'imagePath':None,
+                          '_errors':[], '_imageErrors':[], '_replayErrors':[], '_ambiguous':False, 'imageAvailable':False}
             descriptors.append(descriptor)
+            if parse_error:
+                descriptor['_errors'].append(parse_error)
+                return
+            for field, aliases in [('videoSessionId',('videoSessionId','sessionId')),
+                                   ('frameId',('frameId','frame')), ('receivedAtMs',('receivedAtMs','observedAtMs'))]:
+                try:
+                    descriptor[field] = alias_integer(frame, aliases, True)
+                except ValueError as error:
+                    descriptor['_errors'].append(str(error))
+            key = frame_key(descriptor)
+            if key is not None:
+                if key in keys:
+                    descriptor['_ambiguous'] = keys[key]['_ambiguous'] = True
+                    message = 'Identifiant vidéo/image dupliqué dans frames.jsonl'
+                    descriptor['_errors'].append(message)
+                    if message not in keys[key]['_errors']:
+                        keys[key]['_errors'].append(message)
+                else:
+                    keys[key] = descriptor
+            observed = descriptor['receivedAtMs']
+            if observed is not None:
+                if last_observed is not None and observed < last_observed:
+                    descriptor['_replayErrors'].append('Horloge observée décroissante dans l’ordre source')
+                last_observed = max(last_observed if last_observed is not None else observed, observed)
+            if 'detections' in frame:
+                try:
+                    normalize_detections(frame['detections'])
+                except ValueError as error:
+                    descriptor['_errors'].append(str(error))
             image_path = frame.get('imagePath')
+            if isinstance(image_path, str) and len(image_path) > 4096:
+                descriptor['_imageErrors'].append('Chemin PNG supérieur à 4096 caractères')
+                return
             if not isinstance(image_path, str) or not image_path.lower().endswith('.png'):
-                raise ValueError('Chaque image analysée doit référencer une PNG sans perte')
-            path = safe_path(root, image_path)
-            if not path.is_file():
-                warnings.append(f'PNG absente : {image_path}')
+                descriptor['_imageErrors'].append('Chaque image analysée doit référencer une PNG sans perte')
+                return
+            descriptor['imagePath'] = image_path
+            for field in ('width','height'):
+                if frame.get(field) is not None:
+                    if type(frame[field]) is not int or not 0 < frame[field] <= MAX_IMAGE_PIXELS:
+                        descriptor['_imageErrors'].append(f'Dimension {field} invalide')
+                    else:
+                        descriptor[field] = frame[field]
+            if descriptor['_imageErrors']:
+                return
+            try:
+                path = safe_path(root, image_path)  # Security errors still reject the entire import.
+                if not path.is_file():
+                    descriptor['_imageErrors'].append(f'PNG absente : {image_path[:160]}')
+                    return
+            except OSError as error:
+                descriptor['_imageErrors'].append('Chemin PNG illisible : '+str(error)[:160])
                 return
             from PIL import Image
-            with Image.open(path) as image:
-                if image.format != 'PNG' or image.width * image.height > MAX_IMAGE_PIXELS:
-                    raise ValueError('Format PNG ou taille invalide dans frames.jsonl')
-                for field, actual in [('width', image.width), ('height', image.height)]:
-                    if frame.get(field) is not None and frame[field] != actual:
-                        raise ValueError(f'Dimension {field} incohérente pour {image_path}')
+            try:
+                with Image.open(path) as image:
+                    if image.format != 'PNG' or image.width * image.height > MAX_IMAGE_PIXELS:
+                        raise ValueError('Format PNG ou taille invalide dans frames.jsonl')
+                    for field, actual in [('width', image.width), ('height', image.height)]:
+                        if frame.get(field) is not None and frame[field] != actual:
+                            raise ValueError(f'Dimension {field} incohérente pour {image_path}')
+                    image.verify()
+                with Image.open(path) as image:
+                    image.load()
+                descriptor['imageAvailable'] = True
+                metadata = path.stat()
+                descriptor['_imageSignature'] = (metadata.st_size,metadata.st_mtime_ns)
+            except Exception as error:
+                descriptor['_imageErrors'].append('PNG illisible : '+str(error)[:200])
 
         self.rows = JsonlRows(root / 'frames.jsonl', index_frame)
-        warnings.extend(self.rows.warnings)
-        descriptors.sort(key=lambda f: (finite_number(f.get('receivedAtMs', f.get('observedAtMs')), 0),
-                                        finite_number(f.get('frameId'), 0)))
-        for index, descriptor in enumerate(descriptors):
-            descriptor['_index'] = index
         self.summaries = descriptors
 
     def __len__(self):
@@ -284,7 +410,15 @@ class FrameIndex(Sequence):
         if isinstance(index, slice):
             return [self[i] for i in range(*index.indices(len(self)))]
         descriptor = self.summaries[index]
-        return {**self.rows[descriptor['_sourceIndex']], '_index': descriptor['_index']}
+        frame = {**self.rows[descriptor['_sourceIndex']], '_index':descriptor['_index'],
+                 'frameId':descriptor['frameId'], 'videoSessionId':descriptor['videoSessionId'],
+                 'receivedAtMs':descriptor['receivedAtMs'], 'sourceLine':descriptor['sourceLine'],
+                 'sourceOffset':descriptor['sourceOffset']}
+        # Canonical aliases must not resurrect one side of a conflicting identity/clock.
+        for alias, canonical in [('sessionId','videoSessionId'),('frame','frameId'),('observedAtMs','receivedAtMs')]:
+            if alias in frame:
+                frame[alias] = descriptor[canonical]
+        return frame
 
 
 class Session:
@@ -294,43 +428,122 @@ class Session:
         manifest_path = self.path / 'manifest.json'
         if not manifest_path.is_file() or manifest_path.stat().st_size > MAX_METADATA:
             raise ValueError('manifest.json v1 manquant ou invalide')
-        self.manifest = json.loads(manifest_path.read_text())
+        self.manifest = strict_json(manifest_path.read_bytes())
+        if not isinstance(self.manifest, dict):
+            raise ValueError('manifest.json doit contenir un objet')
         if self.manifest.get('schemaVersion', self.manifest.get('schema_version')) != 1:
             raise ValueError('Seules les captures au format v1 sont prises en charge')
         if self.manifest.get('kind', 'oria-lab-session') != 'oria-lab-session':
             raise ValueError('Type de session non reconnu')
         self.warnings = []
         self.frames = FrameIndex(self.path, self.warnings)
-        event_groups, inference_indices = {}, {}
+        event_groups, inference_indices, decision_indices = {}, {}, {}
+        event_errors, event_headers, ambiguous_keys = {}, {}, set()
         self.decision_keys, self.video_starts, self.audio_index = set(), {}, []
+        self.global_issues = []
+        if not (self.path/'frames.jsonl').is_file():
+            self.global_issues.append('frames.jsonl absent')
+        if not (self.path/'events.jsonl').is_file():
+            self.global_issues.append('events.jsonl absent')
 
-        def index_event(index, event):
-            key, kind = frame_key(event), event.get('type', '')
-            if event.get('frameId', event.get('frame')) is not None:
+        def index_event(index, event, source, parse_error):
+            errors = [parse_error] if parse_error else []
+            kind, key, observed = event.get('type'), None, None
+            if not parse_error:
+                try:
+                    if not isinstance(kind, str) or not kind:
+                        raise ValueError('Type d’événement absent ou invalide')
+                    observed = observation_clock(event)
+                    video_id = alias_integer(event, ('videoSessionId','sessionId'))
+                    frame_id = alias_integer(event, ('frameId','frame'))
+                    if kind in ('inference','decision') or frame_id is not None:
+                        if video_id is None or frame_id is None:
+                            raise ValueError('Identité vidéo/image de l’événement absente')
+                        key = (video_id, frame_id)
+                    for field in ('atMs','recordedAtMs','evaluatedAtMs','policyAtMs','resultAgeMs','ageMs'):
+                        alias_integer(event, (field,))
+                    alias_integer(event, ('resultAgeMs','ageMs'))
+                    if kind == 'inference':
+                        normalize_detections(event.get('detections'))
+                    if kind == 'start':
+                        if video_id is None:
+                            raise ValueError('Identité vidéo du démarrage absente')
+                        if event.get('policyAtMs') is None and event.get('atMs') is None:
+                            raise ValueError('Horloge du démarrage enregistré absente')
+                        if str(video_id) in self.video_starts:
+                            raise ValueError('Plusieurs démarrages pour la même identité vidéo')
+                        self.video_starts[str(video_id)] = index
+                    if kind.startswith(('speech','audio')):
+                        timestamp = event.get('atMs', event.get('recordedAtMs'))
+                        if video_id is None or type(timestamp) is not int:
+                            raise ValueError('Événement vocal sans identité vidéo ou horloge certaine')
+                        self.audio_index.append((timestamp,index))
+                except ValueError as error:
+                    errors.append(f'events.jsonl:{source["sourceLine"]}: {error}')
+                    key = frame_key(event)
+            event_headers[index] = {'key':key,'kind':kind,'observed':observed,**source}
+            if key is not None:
                 event_groups.setdefault(key, []).append(index)
-            if kind == 'inference':
-                inference_indices[key] = index
-            elif kind == 'decision':
-                self.decision_keys.add(key)
-            elif kind == 'start':
-                self.video_starts.setdefault(str(event.get('sessionId')), index)
-            if str(kind).startswith(('speech', 'audio')):
-                self.audio_index.append((finite_number(event.get('atMs', event.get('recordedAtMs')), -1), index))
+                if kind in ('inference','decision'):
+                    target = inference_indices if kind == 'inference' else decision_indices
+                    if key in target:
+                        ambiguous_keys.add(key)
+                        message = f'events.jsonl:{source["sourceLine"]}: plusieurs événements {kind} pour la même identité'
+                        errors.append(message)
+                        event_errors.setdefault(target[key], []).append(message)
+                    else:
+                        target[key] = index
+            if errors:
+                event_errors[index] = event_errors.get(index, []) + errors
 
         self.events = JsonlRows(self.path / 'events.jsonl', index_event)
-        self.warnings += self.events.warnings
+        self.invalid_event_count = len(event_errors)
+        self.event_issue_count = sum(len(errors) for errors in event_errors.values())
+        self.event_issues = [message for errors in event_errors.values() for message in errors][:100]
         self.event_frames = EventLookup(self.events, event_groups, grouped=True)
         self.inferences = EventLookup(self.events, inference_indices)
+        last_policy_clock = None
+        for descriptor in self.frames.summaries:
+            key = frame_key(descriptor)
+            descriptor['_analysisErrors'] = []
+            if key in ambiguous_keys:
+                descriptor['_ambiguous'] = True
+                descriptor['_analysisErrors'].append('Plusieurs analyses/décisions pour la même identité vidéo/image')
+            for event_index in event_groups.get(key, []):
+                header = event_headers[event_index]
+                if event_index in event_errors:
+                    descriptor['_analysisErrors'].extend(event_errors[event_index])
+                if header['kind'] in ('inference','decision') and header['observed'] is not None and header['observed'] != descriptor['receivedAtMs']:
+                    descriptor['_analysisErrors'].append(f'events.jsonl:{header["sourceLine"]}: horloge observée différente de l’image')
+            if descriptor['_errors'] or descriptor['_analysisErrors'] or descriptor['_ambiguous']:
+                inference_indices.pop(key,None)
+                continue
+            if key in decision_indices:
+                self.decision_keys.add(key)
+            if key in inference_indices:
+                observed, now = policy_clock(self, descriptor)
+                if now is None or observed is None or now < observed:
+                    descriptor['_replayErrors'].append('Horloge de résultat absente ou antérieure à l’observation')
+                elif last_policy_clock is not None and now < last_policy_clock:
+                    descriptor['_replayErrors'].append('Horloge de résultat décroissante dans l’ordre source')
+                else:
+                    last_policy_clock = now
+            start_index = self.video_starts.get(str(descriptor['videoSessionId']))
+            if start_index is not None:
+                start = self.events[start_index]
+                start_at = start.get('policyAtMs',start.get('atMs'))
+                if type(start_at) is int and descriptor['receivedAtMs'] is not None and start_at > descriptor['receivedAtMs']:
+                    descriptor['_replayErrors'].append('Démarrage vidéo postérieur à l’observation')
         self.audio_index.sort()
         self.audio_times = [timestamp for timestamp, _ in self.audio_index]
         expected_offset, packet_invalid = 0, False
 
-        def index_packet(index, packet):
+        def index_packet(index, packet, source, parse_error):
             nonlocal expected_offset, packet_invalid
             if packet_invalid:
                 return
             offset, length = packet.get('offset'), packet.get('length')
-            if not isinstance(offset, int) or not isinstance(length, int) or offset != expected_offset or length <= 0:
+            if parse_error or type(offset) is not int or type(length) is not int or offset != expected_offset or length <= 0:
                 self.warnings.append('Index H264 non contigu ou invalide ; ne pas considérer la vidéo comme complète.')
                 packet_invalid = True
                 return
@@ -343,11 +556,26 @@ class Session:
             actual_bytes = video.stat().st_size if video.exists() else 0
             if expected_offset != actual_bytes:
                 self.warnings.append(f'Index H264 ({expected_offset} octets) différent de la vidéo ({actual_bytes} octets).')
+        try:
+            self.origin = alias_integer(self.manifest, ('monotonicOriginMs',))
+            alias_integer(self.manifest, ('endedAtMonotonicMs',))
+        except ValueError as error:
+            self.origin = None
+            self.global_issues.append('manifest.json : '+str(error))
+        ended = self.manifest.get('endedAtMonotonicMs')
+        if type(ended) is int and last_policy_clock is not None and ended < last_policy_clock:
+            self.global_issues.append('Fin de capture antérieure au dernier résultat observé')
+        counts = self.manifest.get('counts')
+        if isinstance(counts, dict) and 'frames' in counts:
+            expected = counts['frames']
+            if type(expected) is not int or expected != len(self.frames):
+                self.global_issues.append('Le nombre d’images du manifeste diffère des positions de frames.jsonl')
+        if not self.frames:
+            self.global_issues.append('Aucune position image à rejouer')
+        self.warnings += self.integrity()['issues']
+        self.warnings = self.warnings[:100]
         if self.warnings and self.manifest.get('status') == 'complete':
             self.warnings.append('Le manifeste déclare complete, mais l’import détecte des incohérences ; cette déclaration seule ne valide pas la capture.')
-        self.origin = finite_number(self.manifest.get('monotonicOriginMs'))
-        if self.origin is None:
-            self.origin = min((finite_number(f.get('receivedAtMs'), 0) for f in self.frames.summaries), default=0)
         self.model_sha = self.manifest.get('metadata', {}).get('onnxSha256', self.manifest.get('metadata', {}).get('modelSha256'))
         self.recomputations = {}
         self.lock = threading.RLock()
@@ -373,18 +601,51 @@ class Session:
             with self.lock:
                 self.busy -= 1
 
+    def position_integrity(self, index):
+        descriptor = self.frames.summaries[index]
+        errors = descriptor['_errors']
+        analysis_errors = descriptor['_analysisErrors']
+        key = frame_key(descriptor)
+        status = ('ambiguous' if descriptor['_ambiguous'] else 'invalid' if errors or analysis_errors
+                  else 'available' if key in self.inferences else 'not_recorded')
+        return {'sourceLine':descriptor['sourceLine'], 'sourceOffset':descriptor['sourceOffset'],
+                'entryValid':not bool(errors), 'imageAvailable':descriptor['imageAvailable'],
+                'analysisStatus':status,
+                'issues':errors+analysis_errors+descriptor['_replayErrors']+descriptor['_imageErrors']}
+
+    def integrity(self):
+        issues = list(self.global_issues)
+        invalid, missing, ambiguous, bad_analysis, bad_clock = 0, 0, 0, 0, 0
+        issue_count = len(issues) + self.event_issue_count
+        issues.extend(self.event_issues[:max(0,100-len(issues))])
+        for index, descriptor in enumerate(self.frames.summaries):
+            value = self.position_integrity(index)
+            invalid += not value['entryValid']
+            missing += not value['imageAvailable']
+            ambiguous += value['analysisStatus'] == 'ambiguous'
+            bad_analysis += value['analysisStatus'] in ('invalid','ambiguous')
+            bad_clock += bool(descriptor['_replayErrors'])
+            issue_count += len(value['issues'])
+            if len(issues) < 100:
+                issues.extend(f'frames.jsonl:{value["sourceLine"]}: {message}' for message in value['issues'][:100-len(issues)])
+        recorded = not (invalid or bad_analysis or bad_clock or self.invalid_event_count or self.global_issues)
+        return {'frameEntryCount':len(self.frames), 'invalidFrameCount':invalid, 'missingImageCount':missing,
+                'invalidEventCount':self.invalid_event_count, 'ambiguousFrameCount':ambiguous,
+                'issueCount':issue_count, 'issues':issues[:100], 'recordedReplayAllowed':recorded,
+                'macReplayAllowed':recorded and not missing, 'visualCoverageComplete':not bool(missing)}
+
     def index(self):
         frames = []
         for f in self.frames.summaries:
             key = frame_key(f)
-            frames.append({'index': f['_index'], 'frameId': f.get('frameId'),
-                           'videoSessionId': f.get('videoSessionId', f.get('sessionId')),
-                           'atMs': f.get('receivedAtMs', f.get('observedAtMs')),
-                           'timeSeconds': (finite_number(f.get('receivedAtMs', f.get('observedAtMs')), self.origin) - self.origin) / 1000,
+            at = f['receivedAtMs']
+            frames.append({'index': f['_index'], 'frameId': f['frameId'], 'videoSessionId':f['videoSessionId'],
+                           'atMs':at, 'timeSeconds':(at-self.origin)/1000 if at is not None and self.origin is not None else None,
                            'width': f.get('width'), 'height': f.get('height'),
-                           'hasInference': key in self.inferences.indices, 'hasDecision': key in self.decision_keys})
+                           'hasInference':key in self.inferences, 'hasDecision':key in self.decision_keys,
+                           **self.position_integrity(f['_index'])})
         return {'id': self.id, 'displayName': self.display_name, 'manifest': self.manifest, 'warnings': self.warnings,
-                'frames': frames, 'eventCount': len(self.events), 'originMs': self.origin,
+                'frames': frames, 'eventCount': len(self.events), 'originMs': self.origin, 'integrity':self.integrity(),
                 'modelSha256': self.model_sha, 'localModelSha256': MODEL_SHA,
                 'packetCount': len(self.packets),
                 'videoAvailable': (self.path / 'video.h264').is_file(),
@@ -392,19 +653,52 @@ class Session:
                 'scope': 'PNG exactes enregistrées avant analyse ; boîtes dans leur repère déjà orienté. '
                          'Les événements audio sont des traces de contrôle, sans enregistrement du son.'}
 
+    def image_path(self, index):
+        if not 0 <= index < len(self.frames):
+            raise IndexError('Image hors limites')
+        descriptor = self.frames.summaries[index]
+        if not descriptor['imageAvailable']:
+            raise FileNotFoundError('PNG indisponible : '+ '; '.join(descriptor['_imageErrors'] or descriptor['_errors']))
+        path = safe_path(self.path, descriptor['imagePath'])
+        if not path.is_file():
+            raise FileNotFoundError('PNG disparue depuis l’indexation')
+        metadata = path.stat()
+        if (metadata.st_size,metadata.st_mtime_ns) != descriptor['_imageSignature']:
+            raise ValueError('PNG modifiée depuis sa vérification ; rouvrir la capture')
+        return path
+
+    def replay_integrity(self, source):
+        self.frames.rows.assert_unchanged()
+        self.events.assert_unchanged()
+        value = self.integrity()
+        allowed = value['recordedReplayAllowed'] if source == 'recorded' else value['macReplayAllowed']
+        if not allowed:
+            raise ValueError('Rejeu refusé : intégrité de capture insuffisante. ' + '; '.join(value['issues'][:3]))
+        if source == 'mac':
+            for index in range(len(self.frames)):
+                self.image_path(index)
+        return value
+
     def frame(self, index):
         if not 0 <= index < len(self.frames):
             raise IndexError('Image hors limites')
         f = self.frames[index]
-        inference = self.inferences.get(frame_key(f))
-        events = self.event_frames.get(frame_key(f), [])
-        at = finite_number(f.get('receivedAtMs', f.get('observedAtMs')), 0)
-        end = finite_number(self.frames[index + 1].get('receivedAtMs'), at + 1000) if index + 1 < len(self.frames) else at + 1000
-        audio = [self.events[event_index] for _, event_index in
-                 self.audio_index[bisect_left(self.audio_times, at):bisect_left(self.audio_times, end)]]
-        return {'frame': f, 'recordedInference': inference,
-                'detections': normalize_detections((inference or {}).get('detections', f.get('detections', []))),
-                'events': events, 'audioEvents': audio,
+        integrity = self.position_integrity(index)
+        valid = integrity['analysisStatus'] not in ('invalid','ambiguous')
+        key = frame_key(f)
+        inference = self.inferences.get(key) if valid else None
+        events = self.event_frames.get(key, []) if valid else []
+        at = f['receivedAtMs']
+        end = self.frames.summaries[index+1]['receivedAtMs'] if index+1<len(self.frames) else self.manifest.get('endedAtMonotonicMs')
+        audio = []
+        if valid and type(at) is int and type(end) is int and end >= at and key is not None:
+            for _, event_index in self.audio_index[bisect_left(self.audio_times,at):bisect_left(self.audio_times,end)]:
+                event = self.events[event_index]
+                if alias_integer(event, ('videoSessionId','sessionId')) == key[0]:
+                    audio.append(event)
+        return {'frame': f, 'integrity':integrity, 'recordedInference':inference,
+                'detections':normalize_detections((inference or {}).get('detections', f.get('detections', []))) if valid else [],
+                'events':events, 'audioEvents':audio,
                 'recordedDetectionConfidenceFloor': (inference or {}).get('detectionConfidenceFloor', .70),
                 'rawModelOutputIncluded': (inference or {}).get('rawModelOutputIncluded', False)}
 
@@ -893,7 +1187,7 @@ class PolicySimulation:
     def frame(self, index, frame, detections, observed, now):
         if now is None or observed is None:
             return {'policy': {'skipped': True, 'reason': 'Horodatage résultat téléphone absent ; aucune fraîcheur inventée.'}}
-        video_id = int(frame.get('videoSessionId', frame.get('sessionId', 1)))
+        video_id = alias_integer(frame, ('videoSessionId','sessionId'), True)
         if video_id != self.current_session:
             if self.started:
                 self.process.call({'type': 'stop', 'atMs': self.last_now})
@@ -1130,9 +1424,11 @@ class ReplayJobs:
             raise ValueError('Confirmation simulée : 0 à 30 000 ms')
         if extra['detectionSource'] == 'mac' and session.model_sha and session.model_sha not in {MODEL_SHA, METADATA_ONLY_MODEL_SHA}:
             raise ValueError('Le modèle enregistré diffère du modèle local : recalcul comparable refusé')
+        integrity = session.replay_integrity(extra['detectionSource'])
         identifier = uuid.uuid4().hex
         job = {'id': identifier, 'sessionId': session.id, 'captureId': session.manifest.get('sessionId'),
                'state': 'queued', 'done': 0, 'total': len(session.frames), 'frames': None, 'simulatedAudioEvents': [],
+               'integrity':integrity,
                '_session': session, '_audioIndex': {},
                'confirmationDelayMs': confirmation_ms, 'cancelRequested': False,
                'controllerGateAssumption': 'Orientation confirmed and available/unpaused voice assumed. Controller gates and real audio transport are not replayed.',
@@ -1218,6 +1514,7 @@ class ReplayJobs:
                 if job['cancelRequested']:
                     job['state'] = 'cancelled'
                     return
+                session.replay_integrity(job['detectionSource'])
                 job['state'] = 'running'
                 frames = DiskFrameReport(session, job['id'])
                 job['frames'] = frames
@@ -1246,7 +1543,7 @@ class ReplayJobs:
                         return
                     original = session.inferences.get(frame_key(frame), {})
                     if job['detectionSource'] == 'mac':
-                        result = self.detector.detect(safe_path(session.path, frame['imagePath']))
+                        result = self.detector.detect(session.image_path(index))
                         raw = original.get('rawModelOutput', original.get('rawOutput'))
                         result['rawParity'] = compare_recorded_raw(raw, result['rawOutput']) if raw is not None else {
                             'available': False, 'reason': 'Le téléphone n’a pas enregistré ses 300 sorties brutes.'}

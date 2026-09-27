@@ -8,11 +8,13 @@ Le prototype reprend notre modèle YOLO et des politiques portées depuis une ba
 
 **Oria 1.3-night est installé sur le HTC CN46V3M00284**, par mise à jour conservant les données. Les captures n’ont plus de limite de durée et le mode poche n’expire plus après 15 minutes. Le stockage garde 512 Mio libres, sans purge automatique. Le suivi habituel reste le défaut et le mode poche reste une option expérimentale. [Livraison, mesures et suite des travaux](oria-htc/validation/NIGHT_WORK_20260927.md).
 
-**Livraison 1.3 : 83 tests JVM Android, 10 tests de galerie sur HTC et 45 tests Python Mac passent**, ainsi que les régressions JavaScript. Les 164 images et 240 détections de la capture réelle concordent avec une lecture indépendante ; galerie synthétique de 21 622 images ouverte en 14,2 s sur HTC. Le ZIP Mac se télécharge nativement, sans blob intégral ; 169 fichiers réels vérifiés identiques par SHA-256.
+**Livraison 1.3 : 83 tests JVM Android et 10 tests de galerie sur HTC passent.** Les 164 images et 240 détections de la capture réelle concordent avec une lecture indépendante ; galerie synthétique de 21 622 images ouverte en 14,2 s sur HTC. Le ZIP Mac se télécharge nativement, sans blob intégral ; 169 fichiers réels vérifiés identiques par SHA-256.
+
+**Dernière étape Mac : 62 tests Python et les régressions JavaScript passent**, avec 11 fixtures synthétiques partagées et une revue indépendante. Les positions abîmées restent inspectables ; les identités ou horloges ambiguës bloquent le recalcul. Une PNG manquante seule conserve les données enregistrées exploitables, avec couverture visuelle incomplète signalée. La scène réelle garde exactement ses 164 positions, 240 détections et résultats de politique. [Validation Mac](oria-htc/artifacts/night-20260927-mac-integrity-validation.json).
 
 **Preuves antérieures conservées sur 1.2-night :** 10 instruments de capture/modèle/replay et 6 tests de rejeu Kotlin ; replay de 60 s sur HTC à 3,73 décisions fraîches/s, âge p95 294 ms, voix factice. Les lunettes restent déconnectées : aucune nouvelle preuve de voix réelle ou d’écran verrouillé avec flux lunettes.
 
-Oria Lab Mac lit désormais les données détaillées à la demande et écrit ses rapports progressivement : l’index de la scène de 164 images passe de 11,44 Mo à 34,6 Ko, avec les mêmes résultats de politique. Captures, corbeille/restauration, export et comparaison A/B sont disponibles. Le suivi V2 reste facultatif.
+Oria Lab Mac lit les données détaillées à la demande et écrit ses rapports progressivement : l’index de la scène de 164 images pèse désormais 56,2 Ko, diagnostics d’intégrité compris, contre 11,44 Mo avant les travaux de nuit. Captures, corbeille/restauration, export et comparaison A/B sont disponibles. Le suivi V2 reste facultatif.
 
 Pour produire l’APK et son manifeste : `python3 oria-htc/validation/build_offline.py`. La release ci-dessous reste historique ; la version de nuit compilée et installée est identifiée dans [le manifeste](oria-htc/artifacts/offline_candidate_manifest.json).
 

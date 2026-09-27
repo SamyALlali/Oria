@@ -1,0 +1,121 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-09-27T00:11:43.100530+00:00",
+  "scope": "MAC_CAPTURE_INTEGRITY",
+  "baseline_commit": "c86cea115eeb1f737a9150af6f21629df03a6e32",
+  "android": {
+    "changed": false,
+    "installed_version_name": "1.3-night",
+    "installed_version_code": 4,
+    "apk_sha256": "896d97d057331ede9dc4930043509763345c9701b1bf069d3e6f5f2b778eaaa3",
+    "sources_verified_unchanged": 107,
+    "new_build_or_install": false,
+    "new_hardware_tests": false,
+    "previous_validation": "night-20260927-v1.3-validation.json"
+  },
+  "python_tests": {
+    "count": 62,
+    "failures": 0,
+    "seconds": 13.568
+  },
+  "javascript_interactions": "PASS",
+  "shared_fixtures": {
+    "synthetic_cases": 11,
+    "generator_tests": 3,
+    "failures": 0,
+    "seconds": 0.06
+  },
+  "independent_review": {
+    "assertions": 87,
+    "scope": "Synthetic property assertions, not 87 field recordings",
+    "verdict": "NO_BLOCKER",
+    "report": "validation/REVIEW_NIGHT_WAVE3.md",
+    "final_ui_archive_cleanup_review": "NO_BLOCKER"
+  },
+  "healthy_capture_parity": {
+    "frames_compared": 164,
+    "detections_compared": 240,
+    "business_summary_equal": true,
+    "policy_variants_equal": true,
+    "input_fingerprint_equal": true,
+    "audio_differences": [],
+    "source_files_unchanged": 169,
+    "integrity": {
+      "frameEntryCount": 164,
+      "invalidFrameCount": 0,
+      "missingImageCount": 0,
+      "invalidEventCount": 0,
+      "ambiguousFrameCount": 0,
+      "issueCount": 0,
+      "issues": [],
+      "recordedReplayAllowed": true,
+      "macReplayAllowed": true,
+      "visualCoverageComplete": true
+    }
+  },
+  "healthy_index": {
+    "frames": 164,
+    "current_http_index_bytes": 56190,
+    "previous_wave1_index_bytes": 34595,
+    "original_full_index_bytes": 11436595
+  },
+  "jvm_gallery_cancellation": {
+    "host": "Mac",
+    "attempts": 5,
+    "cancellations_propagated": 5,
+    "published_indices": 0,
+    "max_request_to_exit_ms": 0.173,
+    "claim": "Cooperative loader cancellation only, not Compose or HTC latency"
+  },
+  "browser_checks": [
+    "All four synthetic source positions remain navigable",
+    "Malformed position has no detections, decisions or audio attributed",
+    "Missing PNG retains valid recorded data",
+    "Global replay controls disabled for invalid source metadata",
+    "Archive clears image, diagnostics and frame position",
+    "Healthy real capture restored, paused; no job, video or audio active"
+  ],
+  "limits": [
+    "No new live glasses or human listening evidence",
+    "No model, threshold, Kotlin core or Android app changes",
+    "Missing PNG with valid data permits recorded comparison, not ONNX",
+    "Android 1.3 gallery still hides analysis when PNG is missing",
+    "Previously measured memory peaks remain historical; only index size remeasured",
+    "File change guards use size and mtime, not protection against a hostile process restoring both"
+  ],
+  "duration_limits": {
+    "capture_ms": null,
+    "pocket_ms": null
+  },
+  "tracking_default": "LEGACY_IOU",
+  "private_capture_payloads_published": false,
+  "raw_evidence": "validation/night-20260927-CN46V3M00284/wave3",
+  "source_sha256": {
+    "oria-lab-desktop/replay.py": "472a20247f704232902b23ff07e6815817c29f336bd621166e9b95259377eaa7",
+    "oria-lab-desktop/server.py": "8a72718f2282350c6d87836a855268f838f4b076d994c01b79a14d17f414edc3",
+    "oria-lab-desktop/static/app.js": "6f73cd01e37e97992d47f579cacc472f733257fb1f523261bd91693c0bb3d24d",
+    "oria-lab-desktop/static/index.html": "4d8f57a9d95c2b45757725ddbe5909c98b236a2e4e59112493de107cd5c5b78f",
+    "oria-lab-desktop/static/style.css": "adeff35e68a7645acfdf360506816a2be286d13fc1c5d838a8e203d1a2298df5",
+    "oria-lab-desktop/test_capture_integrity.py": "ac96ffae7133c48f6629bd1e0aa528182a9ff5c7418b20488f32ece9d8bf041b",
+    "oria-lab-desktop/test_capture_integrity_http.py": "320fdbde7e8039fd26b0c487fc145883ca24845c66704c30818c8470293e8842",
+    "oria-lab-desktop/test_ui.js": "659e2153789628c73607834cebde458f83d81e7af0066479e2e24031e36d0eb2",
+    "oria-lab-desktop/test_replay.py": "c915db1a84fb53f31a7f7d882236147f7617f151618737f549b68324217416a0",
+    "oria-lab-desktop/test_long_sessions.py": "ea08024d91e80527f94003b154e57902e2df50a8cc793f11f66c943ab48a2d87",
+    "fixtures/capture-integrity/cases.json": "6ccd87c41d3f2ddc98397a6468797af5712e21e861d6368ee0bd2b2ddb311a97",
+    "fixtures/capture-integrity/materialize.py": "82ee45eaa8f796bd8e596958ea57d4df80c2dcf5d167b2df02ce4b8e236fc621",
+    "fixtures/capture-integrity/test_materialize.py": "25bfe78c210df32f37a152c31e5e625d65cc82f793a14a6b58c3d947097aa31b"
+  },
+  "local_evidence_sha256": {
+    "healthy-parity.json": "872203321816c715558313c00d8187fcee60725044867c2c6397195aceb45ad9",
+    "healthy-comparison-current.json": "501f9243a2e5b05cc7d6e30a5af2454deb7e88f51096b6224c18d5679ef0220c",
+    "source-hashes.json": "1604f77c9ae28c3bc3feccc07409a05727779f49905b87ddfaed561cb70759b4",
+    "mac-python-tests.log": "bc286aeffa82fdef654dedbacb7817e8bfc46415ea291e3e22a17dca917cd37a",
+    "mac-ui-tests.log": "7fa1b84911c11c5e621de741f519b1c645384eb1366858b485473f42669fb617",
+    "fixture-tests.log": "789d45d5029bff69239efeb6222de8b5297932a89c54c9ace13f32b69e585059",
+    "index-size.json": "7dc66cd13dc00afa204f57dcb430a89bfe0e7ead08aca913c3e881c66da1e931",
+    "unchanged-android.json": "cc991ba7ae850416c3c6b4845d26f47806ae2993c0ddf1bdfd053bd645a2f10a",
+    "browser-archive-receipt.json": "f26a4b85687e83c5f20d4807226f0e527b9542787b9382e53c30ffd108e4f12c",
+    "browser-final-state.txt": "de44d3c3a1c2ebdbb60043807dfb679b21a5d73c81b89a497f85a8a3cf107e76",
+    "mac-invalid-position.png": "5565c48d899ef11e3f2b57291fa078ce580357bd51a9c5de584ae6cd1780d343"
+  }
+}

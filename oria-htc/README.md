@@ -12,7 +12,9 @@ Les captures et le mode poche n’ont plus de durée maximale. Les quotas fixes 
 
 **83 tests JVM et 10 instruments de galerie passent sur 1.3-night.** Les entrées invalides restent visibles, avec leur cause ; les détections sont chargées à la sélection. Recette réelle : 164 images / 240 détections concordent avec une lecture indépendante, horloges et décisions exactes, fichiers inchangés. Index synthétique de deux heures : 21 622 entrées ouvertes en 14,18 s sur HTC ; ce n’est pas une endurance caméra. [Rapport galerie](validation/GALLERY_LONG_SESSIONS.md).
 
-Sur Mac, **45 tests Python et les interactions JavaScript passent**. Export ZIP préparé sur disque et téléchargement natif, indépendant des renommages ultérieurs ; archive réelle de 91 739 169 octets téléchargée, CRC valides et 169 fichiers identiques à la sauvegarde du téléphone.
+Sur Mac, **62 tests Python et les interactions JavaScript passent**. Les positions invalides restent inspectables dans l’ordre source ; identités, horloges ou analyses ambiguës bloquent le recalcul. Une PNG seule absente conserve les données cohérentes enregistrées et signale la couverture visuelle incomplète. Parité exacte des 164 positions, 240 détections et politiques sur la scène réelle, sources intactes. [Validation Mac](artifacts/night-20260927-mac-integrity-validation.json). Cette étape ne change pas l’APK 1.3-night.
+
+L’export ZIP reste préparé sur disque avec téléchargement natif, indépendant des renommages ultérieurs ; archive réelle de 91 739 169 octets téléchargée lors de la livraison précédente, CRC valides et 169 fichiers identiques à la sauvegarde du téléphone.
 
 Les 10 instruments capture/modèle/replay de **1.2-night** restent des preuves de cette version : six fixtures XNNPACK et replay de 60 s à 3,73 décisions fraîches/s, âge p95 294 ms, voix factice. Les lunettes restent déconnectées : écran verrouillé avec flux réel et écoute 70/30 restent à valider. Les résultats vidéo/voix historiques ci-dessous gardent leurs APK d’origine.
 
