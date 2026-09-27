@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "analysisMode": "depth_only",
+  "scope": "Mac offline; no HTC deployment or audio",
+  "pythonTestsPassed": 174,
+  "uiTestsPassed": true,
+  "independentSyntheticReviewProbes": 11,
+  "captures": [
+    {
+      "frames": 92,
+      "sourceFilesUnchanged": 97,
+      "pngHashesVerified": 92,
+      "identitiesAndCaptureTimesVerified": 92,
+      "deterministicPolicyReplayMatches": 92,
+      "framesWithCandidatePixels": 84,
+      "macBatchSeconds": 56.588,
+      "captureLabel": "second recording",
+      "depthOnnx": {
+        "p50Ms": 587.001,
+        "p95Ms": 595.503,
+        "maxMs": 625.602
+      },
+      "proposals": 7,
+      "depthMapsIdenticalToPreviousRun": 92,
+      "policyStates": {
+        "uncertain": 9,
+        "observing": 10,
+        "proposal": 7,
+        "cooldown": 59,
+        "no_candidate": 7
+      },
+      "referenceStates": {
+        "supported": 19,
+        "unavailable": 73
+      }
+    },
+    {
+      "frames": 164,
+      "sourceFilesUnchanged": 172,
+      "pngHashesVerified": 164,
+      "identitiesAndCaptureTimesVerified": 164,
+      "deterministicPolicyReplayMatches": 164,
+      "framesWithCandidatePixels": 116,
+      "macBatchSeconds": 100.877,
+      "captureLabel": "first recording",
+      "depthOnnx": {
+        "p50Ms": 586.045,
+        "p95Ms": 622.399,
+        "maxMs": 690.891
+      },
+      "proposals": 13,
+      "depthMapsIdenticalToPreviousRun": 164,
+      "policyStates": {
+        "uncertain": 1,
+        "no_candidate": 59,
+        "observing": 39,
+        "proposal": 13,
+        "cooldown": 52
+      },
+      "referenceStates": {
+        "supported": 80,
+        "unavailable": 84
+      }
+    }
+  ],
+  "limitations": [
+    "No metric depth, collision, proximity or passable-path validation",
+    "Two recordings are not an accuracy benchmark",
+    "Strong camera inclination can produce planar false candidates",
+    "Small or below-ROI obstacles may be missed",
+    "No HTC latency, battery, thermal or live audio validation"
+  ]
+}

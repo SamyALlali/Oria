@@ -270,3 +270,28 @@ class RelativeDepthDetector:
         started = time.perf_counter()
         prediction = self._session.run(['predicted_depth'], {'pixel_values': tensor})[0]
         return postprocess_depth(prediction, (time.perf_counter() - started) * 1000)
+
+
+class DepthOnlyDetector:
+    """One depth runtime, with no segmentation model or object detector loaded."""
+
+    def __init__(self, model_path=None, manifest_path=None):
+        self._depth = RelativeDepthDetector(model_path, manifest_path)
+
+    def describe(self):
+        return {**self._depth.describe(), 'analysisMode': 'depth_only',
+                'segmentationEnabled': False, 'yoloRequired': False,
+                'metric': False, 'experimental': True}
+
+    def infer(self, image):
+        started = time.perf_counter()
+        depth = self._depth.infer(image)
+        quality = inspect_image_quality(image)
+        elapsed = (time.perf_counter() - started) * 1000
+        return {'analysisMode': 'depth_only', 'width': image.width, 'height': image.height,
+                'maskWidth': depth['width'], 'maskHeight': depth['height'],
+                'mask': None, 'classes': {}, 'zones': [], 'inferenceMs': 0.,
+                'relativeDepth': depth, 'depthAvailable': depth['available'],
+                'totalInferenceMs': depth['inferenceMs'], 'analysisWallMs': elapsed,
+                'nonOnnxMs': max(0., elapsed - depth['inferenceMs']),
+                'imageQuality': quality, 'segmentationEnabled': False, 'yoloRequired': False}

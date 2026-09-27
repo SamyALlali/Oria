@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const state = {token:null,session:null,index:0,playing:false,timer:null,job:null,jobKind:null,
-  drawVersion:0,sessionVersion:0,loadVersion:0,libraryVersion:0,jobVersion:0,audioVersion:0,mode:'recorded',comparison:null,audioUrl:null,pendingArchive:null,frameAbort:null,seekTimer:null,exportId:null,exportVersion:0,exportTimer:null,jobBusy:false,surfaceModel:null,surfaceJob:null,surfaceBusy:false,surfaceVersion:0,surfaceDrawVersion:0,surfaceTimer:null,surfaceAbort:null};
+  drawVersion:0,sessionVersion:0,loadVersion:0,libraryVersion:0,jobVersion:0,audioVersion:0,mode:'recorded',comparison:null,audioUrl:null,pendingArchive:null,frameAbort:null,seekTimer:null,exportId:null,exportVersion:0,exportTimer:null,jobBusy:false,surfaceModel:null,surfaceJob:null,surfaceJobMode:null,surfaceBusy:false,surfaceVersion:0,surfaceDrawVersion:0,surfaceTimer:null,surfaceAbort:null};
 const fmt=(v,d=1)=>Number.isFinite(v)?v.toFixed(d):'—';
 async function response(url,body,binary=false,signal){
   const options=body===undefined?{}:{method:'POST',headers:{'X-Oria-Lab-Token':state.token,
@@ -311,25 +311,50 @@ function stepSurfaceFrame(delta){
   const index=Math.max(0,Math.min(count-1,state.index+delta));
   if(index!==state.index)return showFrame(index);
 }
+function selectedSurfaceAnalysisMode(){
+  return $('surfaceAnalysisMode').value||(state.surfaceModel&&!state.surfaceModel.modes?'semantic_depth':'depth_only');
+}
+function displayedSurfaceAnalysisMode(){return state.surfaceJobMode||selectedSurfaceAnalysisMode();}
+function surfaceModeStatus(mode=selectedSurfaceAnalysisMode()){
+  if(state.surfaceModel?.modes)return state.surfaceModel.modes[mode]||{installed:false,message:'Mode indisponible.'};
+  return mode==='semantic_depth'?(state.surfaceModel||{installed:false}):{installed:false,message:'Ce serveur ne propose pas encore le relief seul.'};
+}
+function refreshSurfaceViewOptions(){
+  const depthOnly=displayedSurfaceAnalysisMode()==='depth_only';
+  $('surfaceSemanticOption').hidden=depthOnly;$('surfaceSemanticOption').disabled=depthOnly;
+  $('surfaceCandidateOption').textContent=depthOnly?'Régions géométriques candidates':'Régions candidates hors boîtes YOLO';
+  if(depthOnly&&!['depth','candidate'].includes($('surfaceView').value))$('surfaceView').value='depth';
+  if(!depthOnly&&!$('surfaceView').value)$('surfaceView').value='segmentation';
+  $('surfaceResultModeLabel').textContent=state.surfaceJob?`Résultats : ${depthOnly?'relief seul, indépendant des catégories':'surfaces + relief, comparaison sémantique'}.`:'';
+}
+function refreshSurfaceModelText(){
+  const mode=selectedSurfaceAnalysisMode(),status=surfaceModeStatus(mode);
+  $('surfaceAnalysisDescription').textContent=mode==='depth_only'?'Relief monoculaire seul, sans segmentation ni catégories YOLO. Les régions candidates restent hypothétiques et sans distance métrique.':'Analyse de comparaison : segmentation des surfaces + relief relatif, puis exclusion des boîtes YOLO enregistrées. Recherche et évaluation non commerciales uniquement pour ce mode. La confiance sémantique n’est pas une probabilité étalonnée.';
+  $('surfaceModelStatus').textContent=status.message||(status.installed?'Modèle local vérifié.':'Modèle local absent.');
+  if(mode==='semantic_depth'&&!state.surfaceModel?.modes&&status.installed)$('surfaceModelStatus').textContent+=' Relief relatif : '+(status.relativeDepth?.installed?'modèle local installé.':'indisponible ; segmentation seule, aucune proposition obstacle.');
+  if(!status.installed)$('surfaceModelStatus').textContent+=' Préparation locale : suivre SURFACES_EXPERIMENTAL.md. Aucun téléchargement automatique.';
+}
 function refreshSurfaceControls(){
-  refreshSurfaceNavigation();
-  $('surfaceAnalyze').disabled=!state.surfaceModel?.installed||state.surfaceBusy||!replayAllowed('mac');
+  refreshSurfaceNavigation();refreshSurfaceViewOptions();
+  $('surfaceAnalyze').disabled=!surfaceModeStatus().installed||state.surfaceBusy||!replayAllowed('mac');
   $('surfaceCancel').disabled=!state.surfaceBusy;
+  $('surfaceAnalysisMode').disabled=state.surfaceBusy;
 }
 async function refreshSurfaceModel(){
   try{const status=await request('/api/surfaces/status');state.surfaceModel=status;
-    $('surfaceModelStatus').textContent=status.message||(status.installed?'Modèle local vérifié.':'Modèle surfaces absent.');
-    if(status.installed)$('surfaceModelStatus').textContent+=' Relief relatif : '+(status.relativeDepth?.installed?'modèle local installé.':'indisponible ; segmentation seule, aucune proposition obstacle.');
-    if(!status.installed)$('surfaceModelStatus').textContent+=' Préparation locale : suivre SURFACES_EXPERIMENTAL.md. Aucun téléchargement automatique.';
+    if(!status.modes&&!state.surfaceBusy)$('surfaceAnalysisMode').value='semantic_depth';
+    refreshSurfaceModelText();
   }catch(e){state.surfaceModel=null;$('surfaceModelStatus').textContent='Modèle non disponible : '+e.message;}
   refreshSurfaceControls();
 }
 function refreshSurfaceLegend(){
+  refreshSurfaceViewOptions();
+  const depthOnly=displayedSurfaceAnalysisMode()==='depth_only';
   const mode=$('surfaceView').value||'segmentation';
   $('surfaceSemanticLegend').hidden=mode!=='segmentation';
   $('surfaceModeLegend').hidden=mode==='segmentation';
-  $('surfaceModeLegend').textContent=mode==='depth'?'Bleu : score relatif faible ; jaune : score relatif élevé. Normalisation propre à chaque image ; aucune distance ni comparaison temporelle directe.':mode==='candidate'?'Rouge : régions candidates non-sol, appuyées par le relief relatif et non couvertes par les boîtes YOLO enregistrées. Aucune distance ni certitude d’un obstacle.':'';
-  $('surfaceCanvas').ariaLabel=mode==='depth'?'Carte de relief relatif expérimental sur la PNG sélectionnée, sans distance':mode==='candidate'?'Régions candidates expérimentales hors boîtes YOLO sur la PNG sélectionnée':'Masque sémantique expérimental sur la PNG sélectionnée';
+  $('surfaceModeLegend').textContent=mode==='depth'?'Bleu : score relatif faible ; jaune : score relatif élevé. Normalisation propre à chaque image ; aucune distance ni comparaison temporelle directe.':mode==='candidate'?(depthOnly?'Rouge : régions géométriques candidates issues du relief seul, sans catégorie ni exclusion par YOLO. Aucune distance ni certitude d’un obstacle.':'Rouge : régions candidates non-sol, appuyées par le relief relatif et non couvertes par les boîtes YOLO enregistrées. Aucune distance ni certitude d’un obstacle.') :'';
+  $('surfaceCanvas').ariaLabel=mode==='depth'?'Carte de relief relatif expérimental sur la PNG sélectionnée, sans distance':mode==='candidate'?(depthOnly?'Régions géométriques candidates sur la PNG sélectionnée':'Régions candidates expérimentales hors boîtes YOLO sur la PNG sélectionnée'):'Masque sémantique expérimental sur la PNG sélectionnée';
 }
 function renderSurfaceProposal(policy){
   $('surfaceProposal').textContent=policy?.status==='uncertain'?'Interprétation suspendue : qualité d’image insuffisante. Aucun son émis.':policy?.proposal?`Proposition indicative : « ${policy.proposal.text} ». Aucun son émis.`:'Aucune proposition indicative sur cette image. Cela ne signifie pas que le passage est libre.';
@@ -355,7 +380,7 @@ function clearSurfaceFrame(message='Résultat surfaces en attente pour cette ima
 }
 function resetSurfaces(){
   const old=state.surfaceJob;++state.surfaceVersion;++state.surfaceDrawVersion;
-  state.surfaceAbort?.abort();clearTimeout(state.surfaceTimer);state.surfaceJob=null;state.surfaceBusy=false;
+  state.surfaceAbort?.abort();clearTimeout(state.surfaceTimer);state.surfaceJob=null;state.surfaceJobMode=null;state.surfaceBusy=false;
   if(old)request(`/api/surfaces/jobs/${old}/cancel`,{}).catch(()=>{});
   $('surfaceExport').disabled=true;$('surfaceJobStatus').textContent='Aucune analyse surfaces.';
   clearSurfaceFrame();refreshSurfaceControls();
@@ -382,7 +407,8 @@ function drawSurfaceMask(image,result,evidence){
   ctx.globalAlpha=1;
 }
 function renderSurfaceZones(result,evidence){
-  const semantic=($('surfaceView').value||'segmentation')==='segmentation';
+  const depthOnly=displayedSurfaceAnalysisMode()==='depth_only';
+  const semantic=(!depthOnly)&&($('surfaceView').value||'segmentation')==='segmentation';
   $('surfaceZones').replaceChildren();
   const percentages=value=>Number.isFinite(value)?`${fmt(100*value)} %`:'indisponible';
   for(const name of ['LEFT','CENTER','RIGHT']){
@@ -391,6 +417,8 @@ function renderSurfaceZones(result,evidence){
     const zone=(semantic?result.zones:evidence.status==='ok'?evidence.zones:[])?.find(value=>value.zone===name);
     if(semantic){
       detail.textContent=zone?`Mur : ${percentages(zone.wallFraction)} de la zone · score moyen ${fmt(zone.wallMeanConfidence,2)} (non étalonné).`:'Mesures sémantiques indisponibles pour cette zone.';
+    }else if(zone&&depthOnly){
+      detail.textContent=`Régions géométriques candidates : ${percentages(zone.candidateFraction)} de la zone analysée.\nScore de relief relatif médian : ${Number.isFinite(zone.relativeDepthMedian)?fmt(zone.relativeDepthMedian,2):'indisponible'} (sans unité, propre à l’image). Aucune distance.`;
     }else if(zone){
       const support=zone.obstructionFraction===0?'non applicable (aucune surface éligible)':`${percentages(zone.depthRelativeSupport)} des pixels éligibles`;
       detail.textContent=`Candidats hors boîtes YOLO : ${percentages(zone.unrecognizedFraction)} de la zone analysée.
@@ -414,28 +442,31 @@ async function showSurfaceFrame(index){
     if(value.sessionId!==session.id||value.frameIndex!==index)throw Error('Identité surfaces incompatible avec la sélection.');
     if(value.pending){$('surfaceFrameStatus').textContent=['failed','cancelled'].includes(value.state)?'Cette position n’a pas été analysée : résultat partiel.':'Cette image attend son analyse surfaces.';return;}
     const result=value.segmentation,policy=value.policy;
+    state.surfaceJobMode=value.analysisMode||'semantic_depth';refreshSurfaceLegend();
+    const depthOnly=state.surfaceJobMode==='depth_only';
     renderSurfaceImageQuality(result.imageQuality);
     const evidence=value.obstacles||{};
-    $('surfaceEvidenceStatus').textContent=evidence.status==='ok'?'Candidats non-sol + relief relatif, hors boîtes YOLO enregistrées. Non couvert par YOLO ne signifie pas objet inconnu avec certitude.':'Fusion indisponible : '+(evidence.reason||'preuves insuffisantes')+'. La segmentation reste inspectable.';
+    $('surfaceEvidenceStatus').textContent=evidence.status==='ok'?(depthOnly?'Régions géométriques candidates calculées avec le relief seul. Calcul indépendant des catégories ; aucune distance mesurée.':'Candidats non-sol + relief relatif, hors boîtes YOLO enregistrées. Non couvert par YOLO ne signifie pas objet inconnu avec certitude.'):(depthOnly?'Géométrie indisponible : ':'Fusion indisponible : ')+(evidence.reason||'preuves insuffisantes')+(depthOnly?'. Le relief reste inspectable.':'. La segmentation reste inspectable.');
     const image=new Image();image.onload=()=>{
       if(version!==state.surfaceDrawVersion||job!==state.surfaceJob||session.id!==state.session?.id)return;
       try{drawSurfaceMask(image,result,value.obstacles);$('surfaceCanvas').hidden=false;}catch(e){clearSurfaceFrame(e.message);renderSurfaceImageQuality(result.imageQuality);renderSurfaceProposal(policy);}
     };
     image.onerror=()=>{if(version===state.surfaceDrawVersion)clearSurfaceFrame('PNG absente ou illisible ; aucun masque affiché.');};
     image.src=`/api/session/${session.id}/image/${index}`;
-    $('surfaceFrameStatus').textContent=`Image ${index+1} · calcul Mac ${fmt(result.totalInferenceMs??result.inferenceMs)} ms (surfaces ${fmt(result.inferenceMs)} ms, relief ${fmt(result.relativeDepth?.inferenceMs)} ms) · ${value.partial?'résultat partiel':'analyse complète'}.`;
+    const timing=depthOnly?`relief seul sur Mac ${fmt(result.relativeDepth?.inferenceMs??result.totalInferenceMs)} ms`:`calcul Mac combiné ${fmt(result.totalInferenceMs??result.inferenceMs)} ms (surfaces ${fmt(result.inferenceMs)} ms, relief ${fmt(result.relativeDepth?.inferenceMs)} ms)`;
+    $('surfaceFrameStatus').textContent=`Image ${index+1} · ${timing} · ${value.partial?'résultat partiel':'analyse complète'}.`;
     renderSurfaceZones(result,evidence);
     renderSurfaceProposal(policy);
-    textJson('surfaceJson',{frameIndex:value.frameIndex,videoSessionId:value.videoSessionId,observedAtMs:value.observedAtMs,sourcePngSha256:value.sourcePngSha256,imageQuality:result.imageQuality??null,policy,zones:result.zones,obstacles:{...evidence,candidateMask:undefined},recordedDetections:value.recordedDetections,totalInferenceMs:result.totalInferenceMs,segmentationMs:result.inferenceMs,relativeDepthMs:result.relativeDepth?.inferenceMs});
+    textJson('surfaceJson',{analysisMode:state.surfaceJobMode,frameIndex:value.frameIndex,videoSessionId:value.videoSessionId,observedAtMs:value.observedAtMs,sourcePngSha256:value.sourcePngSha256,imageQuality:result.imageQuality??null,policy,zones:result.zones,obstacles:{...evidence,candidateMask:undefined},recordedDetections:value.recordedDetections,totalInferenceMs:result.totalInferenceMs,segmentationMs:depthOnly?null:result.inferenceMs,relativeDepthMs:result.relativeDepth?.inferenceMs});
   }catch(e){if(e.name!=='AbortError'&&version===state.surfaceDrawVersion)clearSurfaceFrame('Résultat surfaces indisponible : '+e.message);}
 }
 async function runSurfaceJob(){
-  if(state.surfaceBusy||!state.surfaceModel?.installed||!replayAllowed('mac'))return;
-  const session=state.session,version=++state.surfaceVersion;
+  if(state.surfaceBusy||!surfaceModeStatus().installed||!replayAllowed('mac'))return;
+  const session=state.session,version=++state.surfaceVersion,analysisMode=selectedSurfaceAnalysisMode();
   try{
-    state.surfaceBusy=true;state.surfaceJob=null;$('surfaceExport').disabled=true;refreshSurfaceControls();
+    state.surfaceBusy=true;state.surfaceJob=null;state.surfaceJobMode=analysisMode;$('surfaceExport').disabled=true;refreshSurfaceControls();
     clearSurfaceFrame();$('surfaceJobStatus').textContent='Préparation de l’analyse surfaces…';
-    const result=await request('/api/surfaces/analyze',{sessionId:session.id});
+    const result=await request('/api/surfaces/analyze',{sessionId:session.id,analysisMode});
     if(version!==state.surfaceVersion||session.id!==state.session?.id){request(`/api/surfaces/jobs/${result.jobId}/cancel`,{}).catch(()=>{});return;}
     state.surfaceJob=result.jobId;pollSurfaceJob(result.jobId,version);
   }catch(e){if(version===state.surfaceVersion){state.surfaceBusy=false;$('surfaceJobStatus').textContent='Analyse refusée : '+e.message;refreshSurfaceControls();}}
@@ -444,6 +475,7 @@ async function pollSurfaceJob(id,version){
   try{
     const job=await request(`/api/surfaces/jobs/${id}`);
     if(id!==state.surfaceJob||version!==state.surfaceVersion||job.sessionId!==state.session?.id)return;
+    state.surfaceJobMode=job.analysisMode||'semantic_depth';
     const terminal=['complete','failed','cancelled'].includes(job.state);
     $('surfaceJobStatus').textContent=job.state==='complete'?`Terminé : ${job.done}/${job.total} PNG · ${fmt(job.macBatchSeconds)} s sur Mac.`:
       terminal?`Résultat partiel ${job.done}/${job.total} : ${job.error||'analyse annulée'}.`:`Analyse surfaces ${job.done}/${job.total}…`;
@@ -465,3 +497,5 @@ $('surfaceView').onchange=()=>showSurfaceFrame(state.index);
 
 $('surfacePrevious').onclick=()=>stepSurfaceFrame(-1);
 $('surfaceNext').onclick=()=>stepSurfaceFrame(1);
+
+$('surfaceAnalysisMode').onchange=()=>{if(state.surfaceBusy){$('surfaceAnalysisMode').value=state.surfaceJobMode||'semantic_depth';return;}resetSurfaces();refreshSurfaceModelText();refreshSurfaceLegend();};

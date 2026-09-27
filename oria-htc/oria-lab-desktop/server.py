@@ -162,9 +162,12 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                     return self.json(jobs.cancel(parts[2]))
                 if self.path == '/api/surfaces/analyze':
                     body = self.read_json()
-                    if not isinstance(body, dict) or set(body) != {'sessionId'} or not isinstance(body['sessionId'], str):
+                    if (not isinstance(body, dict) or set(body) - {'sessionId', 'analysisMode'} or
+                            not isinstance(body.get('sessionId'), str) or
+                            body.get('analysisMode', 'semantic_depth') not in ('semantic_depth', 'depth_only')):
                         raise ValueError('Identité de capture surfaces invalide')
-                    return self.json({'jobId': surfaces.create(store.get(body['sessionId']))}, 202)
+                    return self.json({'jobId': surfaces.create(store.get(body['sessionId']),
+                                                             body.get('analysisMode', 'semantic_depth'))}, 202)
                 if len(parts) == 5 and parts[:3] == ['api', 'surfaces', 'jobs'] and parts[4] == 'cancel':
                     return self.json(surfaces.cancel(parts[3]))
                 if self.path == '/api/import/zip':

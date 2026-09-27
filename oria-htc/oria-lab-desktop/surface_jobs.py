@@ -38,6 +38,26 @@ def obstacle_evidence(inference, detections):
     return compute_obstacle_evidence(inference, detections)
 
 
+def depth_status():
+    from surface_inference import depth_model_status
+    return depth_model_status()
+
+
+def depth_detector_factory():
+    from surface_inference import DepthOnlyDetector
+    return DepthOnlyDetector()
+
+
+def depth_policy_factory():
+    from depth_policy import DepthObstaclePolicy
+    return DepthObstaclePolicy()
+
+
+def depth_evidence(inference):
+    from depth_obstacles import compute_depth_obstacle_evidence
+    return compute_depth_obstacle_evidence(inference['relativeDepth'])
+
+
 class SurfaceJobs:
     MAX_RETAINED = 2
     MAX_JOB_BYTES = 256 * 1024 * 1024
@@ -46,9 +66,13 @@ class SurfaceJobs:
              'Aucun son, aucune distance, aucune garantie de passage libre. Confiance du modèle non étalonnée. '
              'Horloges de réception originales, temps de calcul mesurés sur ce Mac.')
 
-    def __init__(self, store, detector=detector_factory, policy=policy_factory, status=surface_model_status, evidence=obstacle_evidence):
+    def __init__(self, store, detector=detector_factory, policy=policy_factory, status=surface_model_status, evidence=obstacle_evidence,
+                 depth_detector=depth_detector_factory, depth_policy=depth_policy_factory,
+                 depth_model_status=depth_status, depth_geometry=depth_evidence):
         self.store, self.detector_factory, self.policy_factory, self.model_status = store, detector, policy, status
         self.evidence = evidence
+        self.depth_detector_factory, self.depth_policy_factory = depth_detector, depth_policy
+        self.depth_model_status, self.depth_geometry = depth_model_status, depth_geometry
         self.lock = threading.RLock()
         self.jobs = {}
         self.closing = False
@@ -79,12 +103,16 @@ class SurfaceJobs:
 
     def status(self):
         value = dict(self.model_status())
+        value['modes'] = {'semantic_depth': dict(value), 'depth_only': self.depth_model_status()}
         value.update(scope=self.SCOPE, maxJobBytes=self.MAX_JOB_BYTES,
                      maxRetainedJobs=self.MAX_RETAINED)
         return value
 
-    def create(self, session):
-        if not self.model_status().get('installed'):
+    def create(self, session, analysis_mode='semantic_depth'):
+        if analysis_mode not in ('semantic_depth', 'depth_only'):
+            raise ValueError('Mode d’analyse inconnu')
+        model_status = self.depth_model_status if analysis_mode == 'depth_only' else self.model_status
+        if not model_status().get('installed'):
             raise ValueError('Modèle surfaces absent ou non vérifié ; préparation locale nécessaire')
         # Reserve before validation: archiving must not move files during validation or inference.
         with self.lock, session.lock:
@@ -107,8 +135,12 @@ class SurfaceJobs:
                 require_disk_space(self.root, self.MAX_FRAME_BYTES)
                 identifier = uuid.uuid4().hex
                 job = {'id': identifier, 'sessionId': session.id, 'captureId': session.manifest.get('sessionId'),
+                       'analysisMode': analysis_mode,
                        'state': 'queued', 'done': 0, 'total': len(session.frames), 'bytes': 0,
-                       'scope': self.SCOPE, 'integrity': integrity, 'partial': True, 'reportAvailable': False,
+                       'scope': ('Relief seul, indépendant des classes et de YOLO ; occupation relative expérimentale, '
+                                 'sans distance, trajectoire ou garantie de passage libre. Aucun son.'
+                                 if analysis_mode == 'depth_only' else self.SCOPE),
+                       'integrity': integrity, 'partial': True, 'reportAvailable': False,
                        '_session': session, '_cancel': threading.Event(), '_readers': 0,
                        '_path': self.root / (identifier + '.jsonl'), '_offsets': [], '_thread': None}
                 self.jobs[identifier] = job
@@ -190,7 +222,9 @@ class SurfaceJobs:
             with self.lock:
                 job['state'] = 'running'
             output = job['_path'].open('xb')
-            detector, policy = self.detector_factory(), self.policy_factory()
+            depth_only = job['analysisMode'] == 'depth_only'
+            detector = self.depth_detector_factory() if depth_only else self.detector_factory()
+            policy = self.depth_policy_factory() if depth_only else self.policy_factory()
             model = detector.describe()
             with self.lock:
                 job['model'] = model
@@ -217,16 +251,21 @@ class SurfaceJobs:
                 session.image_path(index)  # A file changed during inference must never receive a result.
                 if job['_cancel'].is_set():
                     break  # An in-flight cancelled result must not advance policy memory.
-                recorded = session.frame(index)
-                detections = recorded['detections'] if recorded['recordedInference'] is not None else None
-                evidence = self.evidence(result, detections)
+                if depth_only:
+                    # No object identities, classes or boxes influence geometry.
+                    detections = None
+                    evidence = self.depth_geometry(result)
+                else:
+                    recorded = session.frame(index)
+                    detections = recorded['detections'] if recorded['recordedInference'] is not None else None
+                    evidence = self.evidence(result, detections)
                 if job['_cancel'].is_set():
                     break
                 quality = {'image_quality': result['imageQuality']} if 'imageQuality' in result else {}
                 decision = policy.process(source_id, index, observed, evidence.get('zones'), **quality)
                 if job['_cancel'].is_set():
                     break
-                row = {'type': 'frame', 'frameIndex': index, 'frameId': frame['frameId'],
+                row = {'type': 'frame', 'analysisMode': job['analysisMode'], 'frameIndex': index, 'frameId': frame['frameId'],
                        'videoSessionId': source_id, 'observedAtMs': observed,
                        'sourceLine': session.frames.summaries[index]['sourceLine'], 'sourcePngSha256': digest.hexdigest(),
                        'segmentation': result, 'obstacles': evidence, 'recordedDetections': detections, 'policy': decision}

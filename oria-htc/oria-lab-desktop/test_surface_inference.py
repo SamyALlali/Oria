@@ -163,6 +163,28 @@ class ModelIntegrityTests(unittest.TestCase):
 
 
 class RelativeDepthNumericTests(unittest.TestCase):
+    def test_depth_only_runtime_never_constructs_segmenter_and_keeps_source_pixels(self):
+        image = Image.new('RGB', (99, 43), (180, 130, 40))
+        original = image.tobytes()
+        with patch.object(surface, 'SurfaceDetector', side_effect=AssertionError('segmentation forbidden')), \
+                patch.object(surface, 'RelativeDepthDetector') as factory:
+            factory.return_value.infer.return_value = {
+                'available': True, 'width': 128, 'height': 128, 'values': [[.5]*128]*128,
+                'inferenceMs': 2., 'metric': False}
+            factory.return_value.describe.return_value = {'model': 'depth-test', 'metric': False}
+            detector = surface.DepthOnlyDetector()
+            result = detector.infer(image)
+            self.assertEqual(result['analysisMode'], 'depth_only')
+            self.assertIsNone(result['mask'])
+            self.assertEqual(result['classes'], {})
+            self.assertFalse(result['segmentationEnabled'])
+            self.assertFalse(result['yoloRequired'])
+            self.assertEqual(result['inferenceMs'], 0.)
+            self.assertEqual(result['totalInferenceMs'], 2.)
+            self.assertEqual(result['imageQuality']['version'], 'rgb-quality-v1')
+            self.assertEqual(detector.describe()['analysisMode'], 'depth_only')
+        self.assertEqual(image.tobytes(), original)
+
     def test_fixed_rgb_bicubic_contract(self):
         image = Image.new('RGB', (99, 43), (255, 0, 0))
         tensor = surface.preprocess_depth(image)

@@ -63,3 +63,26 @@ class SurfaceHttpTests(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as failure:
             self.request(f'/api/surfaces/jobs/{identifier}?frame=-1')
         self.assertEqual(failure.exception.code, 404)
+
+    def test_explicit_depth_mode_works_without_segmentation_and_refuses_unknown_modes(self):
+        jobs = self.server.surface_jobs
+        jobs.model_status = lambda: {'installed': False}
+        jobs.depth_model_status = lambda: {'installed': True}
+        jobs.depth_detector_factory = FakeDetector
+        jobs.depth_policy_factory = FakePolicy
+        jobs.depth_geometry = lambda value: fake_evidence(value, None)
+        for mode in ['other', None, {}, True]:
+            with self.assertRaises(urllib.error.HTTPError) as failure:
+                self.request('/api/surfaces/analyze', {'sessionId': self.session['id'], 'analysisMode': mode})
+            self.assertEqual(failure.exception.code, 400)
+        identifier = self.request('/api/surfaces/analyze', {'sessionId': self.session['id'], 'analysisMode': 'depth_only'})['jobId']
+        limit = time.monotonic()+5
+        while time.monotonic()<limit:
+            status = self.request('/api/surfaces/jobs/'+identifier)
+            if status['state'] in ('complete', 'failed'): break
+            time.sleep(.005)
+        self.assertEqual(status['state'], 'complete', status)
+        self.assertEqual(status['analysisMode'], 'depth_only')
+        row = self.request(f'/api/surfaces/jobs/{identifier}?frame=2')
+        self.assertEqual(row['analysisMode'], 'depth_only')
+        self.assertIsNone(row['recordedDetections'])

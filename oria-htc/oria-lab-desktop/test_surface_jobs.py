@@ -83,6 +83,38 @@ class SurfaceJobTests(unittest.TestCase):
         self.assertEqual(self.session.busy, 0)
         self.assertFalse(self.jobs.jobs)
 
+    def test_depth_mode_runs_without_semantic_model_or_yolo_observation(self):
+        forbidden = lambda *args: (_ for _ in ()).throw(AssertionError('semantic or YOLO code called'))
+        self.jobs.model_status = lambda: {'installed': False}
+        self.jobs.depth_model_status = lambda: {'installed': True}
+        self.jobs.detector_factory = forbidden
+        self.jobs.evidence = forbidden
+        self.jobs.depth_detector_factory = FakeDetector
+        self.jobs.depth_policy_factory = FakePolicy
+        self.jobs.depth_geometry = lambda result: fake_evidence(result, None)
+        self.assertTrue(self.jobs.status()['modes']['depth_only']['installed'])
+        self.assertFalse(self.jobs.status()['modes']['semantic_depth']['installed'])
+        with patch.object(self.session, 'frame', side_effect=AssertionError('YOLO frame read')):
+            identifier = self.jobs.create(self.session, 'depth_only')
+            result = self.done(identifier)
+        self.assertEqual(result['state'], 'complete', result)
+        self.assertEqual(result['analysisMode'], 'depth_only')
+        for index in range(3):
+            row = self.jobs.get(identifier, index)
+            self.assertEqual(row['analysisMode'], 'depth_only')
+            self.assertIsNone(row['recordedDetections'])
+        with self.jobs.report(identifier) as report:
+            with report.open() as stream:
+                header = json.loads(stream.readline())
+        self.assertEqual(header['analysisMode'], 'depth_only')
+
+    def test_unknown_mode_is_refused_before_reservation_or_model_construction(self):
+        for mode in ('unknown', None, 1, {}, True):
+            with self.subTest(mode=mode), self.assertRaises(ValueError):
+                self.jobs.create(self.session, mode)
+        self.assertEqual(self.session.busy, 0)
+        self.assertFalse(self.jobs.jobs)
+
     def test_quality_diagnostic_reaches_policy_without_changing_raw_evidence(self):
         from image_quality import inspect_image_quality
         from surface_policy import SurfaceObstaclePolicy

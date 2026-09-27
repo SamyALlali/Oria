@@ -2,6 +2,8 @@
 
 Deux modèles RGB complètent l'analyse des replays sur le Mac, sans modifier le YOLO existant ni l'APK : SegFormer B0 attribue une des 150 catégories ADE20K aux pixels ; Depth Anything V2 Small produit un relief **relatif**. Ni les classes ni la carte relative ne donnent une distance en mètres, une proximité garantie, une vitesse d'approche ou un passage libre.
 
+Le parcours **Relief seul · obstacles génériques** utilise uniquement le second modèle et fonctionne sans SegFormer. Après préparation de l'environnement, exécuter seulement `export_depth_model.py` pour ce parcours. `export_model.py` reste utile au mode de comparaison surfaces + relief.
+
 Les modèles ne sont pas intégrés au lancement du serveur : aucune requête réseau n'est émise par `surface_inference.py`, son import, `surface_model_status()` ou `SurfaceDetector`. La conversion/téléchargement ci-dessous est une action explicite. Les modèles absents ou altérés ont un état explicite ; un checksum incorrect empêche leur chargement. Une profondeur absente peut laisser la segmentation utilisable avec `relativeDepth.available=false`.
 
 ## Installation reproductible
@@ -31,6 +33,21 @@ Un export vérifie les empreintes des sources, l'architecture, ONNX checker, le 
 - Le relief est normalisé par les percentiles P2 et P98 de **la carte compacte de l'image courante**, puis borné à `[0,1]`. Plus grand indique plus proche relativement dans l'image. Ces valeurs ne sont ni métriques ni comparables entre images. Les min/max bruts, percentiles et fractions écrêtées restent disponibles pour audit. Une carte presque constante est explicitement indisponible ; on n'amplifie pas son bruit numérique.
 
 ## API
+
+Parcours sans catégories :
+
+```python
+from surface_inference import DepthOnlyDetector, depth_model_status
+from depth_obstacles import compute_depth_obstacle_evidence
+status = depth_model_status()
+model = DepthOnlyDetector()  # ne construit aucune session de segmentation
+result = model.infer(image_rgb)
+geometry = compute_depth_obstacle_evidence(result['relativeDepth'])
+```
+
+Le résultat conserve l'enveloppe des rapports du Lab : `mask=None`, `classes={}`, `inferenceMs=0` (pas de segmentation), `relativeDepth`, `imageQuality` et `totalInferenceMs` (appel ONNX de profondeur seul). `analysisWallMs` inclut aussi ses pré/post-traitements ; la géométrie et la politique sont calculées ensuite. `DepthObstaclePolicy` confirme les fractions d'occupation par zone sans consulter les catégories ni les boîtes YOLO. Le plan éventuel est une hypothèse de référence, pas un sol confirmé. [Contrat et mesures](../validation/DEPTH_OBSTACLES_20260927.md).
+
+Parcours surfaces + relief conservé :
 
 ```python
 from surface_inference import SurfaceDetector, surface_model_status

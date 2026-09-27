@@ -15,6 +15,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'oria-lab-desktop'))
 from surface_policy import SurfaceObstaclePolicy
+from depth_policy import DepthObstaclePolicy
 
 
 def sha256_file(path):
@@ -42,6 +43,8 @@ def evaluate(report, capture, annotations=None):
             if row['type'] == 'metadata':
                 assert metadata is None and done == 0
                 metadata = row
+                assert row.get('analysisMode', 'semantic_depth') in ('semantic_depth', 'depth_only')
+                policy = DepthObstaclePolicy() if row.get('analysisMode') == 'depth_only' else SurfaceObstaclePolicy()
                 continue
             if row['type'] == 'summary':
                 assert summary is None
@@ -49,6 +52,7 @@ def evaluate(report, capture, annotations=None):
                 continue
             assert summary is None and row['type'] == 'frame'
             assert row['frameIndex'] == done
+            assert row.get('analysisMode', 'semantic_depth') == metadata.get('analysisMode', 'semantic_depth')
             original = frames[done]
             assert (row['frameId'], row['videoSessionId'], row['observedAtMs']) == (
                 original['frameId'], original['videoSessionId'], original['receivedAtMs'])
@@ -58,13 +62,14 @@ def evaluate(report, capture, annotations=None):
             expected = policy.process(row['videoSessionId'], done, row['observedAtMs'], row['obstacles']['zones'], **quality)
             assert expected == row['policy'], f'Policy replay mismatch at {done}'
             states[row['obstacles']['status']] += 1
-            nonempty += int(row['obstacles'].get('candidatePixels', 0) > 0)
+            candidate_count = row['obstacles'].get('candidatePixels')
+            nonempty += int(type(candidate_count) is int and candidate_count > 0)
             if row['policy'].get('proposal'):
                 proposals.append({'frameIndex': done, **row['policy']['proposal']})
             result = row['segmentation']
             times.append(result['totalInferenceMs']); seg_times.append(result['inferenceMs'])
             depth_times.append(result['relativeDepth'].get('inferenceMs', 0))
-            for point in (p for p in labels['points'] if p['frameIndex'] == done):
+            for point in (p for p in labels['points'] if p['frameIndex'] == done and result.get('mask') is not None):
                 y = min(result['maskHeight'] - 1, int(point['y'] * result['maskHeight']))
                 x = min(result['maskWidth'] - 1, int(point['x'] * result['maskWidth']))
                 predicted = result['mask'][y][x]
@@ -82,6 +87,7 @@ def evaluate(report, capture, annotations=None):
                 'maxMs': round(max(values), 3)}
 
     return {'schemaVersion': 1, 'scope': 'Mac offline experiment; no HTC execution or automatic voice',
+            'analysisMode': metadata.get('analysisMode', 'semantic_depth'),
             'captureId': metadata['captureId'], 'frames': done, 'sourceFilesUnchanged': len(source_hashes),
             'pngHashesVerified': done, 'identitiesAndCaptureTimesVerified': done,
             'deterministicPolicyReplayMatches': done, 'evidenceStates': dict(states),
