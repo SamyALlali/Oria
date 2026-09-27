@@ -21,10 +21,18 @@ data class OriaLabGalleryFrame(
     val frameId: Long?,
     val receivedAtMs: Long?,
     val image: File?,
-    val issues: List<String>,
+    val dataIssues: List<String>,
     internal val inference: OriaLabGalleryRecord?,
     val decisionReason: String?,
-)
+    val imageIssues: List<String> = emptyList(),
+) {
+    /** Keep all defects visible; only data defects prevent inspecting the recorded inference. */
+    val issues: List<String> get() = when {
+        imageIssues.isEmpty() -> dataIssues
+        dataIssues.isEmpty() -> imageIssues
+        else -> dataIssues + imageIssues
+    }
+}
 
 data class OriaLabGalleryRecord(val offset: Long, val length: Int, val observedAtMs: Long? = null)
 
@@ -38,6 +46,7 @@ data class OriaLabGalleryIndex(
     val issues: List<String> = emptyList(),
     val loading: Boolean = false,
     val error: String? = null,
+    val missingImageFiles: Int = 0,
 )
 
 data class OriaLabGalleryAnalysis(
@@ -109,6 +118,7 @@ object OriaLabGallery {
             if (!framesFile.isFile) issue("frames.jsonl absent : aucune entrée d’image disponible.")
             else scan(framesFile, checkCancelled) { line ->
                 val problems = mutableListOf<String>()
+                val imageProblems = mutableListOf<String>()
                 var parsed: Meta? = null
                 var image: File? = null
                 try {
@@ -122,7 +132,9 @@ object OriaLabGallery {
                     val path = value.image ?: error("Chemin PNG absent")
                     require(path.endsWith(".png", ignoreCase = true)) { "Le chemin ne désigne pas une PNG" }
                     val candidate = ownedFile(root, path)
-                    if (candidate.isFile) image = candidate else problems += "PNG absente : $path"
+                    // A safe, recorded PNG path may be absent while its numeric inference stays coherent.
+                    // Missing/unsafe paths and malformed metadata still enter the blocking data list.
+                    if (candidate.isFile) image = candidate else imageProblems += "PNG absente : $path"
                 } catch (e: CancellationException) { throw e }
                 catch (e: Exception) { problems += e.message ?: "Entrée invalide" }
                 val key = parsed?.key()
@@ -131,8 +143,8 @@ object OriaLabGallery {
                     val cause = "Identifiant vidéo/image dupliqué (première occurrence ligne ${frames[previous].lineNumber})"
                     problems += cause
                     val old = frames[previous]
-                    if (cause !in old.issues) {
-                        frames[previous] = old.copy(issues = old.issues + cause, inference = null)
+                    if (cause !in old.dataIssues) {
+                        frames[previous] = old.copy(dataIssues = old.dataIssues + cause, inference = null, decisionReason = null)
                         issue("frames.jsonl:${old.lineNumber} · $cause")
                     }
                 }
@@ -144,16 +156,19 @@ object OriaLabGallery {
                     if (inferenceClock != null && inferenceClock != received) problems += "Horodatage de l’inférence différent de l’image"
                     if (decisionClock != null && decisionClock != received) problems += "Horodatage de la décision différent de l’image"
                 }
-                problems.forEach { issue("frames.jsonl:${line.number} · $it") }
+                (problems + imageProblems).forEach { issue("frames.jsonl:${line.number} · $it") }
                 frames += OriaLabGalleryFrame(line.number, parsed?.video ?: parsed?.session, parsed?.frame,
                     parsed?.received ?: parsed?.observed, image, problems.toList(),
-                    if (problems.isEmpty() && key != null) inferences[key] else null, key?.let { decisions[it]?.reason })
+                    if (problems.isEmpty() && key != null) inferences[key] else null,
+                    if (problems.isEmpty() && key != null) decisions[key]?.reason else null,
+                    imageIssues = imageProblems.toList())
             }
             if (expected != null && expected != frames.size.toLong())
                 issue("Le manifeste annonce $expected images ; l’index contient ${frames.size} entrées non vides.")
             checkCancelled()
             return OriaLabGalleryIndex(frames, expected, frames.count { it.image != null },
-                frames.count { it.issues.isNotEmpty() }, badEvents, issueCount, diagnostics)
+                frames.count { it.dataIssues.isNotEmpty() }, badEvents, issueCount, diagnostics,
+                missingImageFiles = frames.count { it.imageIssues.isNotEmpty() })
         } catch (e: CancellationException) { throw e }
         catch (e: Exception) { return OriaLabGalleryIndex(issueCount = issueCount + 1, issues = diagnostics,
             error = "Relecture indisponible : ${e.message}") }

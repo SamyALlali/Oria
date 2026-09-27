@@ -565,11 +565,36 @@ class Session:
         ended = self.manifest.get('endedAtMonotonicMs')
         if type(ended) is int and last_policy_clock is not None and ended < last_policy_clock:
             self.global_issues.append('Fin de capture antérieure au dernier résultat observé')
+        # Android increments these for every JSONL record written. JsonlRows preserves every
+        # nonblank physical JSONL line (including a malformed tail), so its length is the
+        # closest observable equivalent without pretending that a partial bytes counter is
+        # a file checksum.
+        self.observed_counts = {'frames':len(self.frames), 'events':len(self.events), 'packets':len(self.packets)}
+        self.declared_counts = {}
+        self.count_diagnostics = []
+        self.capture_status = self.manifest.get('status')
+        if self.capture_status not in ('complete', 'recording', 'incomplete'):
+            state = 'absent' if self.capture_status is None else repr(self.capture_status)
+            self.global_issues.append(f'manifest.json : status {state} inconnu ; rejeu refusé')
+        elif self.capture_status != 'complete':
+            self.global_issues.append(f'manifest.json : status {self.capture_status} ; instantané non finalisé, rejeu refusé')
         counts = self.manifest.get('counts')
-        if isinstance(counts, dict) and 'frames' in counts:
-            expected = counts['frames']
-            if type(expected) is not int or expected != len(self.frames):
-                self.global_issues.append('Le nombre d’images du manifeste diffère des positions de frames.jsonl')
+        if counts is not None and not isinstance(counts, dict):
+            self.global_issues.append('manifest.json : counts doit être un objet de compteurs')
+        elif isinstance(counts, dict):
+            for name, observed in self.observed_counts.items():
+                if name not in counts:
+                    continue  # Older v1 captures may omit these counters.
+                expected = counts[name]
+                self.declared_counts[name] = expected
+                if type(expected) is not int or not 0 <= expected <= 2**63-1:
+                    self.global_issues.append(f'manifest.json : counts.{name} doit être un entier non négatif de 64 bits')
+                    self.count_diagnostics.append({'name':name, 'declared':expected, 'observed':observed, 'matches':False})
+                elif expected != observed:
+                    self.global_issues.append(f'manifest.json : counts.{name} annonce {expected} ; données observées : {observed}')
+                    self.count_diagnostics.append({'name':name, 'declared':expected, 'observed':observed, 'matches':False})
+                else:
+                    self.count_diagnostics.append({'name':name, 'declared':expected, 'observed':observed, 'matches':True})
         if not self.frames:
             self.global_issues.append('Aucune position image à rejouer')
         self.warnings += self.integrity()['issues']
@@ -632,7 +657,9 @@ class Session:
         return {'frameEntryCount':len(self.frames), 'invalidFrameCount':invalid, 'missingImageCount':missing,
                 'invalidEventCount':self.invalid_event_count, 'ambiguousFrameCount':ambiguous,
                 'issueCount':issue_count, 'issues':issues[:100], 'recordedReplayAllowed':recorded,
-                'macReplayAllowed':recorded and not missing, 'visualCoverageComplete':not bool(missing)}
+                'macReplayAllowed':recorded and not missing, 'visualCoverageComplete':not bool(missing),
+                'captureStatus':self.capture_status, 'observedCounts':dict(self.observed_counts),
+                'declaredCounts':dict(self.declared_counts), 'countDiagnostics':list(self.count_diagnostics)}
 
     def index(self):
         frames = []
@@ -963,6 +990,86 @@ class SessionStore:
                     return self._import_folder(source)
         return self._import_folder(source)
 
+    @staticmethod
+    def _file_signature(metadata):
+        return (metadata.st_dev, metadata.st_ino, metadata.st_mode, metadata.st_size,
+                metadata.st_mtime_ns, metadata.st_ctime_ns)
+
+    def _source_inventory(self, source):
+        """Capture the exact regular-file set plus identities, without reading unbounded content."""
+        files, directories, targets, temporary_paths = {}, {}, set(), set()
+        total = 0
+        def temporary(relative):
+            return any(part.startswith(('.replay-', '.context-video-', '.write-')) for part in relative.parts)
+        def inaccessible(error):
+            raise error
+        for directory, dirs, names in os.walk(source, followlinks=False, onerror=inaccessible):
+            directory = Path(directory)
+            metadata = directory.lstat()
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise ValueError('Dossier source remplacé ou symbolique')
+            for name in dirs + names:
+                if (directory/name).is_symlink():
+                    raise ValueError('Lien symbolique refusé dans la session')
+            relative_directory = directory.relative_to(source)
+            directories[relative_directory.as_posix()] = (metadata.st_dev,metadata.st_ino,metadata.st_mode,
+                                                            metadata.st_mtime_ns,metadata.st_ctime_ns)
+            # Writer workspaces are not session payload. Do not let their ordinary churn reject
+            # a recording snapshot, but remember their presence for a supposedly final capture.
+            ignored_dirs = [name for name in dirs if temporary(relative_directory / name)]
+            temporary_paths.update((relative_directory / name).as_posix() for name in ignored_dirs)
+            dirs[:] = [name for name in dirs if name not in ignored_dirs]
+            dirs.sort()
+            for name in sorted(names):
+                path = directory/name
+                relative = path.relative_to(source)
+                if temporary(relative):
+                    temporary_paths.add(relative.as_posix())
+                    continue
+                metadata = path.lstat()
+                if not stat.S_ISREG(metadata.st_mode):
+                    raise ValueError('Fichier spécial refusé')
+                target = unicodedata.normalize('NFC', relative.as_posix()).casefold()
+                if target in targets:
+                    raise ValueError('Noms de fichiers ambigus sur le système Mac')
+                targets.add(target)
+                total += metadata.st_size
+                files[relative.as_posix()] = self._file_signature(metadata)
+                if len(files) > MAX_FILES or total > MAX_EXPANDED:
+                    raise ValueError('Dossier supérieur aux limites d’import')
+        if '.' not in directories:
+            raise ValueError('Dossier source disparu pendant son inventaire')
+        return files,directories,total,temporary_paths
+
+    @staticmethod
+    def _reject_complete_temporary_files(staging, temporary_paths):
+        if not temporary_paths:
+            return
+        manifests = [path for path in staging.rglob('manifest.json') if '__MACOSX' not in path.parts]
+        for path in manifests:
+            if not path.is_file() or path.stat().st_size > MAX_METADATA:
+                continue
+            try:
+                manifest = strict_json(path.read_bytes())
+            except (ValueError, UnicodeDecodeError, RecursionError):
+                continue
+            if isinstance(manifest, dict) and manifest.get('status') == 'complete':
+                example = sorted(temporary_paths)[0]
+                raise ValueError('Capture complete avec fichier temporaire inattendu : '+example)
+
+    @staticmethod
+    def _copy_snapshot(source, destination, disk_path, expected_size):
+        remaining = expected_size
+        while remaining:
+            chunk = source.read(min(remaining, 1024*1024))
+            if not chunk:
+                raise ValueError('Source modifiée pendant l’import : fichier raccourci')
+            require_disk_space(disk_path,len(chunk))
+            destination.write(chunk)
+            remaining -= len(chunk)
+        if source.read(1):
+            raise ValueError('Source modifiée pendant l’import : fichier agrandi')
+
     def _import_folder(self, source):
         source = Path(source).expanduser()
         if source.is_symlink() or not source.is_dir():
@@ -970,38 +1077,35 @@ class SessionStore:
         source = source.resolve()
         if source == self.storage or self.storage.is_relative_to(source):
             raise ValueError('Ne pas importer le dossier de stockage Oria Lab lui-même')
-        files = []
-        targets = set()
-        total = 0
-        for directory, dirs, names in os.walk(source, followlinks=False):
-            for name in dirs + names:
-                p = Path(directory) / name
-                if p.is_symlink():
-                    raise ValueError('Lien symbolique refusé dans la session')
-            for name in names:
-                p = Path(directory) / name
-                if any(part.startswith(('.replay-', '.context-video-', '.write-')) for part in p.relative_to(source).parts):
-                    continue
-                if not p.is_file():
-                    raise ValueError('Fichier spécial refusé')
-                target = unicodedata.normalize('NFC', str(p.relative_to(source))).casefold()
-                if target in targets:
-                    raise ValueError('Noms de fichiers ambigus sur le système Mac')
-                targets.add(target)
-                total += p.stat().st_size
-                files.append(p)
-                if len(files) > MAX_FILES or total > MAX_EXPANDED:
-                    raise ValueError('Dossier supérieur aux limites d’import')
+        before = self._source_inventory(source)
+        files, _, total, _ = before
         with tempfile.TemporaryDirectory(prefix='.import-', dir=self.storage) as tmp:
             require_disk_space(self.storage, total)
-            staging = Path(tmp) / 'content'
+            staging = Path(tmp)/'content'
             staging.mkdir()
-            for p in files:
-                target = staging / p.relative_to(source)
-                target.parent.mkdir(parents=True, exist_ok=True)
-                require_disk_space(self.storage, p.stat().st_size)
-                with p.open('rb') as content, target.open('wb') as destination:
-                    copy_bounded(content, destination, self.storage)
+            for relative, expected in files.items():
+                path = safe_path(source,relative)
+                target = staging/relative
+                target.parent.mkdir(parents=True,exist_ok=True)
+                try:
+                    # O_NOFOLLOW closes a leaf symlink replacement race; fstat validates the opened inode.
+                    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+                except OSError as error:
+                    raise ValueError('Source modifiée ou inaccessible pendant l’import : '+relative) from error
+                with os.fdopen(descriptor,'rb') as content, target.open('wb') as destination:
+                    if self._file_signature(os.fstat(content.fileno())) != expected:
+                        raise ValueError('Source modifiée pendant l’import : '+relative)
+                    self._copy_snapshot(content,destination,self.storage,expected[3])
+                    if self._file_signature(os.fstat(content.fileno())) != expected:
+                        raise ValueError('Source modifiée pendant l’import : '+relative)
+            try:
+                after = self._source_inventory(source)
+            except (OSError,ValueError) as error:
+                raise ValueError('Source modifiée ou inaccessible pendant l’import : '+str(error)) from error
+            if after[:3] != before[:3]:
+                raise ValueError('Source modifiée pendant l’import : fichiers ajoutés, retirés ou remplacés. Attendez sa finalisation puis réessayez.')
+            self._reject_complete_temporary_files(staging, after[3])
+            # Publication only reads our private staging tree; later source changes cannot affect it.
             return self._finish(staging)
 
 

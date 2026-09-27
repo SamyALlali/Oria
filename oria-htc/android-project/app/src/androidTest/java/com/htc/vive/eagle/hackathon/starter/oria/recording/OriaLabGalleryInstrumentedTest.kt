@@ -32,16 +32,93 @@ class OriaLabGalleryInstrumentedTest {
         assertEquals(listOf(1, 2, 3, 4), gallery.frames.map { it.lineNumber })
         assertEquals(listOf(101L, null, 102L, 103L), gallery.frames.map { it.frameId })
         assertEquals(2, gallery.availableImageFiles)
-        assertEquals(2, gallery.invalidEntries)
+        assertEquals(1, gallery.invalidEntries)
+        assertEquals(1, gallery.missingImageFiles)
         assertTrue(gallery.frames[2].issues.any { it.contains("PNG absente") })
         assertNull(gallery.frames[1].videoSessionId)
         assertNull(gallery.frames[1].receivedAtMs)
-        assertFalse(OriaLabGallery.readFrame(root, gallery.frames[2]).analyzed)
+        val missingImage = gallery.frames[2]
+        assertNull(missingImage.image)
+        assertTrue(missingImage.dataIssues.isEmpty())
+        assertEquals(listOf("PNG absente : missing.png"), missingImage.imageIssues)
+        val textOnly = OriaLabGallery.readFrame(root, missingImage)
+        assertTrue(textOnly.analyzed)
+        assertNull(textOnly.error)
+        assertEquals(1, textOnly.detections.single().classId)
+        assertEquals(0.875f, textOnly.detections.single().confidence, 0f)
+        assertEquals(2200L, missingImage.receivedAtMs)
         val last = OriaLabGallery.readFrame(root, gallery.frames[3])
         assertTrue(last.analyzed)
         assertEquals(2, last.detections.single().classId)
         assertEquals(3300L, gallery.frames[3].receivedAtMs)
         assertEquals("FRESH", gallery.frames[3].decisionReason)
+        assertEquals(before, hashes(root))
+    }
+
+    @Test fun absentPngDoesNotWeakenIdentityClockDetectionOrPathGuards() = fixture { root ->
+        manifest(root, 7)
+        rows(root, "frames.jsonl", frame(7, 1, "missing.png", 1000),
+            frame(7, 2, "missing.png", 2000), frame(7, 3, "missing.png", 3000),
+            frame(7, 4, "../outside.png", 4000), frame(7, 5, "missing.png", 5000),
+            frame(7, 5, "missing.png", 5000), frame(7, 6, "missing.png", 6000).put("sessionId", 8))
+        val invalidBox = inference(7, 3, 2)
+        invalidBox.getJSONArray("detections").getJSONObject(0).getJSONObject("box").put("right", -1)
+        rows(root, "events.jsonl", inference(7, 1, 0).put("receivedAtMs", 99),
+            inference(7, 2, 0), inference(7, 2, 1), invalidBox, inference(7, 4, 3),
+            inference(7, 5, 4), inference(7, 6, 5))
+        val before = hashes(root)
+        val gallery = OriaLabGallery.load(root)
+        assertEquals(7, gallery.frames.size)
+        assertEquals(0, gallery.availableImageFiles)
+        for (entry in gallery.frames) {
+            assertNull(entry.image)
+            val analysis = OriaLabGallery.readFrame(root, entry)
+            assertFalse("Bad data must remain blocked at line ${entry.lineNumber}", analysis.analyzed)
+            assertTrue(analysis.detections.isEmpty())
+        }
+        assertTrue(gallery.frames[0].dataIssues.any { it.contains("Horodatage") })
+        assertTrue(gallery.frames[1].dataIssues.any { it.contains("ambiguë") })
+        assertNotNull(OriaLabGallery.readFrame(root, gallery.frames[2]).error)
+        assertTrue(gallery.frames[3].dataIssues.any { it.contains("hors capture") })
+        assertTrue(gallery.frames[4].dataIssues.any { it.contains("dupliqué") })
+        assertTrue(gallery.frames[5].dataIssues.any { it.contains("dupliqué") })
+        assertTrue(gallery.frames[6].dataIssues.any { it.contains("Identité") })
+        assertEquals(before, hashes(root))
+    }
+
+    @Test fun blockedDecisionReasonsAreNotAttributedToMissingImages() = fixture { root ->
+        manifest(root, 4)
+        rows(root, "frames.jsonl", frame(9, 1, "missing.png", 1000), frame(9, 2, "missing.png", 2000),
+            frame(9, 3, "missing.png", 3000), frame(9, 3, "missing.png", 3000))
+        rows(root, "events.jsonl", inference(9, 1, 0), decision(9, 1, "FIRST"), decision(9, 1, "SECOND"),
+            inference(9, 2, 1), decision(9, 2, "WRONG_CLOCK").put("receivedAtMs", 99),
+            inference(9, 3, 2), decision(9, 3, "DUPLICATE_FRAME"))
+        val before = hashes(root)
+        val gallery = OriaLabGallery.load(root)
+        assertEquals(4, gallery.missingImageFiles)
+        assertEquals(4, gallery.invalidEntries)
+        for (entry in gallery.frames) {
+            assertTrue(entry.dataIssues.isNotEmpty())
+            assertNull("Never attribute a decision reason on a blocked entry", entry.decisionReason)
+            assertFalse(OriaLabGallery.readFrame(root, entry).analyzed)
+        }
+        assertEquals(before, hashes(root))
+    }
+
+    @Test fun absentPngDistinguishesRecordedZeroDetectionsFromNoInference() = fixture { root ->
+        manifest(root, 2)
+        rows(root, "frames.jsonl", frame(1, 1, "missing.png", 1000), frame(1, 2, "missing.png", 2000))
+        rows(root, "events.jsonl", inference(1, 1, 0).put("detections", JSONArray()))
+        val before = hashes(root)
+        val gallery = OriaLabGallery.load(root)
+        val recordedEmpty = OriaLabGallery.readFrame(root, gallery.frames[0])
+        val absent = OriaLabGallery.readFrame(root, gallery.frames[1])
+        assertTrue(recordedEmpty.analyzed)
+        assertTrue(recordedEmpty.detections.isEmpty())
+        assertNull(recordedEmpty.error)
+        assertFalse(absent.analyzed)
+        assertTrue(absent.detections.isEmpty())
+        assertEquals(listOf(1L, 2L), gallery.frames.map { it.frameId })
         assertEquals(before, hashes(root))
     }
 
@@ -145,6 +222,9 @@ class OriaLabGalleryInstrumentedTest {
         val gallery = OriaLabGallery.load(root)
         assertNull(gallery.expectedFrames)
         assertEquals(1, gallery.availableImageFiles)
+        assertEquals(0, gallery.missingImageFiles)
+        assertEquals(0, gallery.invalidEntries)
+        assertTrue(OriaLabGallery.readFrame(root, gallery.frames.single()).analyzed)
         assertTrue(gallery.issues.any { it.contains("manifest.json") })
         val preview = decodeGalleryPreview(gallery.frames.single().image!!)
         assertNull(preview.bitmap)

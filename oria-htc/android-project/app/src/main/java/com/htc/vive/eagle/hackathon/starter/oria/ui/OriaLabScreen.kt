@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.htc.vive.eagle.hackathon.starter.oria.OriaController
 import com.htc.vive.eagle.hackathon.starter.oria.core.Detection
+import com.htc.vive.eagle.hackathon.starter.oria.core.RgbCategory
 import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabGallery
 import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabGalleryIndex
 import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabGalleryAnalysis
@@ -255,7 +256,8 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                     if (!gallery.loading) {
                         Text("PNG et détections sont vérifiées à la sélection, sans modifier les fichiers.", style = MaterialTheme.typography.bodySmall)
                         Text("${gallery.expectedFrames?.toString() ?: "?"} images annoncées · ${gallery.frames.size} entrées indexées\n" +
-                            "${gallery.availableImageFiles} références PNG disponibles · ${gallery.invalidEntries} entrées d’index invalides · ${gallery.invalidEventLines} en-têtes d’événement invalides",
+                            "${gallery.availableImageFiles} références PNG disponibles · ${gallery.missingImageFiles} références PNG absentes\n" +
+                            "${gallery.invalidEntries} entrées d’index invalides · ${gallery.invalidEventLines} en-têtes d’événement invalides",
                             style = MaterialTheme.typography.bodySmall)
                         if (gallery.issueCount > 0) {
                             var showIssues by remember(selectedSession.id) { mutableStateOf(false) }
@@ -277,12 +279,24 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                             when {
                                 review.loading -> "Chargement de cette entrée…"
                                 review.analysis.error != null -> review.analysis.error
-                                review.analysis.analyzed -> "${review.analysis.detections.size} détections retenues · ${selectedFrame.decisionReason ?: "Sans décision fraîche"}"
+                                review.analysis.analyzed -> "${review.analysis.detections.size} détections enregistrées · ${selectedFrame.decisionReason ?: "Sans décision fraîche"}"
                                 else -> "Aucune analyse associée sans ambiguïté à cette entrée"
                             }, style = MaterialTheme.typography.bodySmall)
                         if (selectedFrame.issues.isNotEmpty()) Text(selectedFrame.issues.joinToString("\n"),
                             color = Color(0xFF9E2F1A), style = MaterialTheme.typography.bodySmall)
-                        ReviewImage(reviewImage, review.analysis.detections,
+                        if (!review.loading && reviewImage == null && review.analysis.analyzed) {
+                            Text(if (selectedFrame.image == null) "PNG indisponible, boîtes non superposées"
+                                else "Image non décodée, boîtes non superposées", fontWeight = FontWeight.Bold,
+                                color = Color(0xFF9E2F1A), style = MaterialTheme.typography.bodySmall)
+                            Text("Détections enregistrées · coordonnées normalisées dans le repère caméra",
+                                style = MaterialTheme.typography.bodySmall)
+                            if (review.analysis.detections.isEmpty()) Text("Aucune détection dans l’inférence enregistrée.",
+                                style = MaterialTheme.typography.bodySmall)
+                            review.analysis.detections.forEachIndexed { index, detection ->
+                                Text(recordedDetectionText(index, detection), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        ReviewImage(reviewImage, if (reviewImage != null) review.analysis.detections else emptyList(),
                             reviewImage?.let { it.width.toFloat() / it.height } ?: 480f / 856f,
                             if (review.loading) "Chargement de l’image enregistrée…" else review.preview.error ?: "Image indisponible")
                     }
@@ -354,6 +368,7 @@ internal data class GalleryPreview(val bitmap: Bitmap? = null, val error: String
 
 /** Decode only the selected PNG, at most about 1,280² pixels; originals remain untouched. */
 internal fun decodeGalleryPreview(image: File): GalleryPreview = try {
+    require(image.isFile) { "PNG absente au moment de la lecture" }
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeFile(image.absolutePath, bounds)
     require(bounds.outWidth > 0 && bounds.outHeight > 0) { "PNG présente mais indécodable" }
@@ -362,6 +377,15 @@ internal fun decodeGalleryPreview(image: File): GalleryPreview = try {
     val bitmap = BitmapFactory.decodeFile(image.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
     if (bitmap == null) GalleryPreview(error = "PNG présente mais indécodable") else GalleryPreview(bitmap)
 } catch (e: Exception) { GalleryPreview(error = "Image non affichée : ${e.message}") }
+
+/** Formats validated recorded values only; no policy evaluation or image substitution. */
+private fun recordedDetectionText(index: Int, detection: Detection): String {
+    val label = RgbCategory.fromClassId(detection.classId)?.label ?: "Classe ${detection.classId}"
+    val box = detection.box
+    return String.format(Locale.FRANCE,
+        "%d. %s · confiance %.1f %%\nBoîte : gauche %.3f · haut %.3f · droite %.3f · bas %.3f",
+        index + 1, label, detection.confidence * 100f, box.left, box.top, box.right, box.bottom)
+}
 
 private fun mib(bytes: Long): String = String.format(Locale.FRANCE, "%.1f", bytes / (1024.0 * 1024.0))
 

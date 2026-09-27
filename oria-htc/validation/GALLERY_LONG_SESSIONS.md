@@ -58,7 +58,7 @@ Les deux indexes conservent toutes les positions, avec zéro entrée invalide et
 
 Sources locales de la mesure : `/tmp/oria-review-wave2-09s_2eym/gallery-perf.json`, cas de revue `gallery-cases.json` et `gallery-extra.json` du même dossier. Leur synthèse est conservée ici ; ces chemins temporaires peuvent être nettoyés après la livraison.
 
-### Runtime Android — acquis sur le HTC CN46V3M00284
+### Runtime Android — acquis sur le HTC CN46V3M00284 avant le complément ci-dessous
 
 Compilation intégrée, 83 tests JVM et lint passés. Les **10 tests instrumentés Android** (neuf fixtures + une recette réelle opt-in) passent en 22,021 s. Ils sont distincts des **14 assertions indépendantes sur JVM Mac** du reviewer. APK de production : version code 4, SHA-256 `896d97d057331ede9dc4930043509763345c9701b1bf069d3e6f5f2b778eaaa3`.
 
@@ -74,3 +74,40 @@ Le reçu réel issu du chargeur a été comparé par l’orchestrateur à son or
 La première comparaison a révélé un défaut de sérialisation du reçu de test : Android expose le même répertoire sous `/data/data/…` et `/data/user/0/…`. Le calcul relatif mélangeait ces alias et produisait des chemins `../`. Seul le test a été corrigé pour utiliser `directory.canonicalFile` ; aucun code de production ni capture n’a changé. Le test réel seul a ensuite été reconstruit et relancé avec succès en 1,729 s, puis les 164 résultats ont tous été vérifiés par l’oracle.
 
 Reçus, oracle et comparaison conservés par l’orchestrateur dans les preuves `wave2/*.json` du passage de nuit. Le chargeur et le test n’ont pas lu cet oracle pour construire leurs résultats.
+
+## Complément — PNG absente et inférence numérique cohérente
+
+Passage suivant sur base `207b268`, le 27 septembre 2026. Ce complément modifie uniquement le chargeur de galerie, son affichage et les tests associés. Il n’a pas encore été compilé avec Gradle ni installé/testé sur HTC par cet agent. Les résultats HTC de la section précédente concernent la version antérieure.
+
+### Défaut mesuré
+
+Fixture commune `01-preserve-damaged-positions`, générée dans un dossier temporaire : la ligne source 3 référence vidéo `7`, image `102`, réception `2200 ms`, `frames/missing.png`. Le PNG est absent ; l’inférence enregistrée est unique et cohérente, classe `1`, confiance `0.875`, boîte normalisée `[0.125, 0.25, 0.75, 0.875]`. Le chargeur de production avant correction conserve bien les quatre positions et signale le PNG absent, mais retourne `analyzed=false` pour cette ligne parce que le défaut visuel supprime la référence d’inférence.
+
+### Débat et décision
+
+- **Conserver un seul ensemble de défauts bloquants** : simple et prudent pour la superposition, mais masque des données numériques vérifiables et assimile à tort une image absente à l’absence d’analyse.
+- **Séparer les défauts de données et le PNG indisponible** : garde l’inférence inspectable si son identité, son horloge et ses détections restent valides, en rendant le défaut visuel évident. Cela nécessite de protéger explicitement la superposition et les réponses de sélection périmées.
+
+Décision : deuxième option, avec périmètre strict. `dataIssues` garde tous les défauts bloquants existants ; `imageIssues` ne reçoit que l’absence du fichier d’un chemin PNG relatif sûr et enregistré. `issues` continue d’exposer leur union : aucune cause ne disparaît. `invalidEntries` compte désormais les défauts de données d’index ; `missingImageFiles` compte séparément les références PNG dont le fichier manque. Les références existantes, les métadonnées invalides et les défauts de pixels ne sont pas artificiellement confondus. Un chemin absent, mal formé, sortant ou symbolique reste bloquant, comme les doublons, IDs invalides, désaccords d’horloge et détections invalides. Une PNG présente mais indécodable n’empêche pas non plus l’inspection de données numériques cohérentes ; son échec de décodage reste visible.
+
+Si le fichier PNG manque et que l’analyse est valide, l’UI montre **« PNG indisponible, boîtes non superposées »**. Si le fichier était référencé mais que son décodage échoue, elle affiche **« Image non décodée, boîtes non superposées »**, tout en gardant le motif exact de décodage. L’inspection textuelle présente les classes, confiances et coordonnées normalisées enregistrées, dans leur ordre d’origine. Une inférence enregistrée vide est explicitement distincte de l’absence d’inférence. `ReviewImage` reçoit une liste de boîtes vide lorsqu’il n’existe aucun bitmap de la sélection courante. Aucune image de remplacement n’est utilisée ; les gardes existants UUID + ligne source restent en place. Les motifs de décision sont également supprimés de toute entrée portant des `dataIssues`, y compris la première occurrence lorsqu’une frame dupliquée est découverte plus tard. Aucun moteur d’alerte ni ONNX n’est exécuté, aucune capture ni modèle n’est modifié.
+
+### Preuves acquises et tests préparés
+
+Le chargeur modifié a été compilé hors Gradle avec les classes JSON réelles du SDK Android et exécuté sur les **11 fixtures communes, 33 positions**. Résultat : **15 inférences lisibles**, dont **1 sans PNG**, et toutes les identités/horloges attendues conservées. Les classes, confiances et quatre coordonnées des détections lisibles concordent avec l’oracle synthétique. Les analyses incohérentes restent refusées. Les deux chemins sortants restent bloquants malgré des valeurs d’inférence numériques cohérentes. Toutes les empreintes SHA-256 des fixtures sont identiques avant/après. Deux vérifications ciblées JVM supplémentaires passent : les quatre entrées aux décisions ambiguës/incohérentes n’exposent aucun motif, et une inférence enregistrée vide reste distincte de l’absence d’inférence. Les nouveaux compteurs de données et PNG sont vérifiés dans ces cas.
+
+Sur la fixture initiale : quatre positions et deux fichiers disponibles avant et après, avec zéro en-tête d’événement invalide. Le compteur global initial indiquait deux entrées invalides ; les nouveaux compteurs distinguent une entrée aux données invalides et une référence PNG absente. Les deux causes restent visibles. La ligne source 3 passe de `analyzed=false` à `analyzed=true`, sans bitmap et avec son avertissement PNG. Les lignes 1 et 4 restent correctes ; la ligne JSON invalide reste bloquée et ne change pas de position.
+
+La classe `OriaLabGalleryInstrumentedTest` compte désormais **13 méthodes préparées** : les dix précédentes adaptées, plus trois tests ciblés. L’un mélange PNG absente avec horloge erronée, inférence doublonnée, boîte invalide, chemin sortant, frames dupliquées et alias de session incohérents ; tous doivent rester bloqués. Le deuxième distingue une inférence valide à zéro détection de l’absence totale d’inférence, même sans PNG. Le troisième vérifie qu’une décision dupliquée, une horloge de décision erronée et les deux occurrences d’une frame dupliquée ne conservent aucun `decisionReason`. Le cas où la première occurrence avait déjà une décision est couvert. Les assertions du cas A/JSON/B/C vérifient maintenant la classe et la confiance de B sans faire glisser C ; le cas PNG corrompue distingue explicitement validité numérique et décodage. Les fixtures de ces tests sont temporaires, leurs SHA comparés et leur nettoyage limité au dossier créé.
+
+**Non exécuté dans ce complément :** Gradle, tests instrumentés Android, installation, essai Compose sur téléphone. La revue indépendante et la recette de l’orchestrateur restent requises avant d’attribuer une validation matérielle à ce changement. Le README commun des fixtures décrit encore l’ancien affichage Android sur PNG absente : l’orchestrateur doit actualiser cette différence après intégration, car ce fichier n’appartient pas au périmètre de cet agent.
+
+Preuves temporaires : dossier désigné par `/tmp/oria-gallery-missing-png-current.txt`, fichiers `baseline.txt`, `after.txt`, `parity.txt`, plus harnais `/tmp/OriaMissingPngParity.kt`. Les captures matérialisées sont uniquement synthétiques.
+
+### Empreintes du gel
+
+| Fichier | SHA-256 |
+| --- | --- |
+| `OriaLabGallery.kt` | `54dec80b5108f508826af080487818543244ac7a2a8ac02233c2efe78e158543` |
+| `OriaLabScreen.kt` | `9ccaf98071088561e441ca998abb40bf4d5a87cb2e9aa4def78d7db57394ea3f` |
+| `OriaLabGalleryInstrumentedTest.kt` | `4e65997cb1fdec56b83c2e33e6cef1dd9520821d58e3cd9604e80bd8a2abfeed` |

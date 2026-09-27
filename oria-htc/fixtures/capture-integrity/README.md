@@ -25,7 +25,7 @@ API Python : `read_cases()` retourne les définitions ; `materialize(destination
 
 Aucune attente n’autorise une décision ou un rejeu sur des données ambiguës. La décision de lancer un moteur est un contrat supplémentaire, vérifié par les tests de chaque application.
 
-**Différence d’affichage actuelle explicite :** la galerie Android 1.3 conserve la position d’un PNG absent mais masque aussi son analyse (`readFrame` sans référence exploitable). Le Mac peut inspecter une inférence numérique cohérente malgré ce PNG absent et doit bloquer le recalcul ONNX. Le cas 01, ligne 3, documente l’inférence cohérente `[1]` sans exiger une API ou un affichage identique des deux plateformes. Le cas 11 traite de même les données enregistrées sans autoriser la lecture du chemin hors capture. Cette distinction évite de fabriquer une parité d’interface inexistante.
+**Différence de validation explicite :** la galerie Android 1.3 conserve la position d’un PNG absent mais masque son analyse. Le code Android 1.4-night sépare maintenant les défauts de données et d’image : une inférence enregistrée valide reste consultable en texte, avec boîtes superposées désactivées quand l’image manque ou ne se décode pas. Les positions aux identités, horloges, chemins ou détections invalides restent bloquées. Le Mac peut inspecter une inférence numérique cohérente malgré ce PNG absent et doit bloquer le recalcul ONNX. Le cas 01, ligne 3, documente l’inférence cohérente `[1]` ; le cas 11 n’autorise pas la lecture du chemin hors capture. Les tests JVM et instrumentés du code Android vérifient les contrats du chargeur ; la présentation Compose sur HTC reste une recette visuelle distincte.
 
 ## Couverture
 

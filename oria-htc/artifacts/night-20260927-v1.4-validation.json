@@ -1,0 +1,37 @@
+{
+  "date": "2026-09-27",
+  "device": "CN46V3M00284",
+  "package": "com.htc.vive.eagle.hackathon.starter",
+  "version_name": "1.4-night",
+  "version_code": 5,
+  "apk_sha256": "aaec205c5f0916d2789c082e707eecf0ab810fd51038959b74d9e7beaca8b8dc",
+  "signer_sha256": "60372c0d29a3e6a0ea7af9af3bf16cbaff79fd95f75912c1692a9e12a9dfbeb7",
+  "model_sha256": "abab2174c8000e219d4d40550beb4506fd1156054b6282e8e8ee34154acd4742",
+  "capture_duration_limit_ms": null,
+  "capture_size_limit_bytes": null,
+  "capture_reserved_free_bytes": 536870912,
+  "android_unit_tests": {"passed": 83, "failed": 0},
+  "android_lint": {"fatal": 0, "errors": 0, "warnings": 100, "hints": 2},
+  "android_instrumentation": {
+    "reported": 26,
+    "passed": 22,
+    "failed": 2,
+    "skipped": 2,
+    "gallery_tests_passed": 13,
+    "known_failures": [
+      "ExampleInstrumentedTest.useAppContext: stale expectation was corrected and compiled, not rerun on device",
+      "OnnxObjectDetectorInstrumentedTest.cpuParityAndShortBenchmark: failure retained; model and thresholds unchanged"
+    ]
+  },
+  "mac_python_tests": {"passed": 67, "failed": 0},
+  "gallery_fixtures": {"scenes": 11, "positions": 33, "inferences": 15},
+  "private_data_restore": {
+    "verified": true,
+    "files": 521,
+    "payload_bytes": 282481290,
+    "system_permissions_and_settings_tested": false
+  },
+  "installed_and_force_stopped": true,
+  "human_audio_or_live_glasses_validation": false,
+  "private_capture_data_published": false
+}
