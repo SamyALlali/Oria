@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlparse
 from replay import DEFAULT_STORAGE, MAX_UPLOAD, RESERVED_FREE_BYTES, ReplayJobs, SessionStore, export_context_video, safe_path, require_disk_space
 import audio_preview
 from export_jobs import ExportJobs
+from surface_jobs import SurfaceJobs
 
 HERE = Path(__file__).resolve().parent
 
@@ -19,6 +20,7 @@ HERE = Path(__file__).resolve().parent
 def create_server(storage=DEFAULT_STORAGE, port=8765):
     store, jobs, token = SessionStore(storage), ReplayJobs(), secrets.token_urlsafe(32)
     exports = ExportJobs(store)
+    surfaces = SurfaceJobs(store)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):
@@ -90,6 +92,13 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                     return self.json({'token': token, 'storage': str(store.storage), 'maxUploadBytes': MAX_UPLOAD,
                                       'reservedFreeBytes': RESERVED_FREE_BYTES,
                                       'audioPreviewAvailable': audio_preview.available()})
+                if url.path == '/api/surfaces/status':
+                    return self.json(surfaces.status())
+                if len(parts) == 4 and parts[:3] == ['api', 'surfaces', 'jobs']:
+                    return self.json(surfaces.get(parts[3], int(query['frame'][0]) if 'frame' in query else None))
+                if len(parts) == 5 and parts[:3] == ['api', 'surfaces', 'jobs'] and parts[4] == 'report':
+                    with surfaces.report(parts[3]) as path:
+                        return self.file(path, 'application/x-ndjson; charset=utf-8', f'OriaLab-surfaces-{parts[3]}.jsonl')
                 if url.path == '/api/library':
                     return self.json({'sessions': store.library()})
                 if len(parts) == 3 and parts[:2] == ['api', 'export']:
@@ -151,6 +160,13 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                     return self.json(exports.cancel(parts[2]))
                 if len(parts) == 4 and parts[:2] == ['api', 'job'] and parts[3] == 'cancel':
                     return self.json(jobs.cancel(parts[2]))
+                if self.path == '/api/surfaces/analyze':
+                    body = self.read_json()
+                    if not isinstance(body, dict) or set(body) != {'sessionId'} or not isinstance(body['sessionId'], str):
+                        raise ValueError('Identité de capture surfaces invalide')
+                    return self.json({'jobId': surfaces.create(store.get(body['sessionId']))}, 202)
+                if len(parts) == 5 and parts[:3] == ['api', 'surfaces', 'jobs'] and parts[4] == 'cancel':
+                    return self.json(surfaces.cancel(parts[3]))
                 if self.path == '/api/import/zip':
                     size = int(self.headers.get('Content-Length', '0'))
                     if not 0 < size <= MAX_UPLOAD:
@@ -203,14 +219,17 @@ def create_server(storage=DEFAULT_STORAGE, port=8765):
                 super().server_close()
             finally:
                 exports.close()
+                surfaces.close()
 
     try:
         server = LocalServer(('127.0.0.1', port), Handler)
     except BaseException:
         exports.close()
+        surfaces.close()
         raise
     server.daemon_threads = True
     server.export_jobs = exports
+    server.surface_jobs = surfaces
     return server
 
 

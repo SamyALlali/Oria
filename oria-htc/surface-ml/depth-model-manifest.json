@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "experimental": true,
+  "source": {
+    "repository": "depth-anything/Depth-Anything-V2-Small-hf",
+    "revision": "5426e4f0f36572d16453bbda7a8389317b1bef99",
+    "weightsSha256": "3152477ce0d8d6978d76b995120de97cb5b928701fd0f817769f59e249a16b70"
+  },
+  "license": {
+    "name": "Apache-2.0",
+    "url": "https://raw.githubusercontent.com/DepthAnything/Depth-Anything-V2/a561b849ebae10a6f5ef49e26c83cbbcd36c71bf/LICENSE",
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+  },
+  "artifact": {
+    "file": "weights/depth-anything-v2-small-fp32.onnx",
+    "sha256": "3f0cb19cf1dc4a44b816830878fbfa0ae0a41a8da78992cfd472c6bed9f07b9d",
+    "bytes": 99117601,
+    "precision": "FP32",
+    "opset": 17
+  },
+  "input": {
+    "name": "pixel_values",
+    "shape": [
+      1,
+      3,
+      518,
+      518
+    ],
+    "dtype": "float32",
+    "layout": "NCHW",
+    "color": "RGB",
+    "resize": "Pillow bicubic stretch to 518x518; no crop/pad/rotation/mirror",
+    "processorOverride": {
+      "keep_aspect_ratio": false
+    },
+    "scale": "uint8 / 255.0",
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "output": {
+    "name": "predicted_depth",
+    "shape": [
+      1,
+      518,
+      518
+    ],
+    "dtype": "float32",
+    "metric": false,
+    "convention": "higher_is_nearer",
+    "compact": "Pillow float bilinear resize to 128x128, preserving full normalized source image",
+    "normalization": "clip((compact-P2)/(P98-P2),0,1); percentiles from current compact frame only",
+    "degenerate": "unavailable if P98-P2 <= max(1e-6, max(abs(P2),abs(P98))*1e-6)",
+    "temporalComparability": false
+  },
+  "limitations": [
+    "Relative depth is not metric distance or obstacle proximity.",
+    "Each frame normalized separately; values cannot measure approach speed.",
+    "Fixed-square aspect ratio override is deliberate and still needs domain evaluation.",
+    "No HTC performance/physical validation.",
+    "Conversion fidelity is not semantic accuracy."
+  ],
+  "conversion": {
+    "python": "3.11.14",
+    "platform": "Darwin",
+    "machine": "arm64",
+    "versions": {
+      "torch": "2.8.0",
+      "transformers": "4.57.1",
+      "safetensors": "0.6.2",
+      "onnx": "1.17.0",
+      "onnxruntime": "1.22.0",
+      "numpy": "2.2.6",
+      "pillow": "12.3.0"
+    }
+  },
+  "fidelity": {
+    "criteria": {
+      "rawMaxErrorDividedByReferenceMax": 0.001,
+      "normalizedMapMaxAbsError": 0.002
+    },
+    "samples": [
+      {
+        "sample": "synthetic-solid-grey",
+        "sourceSize": [
+          319,
+          547
+        ],
+        "preprocessingMaxAbsError": 0.0,
+        "rawMaxAbsError": 6.198883056640625e-06,
+        "rawMeanAbsError": 1.321380523222615e-06,
+        "rawMaxErrorDividedByReferenceMax": 1.1210462389499298e-06,
+        "normalizedMapMaxAbsError": 7.152557373046875e-07,
+        "onnxCpuMs": 591.9946669891942,
+        "passed": true
+      },
+      {
+        "sample": "local-image-1",
+        "sourceSize": [
+          467,
+          832
+        ],
+        "preprocessingMaxAbsError": 0.0,
+        "rawMaxAbsError": 0.00020170211791992188,
+        "rawMeanAbsError": 7.231354629766429e-06,
+        "rawMaxErrorDividedByReferenceMax": 2.1322446627891622e-05,
+        "normalizedMapMaxAbsError": 3.993511199951172e-06,
+        "onnxCpuMs": 574.5174160110764,
+        "passed": true
+      },
+      {
+        "sample": "local-image-2",
+        "sourceSize": [
+          467,
+          832
+        ],
+        "preprocessingMaxAbsError": 0.0,
+        "rawMaxAbsError": 0.00013208389282226562,
+        "rawMeanAbsError": 1.90379489595216e-06,
+        "rawMaxErrorDividedByReferenceMax": 1.301519114349503e-05,
+        "normalizedMapMaxAbsError": 3.1888484954833984e-06,
+        "onnxCpuMs": 574.2049159889575,
+        "passed": true
+      },
+      {
+        "sample": "local-image-3",
+        "sourceSize": [
+          467,
+          832
+        ],
+        "preprocessingMaxAbsError": 0.0,
+        "rawMaxAbsError": 0.00012063980102539062,
+        "rawMeanAbsError": 1.9310152765683597e-06,
+        "rawMaxErrorDividedByReferenceMax": 2.1531994207180105e-05,
+        "normalizedMapMaxAbsError": 3.5762786865234375e-06,
+        "onnxCpuMs": 577.3028339899611,
+        "passed": true
+      }
+    ],
+    "passed": true
+  }
+}

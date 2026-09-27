@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "experimental": true,
+  "source": {
+    "repository": "nvidia/segformer-b0-finetuned-ade-512-512",
+    "revision": "489d5cd81a0b59fab9b7ea758d3548ebe99677da",
+    "weightsSha256": "6ae39addd01de6b1b8bde2cf677d43a5cd733424b8d186de3f95d1c51fee23f9"
+  },
+  "license": {
+    "name": "NVIDIA Source Code License for SegFormer",
+    "usage": "Research and evaluation only; non-commercial",
+    "url": "https://raw.githubusercontent.com/NVlabs/SegFormer/65fa8cfa9b52b6ee7e8897a98705abf8570f9e32/LICENSE",
+    "sha256": "f549820c06519e3105e5174a2fd7285224ffd2268a7f879a843b1a255fd04a61"
+  },
+  "artifact": {
+    "file": "weights/segformer-b0-ade20k-fp32.onnx",
+    "sha256": "37e98312000f871ad2468cc32547ee9b8f341a12d16c910815f31f072375d84d",
+    "bytes": 15172775,
+    "precision": "FP32",
+    "opset": 17
+  },
+  "input": {
+    "name": "pixel_values",
+    "shape": [
+      1,
+      3,
+      512,
+      512
+    ],
+    "dtype": "float32",
+    "layout": "NCHW",
+    "color": "RGB",
+    "resize": "Pillow bilinear stretch to 512x512; no crop/pad/rotation/mirror",
+    "scale": "uint8 / 255.0",
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "output": {
+    "name": "logits",
+    "shape": [
+      1,
+      150,
+      128,
+      128
+    ],
+    "dtype": "float32",
+    "mask": "argmax over 150 ADE20K output classes at native 128x128; no label offset",
+    "inverse": "normalized mask x/128,y/128 maps linearly to original width,height; nearest display",
+    "confidence": "uncalibrated softmax; mean only over wall-winning pixels in each zone",
+    "zoneBoundaries": [
+      0.39,
+      0.61
+    ]
+  },
+  "classes": {
+    "wall": 0,
+    "floor": 3,
+    "door": 14,
+    "window": 8,
+    "stairs": 53
+  },
+  "limitations": [
+    "Research/evaluation only, not commercial use.",
+    "No metric depth, proximity or free-path evidence.",
+    "Not evaluated on HTC. Aspect-ratio stretching and 128x128 mask lose boundary detail.",
+    "Fidelity is conversion equivalence, not semantic accuracy or safety validation."
+  ],
+  "conversion": {
+    "python": "3.11.14",
+    "platform": "Darwin",
+    "machine": "arm64",
+    "versions": {
+      "torch": "2.8.0",
+      "transformers": "4.57.1",
+      "safetensors": "0.6.2",
+      "onnx": "1.17.0",
+      "onnxruntime": "1.22.0",
+      "numpy": "2.2.6",
+      "pillow": "12.3.0"
+    }
+  },
+  "fidelity": {
+    "criteria": {
+      "logitsMaxAbsError": 0.002,
+      "nativeMaskAgreementMin": 0.9999,
+      "wallIoUMin": 0.999
+    },
+    "samples": [
+      {
+        "sample": "synthetic-rgb-stripes",
+        "sourceSize": [
+          192,
+          97
+        ],
+        "preprocessingMaxAbsError": 0.0,
+        "logitsMaxAbsError": 5.7220458984375e-05,
+        "logitsMeanAbsError": 7.856624506530352e-06,
+        "nativeMaskAgreement": 1.0,
+        "wallIoU": 1.0,
+        "onnxCpuMs": 128.33987502381206,
+        "passed": true
+      },
+      {
+        "sample": "synthetic-solid-grey",
+        "sourceSize": [
+          319,
+          547
+        ],
+        "preprocessingMaxAbsError": 0.0,
+        "logitsMaxAbsError": 3.24249267578125e-05,
+        "logitsMeanAbsError": 4.719725438917521e-06,
+        "nativeMaskAgreement": 1.0,
+        "wallIoU": 1.0,
+        "onnxCpuMs": 117.4181250098627,
+        "passed": true
+      },
+      {
+        "sample": "local-image-1",
+        "sourceSize": [
+          467,
+          832
+        ],
+        "preprocessingMaxAbsError": 0.0,
+        "logitsMaxAbsError": 5.7220458984375e-05,
+        "logitsMeanAbsError": 5.832791885040933e-06,
+        "nativeMaskAgreement": 1.0,
+        "wallIoU": 1.0,
+        "onnxCpuMs": 103.01445799996145,
+        "passed": true
+      },
+      {
+        "sample": "local-image-2",
+        "sourceSize": [
+          467,
+          832
+        ],
+        "preprocessingMaxAbsError": 0.0,
+        "logitsMaxAbsError": 4.9591064453125e-05,
+        "logitsMeanAbsError": 4.881560926150996e-06,
+        "nativeMaskAgreement": 1.0,
+        "wallIoU": 1.0,
+        "onnxCpuMs": 104.181292001158,
+        "passed": true
+      },
+      {
+        "sample": "local-image-3",
+        "sourceSize": [
+          467,
+          832
+        ],
+        "preprocessingMaxAbsError": 0.0,
+        "logitsMaxAbsError": 4.57763671875e-05,
+        "logitsMeanAbsError": 5.015327133151004e-06,
+        "nativeMaskAgreement": 1.0,
+        "wallIoU": 1.0,
+        "onnxCpuMs": 103.84049999993294,
+        "passed": true
+      }
+    ],
+    "passed": true
+  }
+}

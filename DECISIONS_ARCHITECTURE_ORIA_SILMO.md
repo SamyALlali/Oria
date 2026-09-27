@@ -345,3 +345,11 @@ La galerie HTC distingue maintenant l’intégrité des lignes d’observation d
 **Arbitrage :** conserver la confirmation du repère. La vérification visuelle peut être accompagnée et la vérification auditive reste humaine. Les causes de suspension vocale prennent la priorité sur un message de disponibilité. Aucun changement du modèle, du tri, des gains audio ni de la gestion des captures.
 
 **État :** candidat 1.5 compilé, 83 tests JVM et revue indépendante sans bloqueur. Contrastes de palette calculés ; rendu agrandi, TalkBack et essai utilisateur non exécutés. HTC débranché avant installation : 1.4 reste installé, sauvegarde préalable conservée. Voir `oria-htc/validation/ACCESSIBILITY_DELIVERY_20260927.md`.
+
+## D32 — Obstacles RGB au-delà des classes YOLO, d’abord mesurés dans Lab
+
+**Demande utilisateur précisée :** reconnaître de gros obstacles devant la caméra même s’ils ne sont pas détectés par YOLO, pas uniquement des murs. Un prototype Lab combine SegFormer B0 ADE20K, Depth Anything V2 Small relatif et couverture des boîtes YOLO de l’image exacte. Les régions non-sol soutenues par le relief relatif sont inspectables, avec propositions déterministes séparées du moteur Android. Aucune distance ni trajectoire n’est déduite des pixels ; aucune voix automatique.
+
+**Mesure :** 164 images traitées en 119,446 s sur Mac, temps ONNX combiné médian 691,260 ms, deux propositions sur un même ensemble cloison/comptoir non couvert par YOLO. La répétition droite→centre à 363 ms d’intervalle reste visible dans Lab : pas de déduplication d’objet inventée ni de cooldown global masquant arbitrairement le centre. Avant voix réelle, comparer un regroupement temporel avec priorité centrale, puis mesurer latence HTC et qualité sur un corpus diversifié.
+
+**Admission :** recherche/évaluation locale seulement, poids non publiés ; licence SegFormer non commerciale et Depth Anything Small Apache-2.0 documentées. Le modèle YOLO, ses seuils et l’APK sont inchangés. Tests, contrats et limites : `oria-htc/validation/OBSTACLES_LAB_20260927.md`.

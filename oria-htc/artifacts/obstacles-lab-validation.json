@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "scope": "Mac offline experiment; no HTC execution or automatic voice",
+  "frames": 164,
+  "sourceFilesUnchanged": 172,
+  "pngHashesVerified": 164,
+  "identitiesAndCaptureTimesVerified": 164,
+  "deterministicPolicyReplayMatches": 164,
+  "evidenceStates": {
+    "ok": 164
+  },
+  "framesWithCandidatePixels": 49,
+  "proposals": [
+    {
+      "frameIndex": 132,
+      "zone": "RIGHT",
+      "text": "Obstacle possible à droite",
+      "observedAtMs": 10891232,
+      "kind": "descriptive_obstacle_candidate",
+      "audioEmitted": false
+    },
+    {
+      "frameIndex": 133,
+      "zone": "CENTER",
+      "text": "Obstacle possible devant",
+      "observedAtMs": 10891595,
+      "kind": "descriptive_obstacle_candidate",
+      "audioEmitted": false
+    }
+  ],
+  "macBatchSeconds": 119.446,
+  "onnxExecutionOnly": {
+    "combined": {
+      "p50Ms": 691.26,
+      "p95Ms": 699.334,
+      "maxMs": 804.916
+    },
+    "segmentation": {
+      "p50Ms": 106.798,
+      "p95Ms": 109.006,
+      "maxMs": 163.749
+    },
+    "relativeDepth": {
+      "p50Ms": 584.732,
+      "p95Ms": 589.833,
+      "maxMs": 641.167
+    }
+  },
+  "limitations": [
+    "No depth in metres, no collision/proximity/traversability validation",
+    "One indoor recording; no accuracy or recall benchmark",
+    "No phone latency, battery or thermal measurements",
+    "Per-frame relative depths cannot measure approach velocity"
+  ],
+  "tests": {
+    "python": 128,
+    "failures": 0,
+    "new_surface_tests": 61,
+    "javascript": "passed"
+  },
+  "reportExport": {
+    "bytes": 63231339,
+    "sha256": "771d488e4c0c3528e4ec97f6cd65a0d511a4bdd65370dca5f30cc70a874b4f12"
+  },
+  "sparseInspection": {
+    "total": 21,
+    "matches": 20,
+    "independentGroundTruth": false,
+    "denseGroundTruth": false
+  },
+  "models": {
+    "segmentationSha256": "37e98312000f871ad2468cc32547ee9b8f341a12d16c910815f31f072375d84d",
+    "relativeDepthSha256": "3f0cb19cf1dc4a44b816830878fbfa0ae0a41a8da78992cfd472c6bed9f07b9d"
+  },
+  "android": "NOT_IMPLEMENTED_OR_BENCHMARKED",
+  "audio": "NOT_EMITTED"
+}

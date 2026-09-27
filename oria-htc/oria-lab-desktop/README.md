@@ -1,5 +1,15 @@
 # Oria Lab sur Mac
 
+## Obstacles au-delà des classes YOLO — expérimental
+
+La section **Obstacles · expérimental** analyse les PNG avec une segmentation de surfaces et un relief monoculaire relatif. Elle affiche les régions candidates non couvertes par les boîtes YOLO enregistrées, avec propositions descriptives et inspection image par image. Aucun son, aucune distance en mètres et aucune modification de l’application HTC. La fonction dépasse la seule classe mur, sans garantir la détection de tout obstacle.
+
+Préparer explicitement les deux modèles selon [surface-ml/README.md](../surface-ml/README.md), puis lancer **Analyser toutes les PNG de cette capture**. Trois vues, précédent/suivant synchronisés, annulation et export JSONL sont disponibles. Les modèles restent locaux ; aucune capture n’est envoyée. Deux rapports temporaires par instance, 256 Mio par rapport : exporter pour conserver un résultat avant fermeture/éviction. SegFormer impose un usage recherche/évaluation non commercial.
+
+[Recette réelle, mesures et limites](../validation/OBSTACLES_LAB_20260927.md) : 164 images traitées, 128 tests Python réussis. Ce résultat de laboratoire ne valide ni proximité, ni collision, ni fonctionnement temps réel sur HTC.
+
+## Lancer le lecteur
+
 Double-cliquer **Lancer Oria Lab.command**, puis importer le ZIP de capture v1 ou saisir le chemin du dossier qui contient `manifest.json`. Le lanceur utilise l’environnement existant `ml/.venv`, choisit un port disponible et ouvre le navigateur. Garder son terminal ouvert ; Ctrl+C ferme le serveur. Rien n’est téléchargé à l’ouverture.
 
 En ligne de commande, depuis `oria-htc/` :

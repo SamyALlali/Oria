@@ -4,6 +4,8 @@ Prototype du hackathon SILMO pour HTC VIVE Eagle : la caméra des lunettes trans
 
 Le prototype reprend notre modèle YOLO et des politiques portées depuis une base Swift. Le package autorisé reste `com.htc.vive.eagle.hackathon.starter`.
 
+**Nouveau dans Oria Lab : Obstacles · expérimental.** Segmentation et relief relatif recherchent des régions non couvertes par YOLO, inspectables image par image. Prototype local sur Mac, sans distance métrique ni annonce automatique sur HTC. **164 images analysées et 128 tests Python réussis** ; [résultats et limites](oria-htc/validation/OBSTACLES_LAB_20260927.md), [préparation des modèles](oria-htc/surface-ml/README.md).
+
 ## Interface 1.5 et version installée — 27 septembre
 
 **Le candidat 1.5-accessibility est compilé, pas encore installé.** Accueil simplifié, grandes commandes, thème clair/sombre contrasté et contrôles nommés pour TalkBack ; Oria Lab reprend le même style. Trois agents ont assuré réalisation et revue ; 83 tests JVM passent. Le rendu agrandi et le parcours TalkBack restent à vérifier sur HTC. [Livraison 1.5 et limites](oria-htc/validation/ACCESSIBILITY_DELIVERY_20260927.md).

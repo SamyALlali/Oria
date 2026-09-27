@@ -1,0 +1,231 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "meaning": "Deterministic policy fixtures only. No real images, ground truth, distance or navigation validation.",
+  "cases": [
+    {
+      "name": "mur_centre_synthetique",
+      "policy": "wall",
+      "observations": [
+        {
+          "sessionId": 7,
+          "frameIndex": 0,
+          "observedAtMs": 0,
+          "zones": [
+            {
+              "zone": "LEFT",
+              "wallFraction": 0.0,
+              "wallMeanConfidence": 0.0
+            },
+            {
+              "zone": "CENTER",
+              "wallFraction": 0.8,
+              "wallMeanConfidence": 0.9
+            },
+            {
+              "zone": "RIGHT",
+              "wallFraction": 0.0,
+              "wallMeanConfidence": 0.0
+            }
+          ],
+          "expectedStatus": "observing"
+        },
+        {
+          "sessionId": 7,
+          "frameIndex": 1,
+          "observedAtMs": 300,
+          "zones": [
+            {
+              "zone": "LEFT",
+              "wallFraction": 0.0,
+              "wallMeanConfidence": 0.0
+            },
+            {
+              "zone": "CENTER",
+              "wallFraction": 0.8,
+              "wallMeanConfidence": 0.9
+            },
+            {
+              "zone": "RIGHT",
+              "wallFraction": 0.0,
+              "wallMeanConfidence": 0.0
+            }
+          ],
+          "expectedStatus": "observing"
+        },
+        {
+          "sessionId": 7,
+          "frameIndex": 2,
+          "observedAtMs": 600,
+          "zones": [
+            {
+              "zone": "LEFT",
+              "wallFraction": 0.0,
+              "wallMeanConfidence": 0.0
+            },
+            {
+              "zone": "CENTER",
+              "wallFraction": 0.8,
+              "wallMeanConfidence": 0.9
+            },
+            {
+              "zone": "RIGHT",
+              "wallFraction": 0.0,
+              "wallMeanConfidence": 0.0
+            }
+          ],
+          "expectedStatus": "proposal",
+          "expectedText": "Mur probable devant"
+        },
+        {
+          "sessionId": 7,
+          "frameIndex": 3,
+          "observedAtMs": 900,
+          "zones": null,
+          "expectedStatus": "missing"
+        },
+        {
+          "sessionId": 7,
+          "frameIndex": 4,
+          "observedAtMs": 1200,
+          "zones": [
+            {
+              "zone": "LEFT",
+              "wallFraction": 0.0,
+              "wallMeanConfidence": 0.0
+            },
+            {
+              "zone": "CENTER",
+              "wallFraction": 0.0,
+              "wallMeanConfidence": 0.0
+            },
+            {
+              "zone": "RIGHT",
+              "wallFraction": 0.0,
+              "wallMeanConfidence": 0.0
+            }
+          ],
+          "expectedStatus": "no_candidate"
+        }
+      ]
+    },
+    {
+      "name": "obstacle_centre_synthetique",
+      "policy": "obstacle",
+      "observations": [
+        {
+          "sessionId": 7,
+          "frameIndex": 0,
+          "observedAtMs": 0,
+          "zones": [
+            {
+              "zone": "LEFT",
+              "obstructionFraction": 0.0,
+              "unrecognizedFraction": 0.0,
+              "depthRelativeSupport": 0.0
+            },
+            {
+              "zone": "CENTER",
+              "obstructionFraction": 0.5,
+              "unrecognizedFraction": 0.3,
+              "depthRelativeSupport": 0.8
+            },
+            {
+              "zone": "RIGHT",
+              "obstructionFraction": 0.0,
+              "unrecognizedFraction": 0.0,
+              "depthRelativeSupport": 0.0
+            }
+          ],
+          "expectedStatus": "observing"
+        },
+        {
+          "sessionId": 7,
+          "frameIndex": 1,
+          "observedAtMs": 300,
+          "zones": [
+            {
+              "zone": "LEFT",
+              "obstructionFraction": 0.0,
+              "unrecognizedFraction": 0.0,
+              "depthRelativeSupport": 0.0
+            },
+            {
+              "zone": "CENTER",
+              "obstructionFraction": 0.5,
+              "unrecognizedFraction": 0.3,
+              "depthRelativeSupport": 0.8
+            },
+            {
+              "zone": "RIGHT",
+              "obstructionFraction": 0.0,
+              "unrecognizedFraction": 0.0,
+              "depthRelativeSupport": 0.0
+            }
+          ],
+          "expectedStatus": "observing"
+        },
+        {
+          "sessionId": 7,
+          "frameIndex": 2,
+          "observedAtMs": 600,
+          "zones": [
+            {
+              "zone": "LEFT",
+              "obstructionFraction": 0.0,
+              "unrecognizedFraction": 0.0,
+              "depthRelativeSupport": 0.0
+            },
+            {
+              "zone": "CENTER",
+              "obstructionFraction": 0.5,
+              "unrecognizedFraction": 0.3,
+              "depthRelativeSupport": 0.8
+            },
+            {
+              "zone": "RIGHT",
+              "obstructionFraction": 0.0,
+              "unrecognizedFraction": 0.0,
+              "depthRelativeSupport": 0.0
+            }
+          ],
+          "expectedStatus": "proposal",
+          "expectedText": "Obstacle possible devant"
+        },
+        {
+          "sessionId": 7,
+          "frameIndex": 3,
+          "observedAtMs": 900,
+          "zones": null,
+          "expectedStatus": "missing"
+        },
+        {
+          "sessionId": 7,
+          "frameIndex": 4,
+          "observedAtMs": 1200,
+          "zones": [
+            {
+              "zone": "LEFT",
+              "obstructionFraction": 0.0,
+              "unrecognizedFraction": 0.0,
+              "depthRelativeSupport": 0.0
+            },
+            {
+              "zone": "CENTER",
+              "obstructionFraction": 0.0,
+              "unrecognizedFraction": 0.0,
+              "depthRelativeSupport": 0.0
+            },
+            {
+              "zone": "RIGHT",
+              "obstructionFraction": 0.0,
+              "unrecognizedFraction": 0.0,
+              "depthRelativeSupport": 0.0
+            }
+          ],
+          "expectedStatus": "no_candidate"
+        }
+      ]
+    }
+  ]
+}

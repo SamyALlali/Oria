@@ -7,3 +7,9 @@
 .downloadLink{display:inline-block;text-decoration:none;padding:11px 15px;border-radius:9px;font-weight:650}#exportControls{margin-top:16px;border-top:1px solid var(--line);padding-top:12px}#exportTitle{font-size:13px;margin:0}
 
 #integritySummary,#frameIntegrity{white-space:pre-line}#frameIntegrity:empty{display:none}
+
+.surfaces>summary{font-size:16px}.surfaces>p{max-width:85ch}.surfaceViewer{background:#101923;border-radius:12px;min-height:100px;display:flex;justify-content:center;align-items:center;flex-direction:column;margin-top:16px;overflow:hidden;color:#dce9f1}.surfaceViewer canvas{max-height:460px}.surfaceViewer p{padding:10px;margin:0;font-size:13px}.surfaceLegend{display:flex;flex-wrap:wrap;gap:15px;padding:0;list-style:none;font-size:12px}.surfaceLegend li:before{content:"";display:inline-block;width:10px;height:10px;margin-right:6px;background:var(--surface-color)}.surfaceWall{--surface-color:#ef8738}.surfaceFloor{--surface-color:#31c5ad}.surfaceDoor{--surface-color:#f078b5}.surfaceWindow{--surface-color:#70a9ff}.surfaceStairs{--surface-color:#b887ed}.surfaceZones{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.surfaceZones p{margin:0;font-size:12px;padding:10px;border:1px solid var(--line);border-radius:8px}.surfaceZones strong{display:block;font-size:14px}#surfaceProposal{font-weight:650}@media(max-width:600px){.surfaceZones{grid-template-columns:1fr}}
+
+.surfaceTransport{margin-top:12px}.surfaceTransport span{font-variant-numeric:tabular-nums;font-size:13px}.surfaceTransport button{min-height:44px}
+
+.surfaceZones span{white-space:pre-line}

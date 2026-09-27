@@ -1,0 +1,8 @@
+# Isolated Python 3.11 conversion environment; not installed in ../ml/.venv.
+torch==2.8.0
+transformers==4.57.1
+safetensors==0.6.2
+onnx==1.17.0
+onnxruntime==1.22.0
+numpy==2.2.6
+pillow==12.3.0
