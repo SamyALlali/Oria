@@ -30,6 +30,8 @@ data class RgbAlertConfig(
 
 enum class RgbAudioState { AVAILABLE, IN_FLIGHT, UNKNOWN }
 enum class RgbFrameStatus { ACCEPTED, STOPPED, WRONG_SESSION, STALE, FUTURE, OUT_OF_ORDER, CLOCK_REVERSED }
+enum class RgbTrackObservationState { VISIBLE, OCCLUDED }
+enum class RgbTrackRetirementReason { AMBIGUOUS, EXPIRED, CAPACITY }
 enum class RgbSuppressionReason {
     NONE, NO_FRESH_CANDIDATE, NEEDS_CONFIRMATION, SAME_ENTITY_COOLDOWN,
     GLOBAL_PACING, RETRY_BACKOFF, AUDIO_IN_FLIGHT, AUDIO_UNKNOWN, FRAME_REJECTED
@@ -44,6 +46,24 @@ data class RgbTrack(
     val confirmed: Boolean,
     val visibleInLatestFrame: Boolean,
     val associationStatus: RgbAssociationStatus = RgbAssociationStatus.LEGACY_IOU,
+    val sessionId: Long = -1L,
+    /** Internal RGB engine epoch, distinct from the video sessionId. */
+    val generation: Long = 0L,
+    val observationState: RgbTrackObservationState = if (visibleInLatestFrame) {
+        RgbTrackObservationState.VISIBLE
+    } else {
+        RgbTrackObservationState.OCCLUDED
+    },
+)
+
+/** A bounded diagnostic event. Retirement means lost local geometric continuity, not physical identity. */
+data class RgbTrackRetirement(
+    val sessionId: Long,
+    val generation: Long,
+    val trackId: Long,
+    val reason: RgbTrackRetirementReason,
+    val lastObservedAtMs: Long,
+    val retiredAtMs: Long,
 )
 
 data class RgbCandidate(
@@ -53,6 +73,10 @@ data class RgbCandidate(
     val zone: RgbZone,
     val priority: Float,
     val observedAtMs: Long,
+    val sessionId: Long = -1L,
+    /** Internal RGB engine epoch, distinct from the video sessionId. */
+    val generation: Long = 0L,
+    val frameId: Long = -1L,
 ) {
     val text: String get() = "${category.label} ${zone.voiceSuffix}"
 }
@@ -88,6 +112,11 @@ data class RgbEvaluation(
     val suppressionReason: RgbSuppressionReason,
     val audioState: RgbAudioState,
     val rejectedDetectionCount: Int = 0,
+    /** Internal RGB engine epoch. Use sessionId to correlate video/other models. */
+    val generation: Long = 0L,
+    val retiredTracks: List<RgbTrackRetirement> = emptyList(),
+    /** Every fresh confirmed RGB candidate, before voice cooldown/pacing. */
+    val candidates: List<RgbCandidate> = emptyList(),
 )
 
 /** Deterministic RGB-only policy. Serialize calls on one owner thread (or externally lock).
@@ -175,14 +204,14 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
         // An old session/result must not cancel the current session's valid dispatch intention.
         offeredAlert = null
         lastClockMs = nowMs
-        prune(frame.observedAtMs)
+        val retirements = prune(frame.observedAtMs).toMutableList()
         val previousFrameId = latestFrameId
         val valid = frame.detections.filter {
             RgbAlertPolicy.validDetection(it) && it.confidence >= config.minimumTrackingConfidence
         }.sortedWith(compareByDescending<Detection> { RgbAlertPolicy.visualPriority(it) }
             .thenBy { it.classId }.thenBy { it.box.left }.thenBy { it.box.top })
             .take(config.maximumTracks)
-        associate(valid, frame, previousFrameId)
+        retirements += associate(valid, frame, previousFrameId)
         latestFrameId = frame.frameId
         latestObservedAtMs = frame.observedAtMs
         for (track in tracks.values) {
@@ -195,22 +224,24 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
             VoiceAlert(nextAlertId++, frame.sessionId, generation, it.trackId, it.text, it.observedAtMs, frame.frameId, it.zone)
         }
         offeredAlert = alert
-        return snapshot(nowMs, status, alert, reason, frame.detections.size - valid.size)
+        return snapshot(nowMs, status, alert, reason, frame.detections.size - valid.size, retirements)
     }
 
     /** Observe expiration without inventing a new frame or permitting an old alert to be resubmitted. */
     fun current(nowMs: Long): RgbEvaluation {
         val reversed = lastClockMs?.let { nowMs < it } == true
+        val retirements = mutableListOf<RgbTrackRetirement>()
         if (!reversed) {
             lastClockMs = nowMs
-            prune(nowMs)
+            retirements += prune(nowMs)
         }
         val status = when {
             reversed -> RgbFrameStatus.CLOCK_REVERSED
             sessionId == null -> RgbFrameStatus.STOPPED
             else -> RgbFrameStatus.ACCEPTED
         }
-        return snapshot(nowMs, status, null, RgbSuppressionReason.NO_FRESH_CANDIDATE)
+        return snapshot(nowMs, status, null, RgbSuppressionReason.NO_FRESH_CANDIDATE,
+            retirements = retirements)
     }
 
     /** Call before dispatching to the SDK. Null means that nothing may be submitted. */
@@ -279,13 +310,17 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
         return true
     }
 
-    private fun associate(detections: List<Detection>, frame: DetectionFrame, previousFrameId: Long?) {
+    private fun associate(detections: List<Detection>, frame: DetectionFrame,
+                          previousFrameId: Long?): List<RgbTrackRetirement> {
+        val retirements = mutableListOf<RgbTrackRetirement>()
         val stable = if (config.trackingMode == RgbTrackingMode.STABLE_RGB_V2) {
             StableRgbAssociation.associate(tracks.values.map {
                 RgbAssociationInput(it.id, it.detection, it.observedAtMs, it.previousBox, it.previousObservedAtMs)
             }, detections, frame.observedAtMs, config.trackAssociationIou)
         } else null
-        stable?.retiredAmbiguousTracks?.forEach { tracks.remove(it) }
+        stable?.retiredAmbiguousTracks?.forEach { id ->
+            tracks.remove(id)?.let { retirements += retirement(it, RgbTrackRetirementReason.AMBIGUOUS, frame.observedAtMs) }
+        }
         val pairings = stable?.matches?.map { Pairing(it.trackId, it.detectionIndex, 0f) } ?: tracks.values.flatMap { track ->
             detections.mapIndexedNotNull { index, detection ->
                 if (track.detection.classId != detection.classId) null else {
@@ -325,7 +360,10 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
             if (index in matchedDetections) continue
             if (tracks.size >= config.maximumTracks) {
                 val oldestLost = tracks.values.filter { it.frameId != frame.frameId }.minByOrNull { it.observedAtMs }
-                if (oldestLost != null) tracks.remove(oldestLost.id) else break
+                if (oldestLost != null) {
+                    tracks.remove(oldestLost.id)
+                    retirements += retirement(oldestLost, RgbTrackRetirementReason.CAPACITY, frame.observedAtMs)
+                } else break
             }
             val qualifies = RgbAlertPolicy.qualifies(detection)
             val id = nextTrackId++
@@ -334,20 +372,33 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
                 associationStatus = if (index in (stable?.ambiguousNewDetections ?: emptySet()))
                     RgbAssociationStatus.AMBIGUOUS_NEW else RgbAssociationStatus.NEW)
         }
+        return retirements
     }
 
-    private fun prune(observedAtMs: Long) {
-        tracks.entries.removeAll { RgbAlertPolicy.hasExpired(it.value.observedAtMs, observedAtMs, config.trackLostAfterMs) }
+    private fun prune(observedAtMs: Long): List<RgbTrackRetirement> {
+        val expired = tracks.values.filter {
+            RgbAlertPolicy.hasExpired(it.observedAtMs, observedAtMs, config.trackLostAfterMs)
+        }
+        expired.forEach { tracks.remove(it.id) }
         voiceMemories.entries.removeAll { RgbAlertPolicy.hasExpired(it.value.lastSeenAtMs, observedAtMs, config.voiceMemoryRetentionMs) }
+        return expired.map { retirement(it, RgbTrackRetirementReason.EXPIRED, observedAtMs) }
     }
+
+    private fun retirement(track: TrackState, reason: RgbTrackRetirementReason,
+                           retiredAtMs: Long): RgbTrackRetirement =
+        RgbTrackRetirement(sessionId ?: -1L, generation, track.id, reason,
+            track.observedAtMs, retiredAtMs)
 
     private fun freshCandidates(nowMs: Long): List<RgbCandidate> = tracks.values.mapNotNull { track ->
+        val activeSession = sessionId ?: return@mapNotNull null
+        val activeFrame = latestFrameId ?: return@mapNotNull null
         if (!track.confirmed || track.frameId != latestFrameId ||
             !RgbAlertPolicy.isFresh(track.observedAtMs, nowMs, config.maxObservationAgeMs)) return@mapNotNull null
         val category = RgbCategory.fromClassId(track.detection.classId) ?: return@mapNotNull null
         if (!category.alertable) return@mapNotNull null
         RgbCandidate(track.id, track.detection, category, RgbZone.fromCenterX(track.detection.box.centerX),
-            RgbAlertPolicy.visualPriority(track.detection), track.observedAtMs)
+            RgbAlertPolicy.visualPriority(track.detection), track.observedAtMs,
+            sessionId = activeSession, generation = generation, frameId = activeFrame)
     }.sortedWith(compareByDescending<RgbCandidate> { it.priority }.thenBy { it.trackId })
 
     private fun updateSelection(candidates: List<RgbCandidate>, nowMs: Long) {
@@ -389,7 +440,8 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
     }
 
     private fun snapshot(nowMs: Long, status: RgbFrameStatus, alert: VoiceAlert?, reason: RgbSuppressionReason,
-                         rejectedCount: Int = 0): RgbEvaluation {
+                         rejectedCount: Int = 0,
+                         retirements: List<RgbTrackRetirement> = emptyList()): RgbEvaluation {
         // WRONG_SESSION can precede CLOCK_REVERSED in validation. No rejected request may
         // make an expired observation look fresh again by supplying an earlier clock.
         val snapshotClock = maxOf(nowMs, lastClockMs ?: nowMs)
@@ -397,8 +449,10 @@ class RgbAlertEngine(val config: RgbAlertConfig = RgbAlertConfig()) {
             freshCandidates(snapshotClock) else emptyList()
         return RgbEvaluation(sessionId, latestFrameId, status, tracks.values.map {
             RgbTrack(it.id, it.detection, RgbZone.fromCenterX(it.detection.box.centerX), it.observedAtMs,
-                it.confirmationSamples, it.confirmed, it.frameId == latestFrameId, it.associationStatus)
+                it.confirmationSamples, it.confirmed, it.frameId == latestFrameId, it.associationStatus,
+                sessionId = sessionId ?: -1L, generation = generation)
         }, candidates.firstOrNull { it.trackId == selectedTrackId } ?: candidates.firstOrNull(),
-            alert, reason, audioState, rejectedCount)
+            alert, reason, audioState, rejectedCount, generation = generation,
+            retiredTracks = retirements, candidates = candidates)
     }
 }
