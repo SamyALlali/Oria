@@ -1,0 +1,39 @@
+{
+  "versionName": "1.7-unified",
+  "versionCode": 8,
+  "packageName": "com.htc.vive.eagle.hackathon.starter",
+  "deviceSerial": "CN46V3M00284",
+  "apkSha256": "e43ded040fd215c26eac9805c79c8ed00bf635aa0dde015d95f359f538a2eaa3",
+  "signatureSha256": "60372c0d29a3e6a0ea7af9af3bf16cbaff79fd95f75912c1692a9e12a9dfbeb7",
+  "apkBytes": 251413177,
+  "installation": "adb install -r: Success; installed APK hash verified",
+  "unitTests": {
+    "tests": 127,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "uiInstrumentedTestsPassed": 3,
+  "concurrentBenchmarkConfigurationsPassed": 4,
+  "backupPrivateFilesVerified": 724,
+  "originalDataCleared": false,
+  "depthThreads": 4,
+  "depthSampleStride": 2,
+  "yoloSampleIntervalMs": 333,
+  "physicalScreenOffValidationExecuted": false,
+  "physicalScreenOffValidationBlock": "Glasses Bluetooth STATE_DISCONNECTED",
+  "currentBuildHumanListeningConfirmation": false,
+  "sdkSimulatorControllerIntegration": "PASS: two 4-second sessions, both branches executed, no speech and no publication after stop",
+  "sdkSimulatorSessions": [
+    {
+      "sessionId": 1,
+      "yoloFrames": 11,
+      "depthFrames": 5
+    },
+    {
+      "sessionId": 3,
+      "yoloFrames": 11,
+      "depthFrames": 6
+    }
+  ]
+}

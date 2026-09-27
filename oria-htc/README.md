@@ -4,9 +4,13 @@ L’application **Oria** s’ouvre sur l’assistance en direct et propose deux 
 
 Le package et le namespace restent `com.htc.vive.eagle.hackathon.starter`. Le SDK, les dépendances locales et la clé debug sont conservés. Les paramètres numériques du modèle, les règles RGB, les seuils et les fixtures partagées Swift sont inchangés ; seules les métadonnées descriptives du modèle ont été renommées.
 
-## Version actuelle — 1.6 Obstacles caméra
+## Version actuelle — 1.7 Assistance unifiée
 
-**1.6-obstacles-experimental / code 7** est installée sur le HTC U24 pro CN46V3M00284. L’accueil accessible propose Objets (YOLO) ou **Obstacles caméra · expérimental** (relief relatif sans catégorie), avec voix Bluetooth française70/30. CPU4 et cadence333 ms retenus après comparaison sur ce téléphone ; âge réception→résultat≈390 ms en replay local, hors radio/voix. **117 tests JVM**, parité mobile, sélection UI et replays vidéo réussis. [Livraison, mesures et limites](validation/ANDROID_OBSTACLES_20260927.md) · [manifeste APK](artifacts/depth-android-build.json).
+**1.7-unified / code8** : objets et obstacles possibles dans la même session, sans sélecteur de mode ni réglage poche. Le démarrage prépare automatiquement le fonctionnement écran éteint et la voix Bluetooth70/30 ; le repère déjà validé s’applique sans tests manuels. « Obstacle possible avant-gauche / devant / avant-droite ». **127 tests JVM** et les tests instrumentés décrits dans le [rapport de livraison](validation/UNIFIED_ASSISTANCE_20260927.md). La veille physique sur ce build reste à tester avec les lunettes reconnectées. Oria Lab demande de rester ouvert pendant une capture. [Manifeste APK](artifacts/unified-20260927-build.json).
+
+## Historique 1.6 — Obstacles caméra
+
+**1.6-obstacles-experimental / code 7** a été installée sur le HTC U24 pro CN46V3M00284. L’accueil accessible propose Objets (YOLO) ou **Obstacles caméra · expérimental** (relief relatif sans catégorie), avec voix Bluetooth française70/30. CPU4 et cadence333 ms retenus après comparaison sur ce téléphone ; âge réception→résultat≈390 ms en replay local, hors radio/voix. **117 tests JVM**, parité mobile, sélection UI et replays vidéo réussis. [Livraison, mesures et limites](validation/ANDROID_OBSTACLES_20260927.md) · [manifeste APK](artifacts/depth-android-build.json).
 
 ## Historique 1.5 — interface et accessibilité
 

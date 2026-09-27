@@ -84,7 +84,7 @@ class MainActivity : AppCompatActivity() {
         if (echoPageRoute != AppDestination.Oria.route || !lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         // Oria uses HTC's video-only overload; microphone permission belongs to diagnostics.
         val controller = oriaController ?: return
-        if (controller.state.value.pocketEnabled) {
+        if (!controller.state.value.simulator) {
             if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this,
                     Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -109,7 +109,7 @@ class MainActivity : AppCompatActivity() {
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) startOria()
-            else oriaController?.reportPocketError("Notifications refusées · désactiver le mode poche pour démarrer à l’écran")
+            else oriaController?.reportPocketError("Autorisez les notifications Oria pour démarrer l’assistance et garder son bouton Arrêter accessible")
         }
 
     private val bluetoothPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

@@ -53,12 +53,12 @@ class BluetoothSpeechBackend(context: Context,
 
     init { manager.registerAudioDeviceCallback(devices, main) }
 
-    /** At most thirteen pinned phrases, with a maximum of thirty-two cached phrases including Chat. */
+    /** At most sixteen pinned phrases, with a maximum of thirty-two cached phrases including Chat. */
     fun prepare(texts: Set<String>) {
         synchronized(lock) {
             if (closed) return
-            if (texts.size > 13 || texts.any { !validText(it) }) {
-                preparationError = "Préparation vocale invalide (13 phrases courtes maximum)"
+            if (texts.size > 16 || texts.any { !validText(it) }) {
+                preparationError = "Préparation vocale invalide (16 phrases courtes maximum)"
                 refreshState()
                 return
             }

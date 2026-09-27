@@ -5,9 +5,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -21,8 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -31,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.htc.vive.eagle.hackathon.starter.oria.OriaController
 import com.htc.vive.eagle.hackathon.starter.oria.OriaVoiceBackend
-import com.htc.vive.eagle.hackathon.starter.oria.audio.SpeechPan
 import com.htc.vive.eagle.hackathon.starter.oria.core.RgbTrackingMode
 import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabPhase
 import java.util.Locale
@@ -41,7 +35,6 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
     val state by controller.state.collectAsStateWithLifecycle()
     val capture by controller.oriaLabState.collectAsStateWithLifecycle()
     var diagnostics by rememberSaveable { mutableStateOf(false) }
-    var preparationExpanded by rememberSaveable { mutableStateOf(true) }
     var previewExpanded by rememberSaveable { mutableStateOf(false) }
     var simulatorChoice by rememberSaveable { mutableStateOf(false) }
     // Preserve layout when freshness removes the bitmap; never retain old pixels or boxes.
@@ -55,34 +48,29 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
             lastPreviewAspectRatio = currentPreviewAspectRatio
         }
     }
-    val selectedModelReady = if (state.obstacleMode) state.obstacleModelReady else state.modelReady
-    val selectedModelLoading = if (state.obstacleMode) state.obstacleModelLoading else state.modelLoading
-    val canSelectMode = !state.running && !state.pocketPreparing && !state.modelLoading &&
-        !state.obstacleModelLoading && !state.audioBusy && !state.audioUnknown && !capture.storageBusy
-    val canStart = state.connected && selectedModelReady && !selectedModelLoading && !state.running &&
-        !state.pocketPreparing && !capture.storageBusy
-    val voiceTestEnabled = state.connected && !state.audioBusy && !state.audioUnknown &&
-        (state.voiceBackend == OriaVoiceBackend.HTC || (state.localVoiceReady && !state.simulator))
+    val modelsReady = state.modelReady && state.obstacleModelReady
+    val modelsLoading = state.modelLoading || state.obstacleModelLoading
+    val canStart = state.connected && modelsReady && !modelsLoading && !state.running &&
+        !state.pocketPreparing && !capture.storageBusy &&
+        (state.simulator || (state.localVoiceReady && !state.audioUnknown && !state.audioBusy))
     val voiceBlock = when {
         state.audioUnknown -> "Voix suspendue · réponse HTC incertaine"
-        state.audioAutomaticPaused -> "Annonces suspendues · testez la voix"
+        state.audioAutomaticPaused -> "Annonces suspendues · reprise disponible ci-dessous"
         state.voiceBackend == OriaVoiceBackend.BLUETOOTH && state.simulator -> "Voix Bluetooth indisponible avec le simulateur"
-        state.voiceBackend == OriaVoiceBackend.BLUETOOTH && !state.localVoiceReady -> "Voix indisponible · consultez les réglages"
+        state.voiceBackend == OriaVoiceBackend.BLUETOOTH && !state.localVoiceReady -> state.localVoiceStatus
         else -> null
     }
     val startHelp = when {
         state.running -> when {
             voiceBlock != null -> "Vidéo active · $voiceBlock"
-            !state.orientationVerified -> "Vidéo active · annonces à autoriser"
             else -> "Oria est en marche"
         }
-        state.pocketPreparing -> "Préparation du mode poche…"
+        state.pocketPreparing -> "Préparation du fonctionnement écran verrouillé…"
         capture.storageBusy -> "Attendez la fin de l’enregistrement"
         !state.connected -> "Connectez vos lunettes pour commencer"
-        selectedModelLoading -> if (state.obstacleMode) "Préparation du mode obstacles…" else "Préparation d’Oria…"
-        !selectedModelReady -> if (state.obstacleMode) "Mode obstacles indisponible · consultez son état ci-dessous" else "Oria n’est pas prête · voir les réglages"
+        modelsLoading -> "Préparation d’Oria…"
+        !modelsReady -> "Analyse indisponible · consultez l’état ci-dessous"
         voiceBlock != null -> voiceBlock
-        !state.orientationVerified -> "Démarrez pour vérifier les directions"
         else -> "Prête à démarrer"
     }
 
@@ -122,8 +110,7 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Votre environnement, à l’écoute", style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-                    Text(if (state.obstacleMode) "Les obstacles possibles et leurs directions, annoncés dans vos lunettes."
-                        else "Les objets et leurs directions, annoncés dans vos lunettes.",
+                    Text("Les objets et les obstacles possibles, annoncés ensemble dans vos lunettes.",
                         style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
@@ -134,9 +121,9 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                         if (state.simulator) "Simulateur connecté" else "Lunettes connectées"
                     } else "Lunettes déconnectées")
                     Text(startHelp, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                    Text(if (state.obstacleMode) state.obstacleStatus else state.status,
-                        style = MaterialTheme.typography.bodyMedium)
-                    if (selectedModelLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Text(state.status, style = MaterialTheme.typography.bodyMedium)
+                    if (!state.obstacleModelReady) Text(state.obstacleStatus, style = MaterialTheme.typography.bodyMedium)
+                    if (modelsLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
                     if (!state.connected) {
                         Text("Allumez vos lunettes et connectez-les dans VIVE Connect, puis revenez ici.",
                             style = MaterialTheme.typography.bodyMedium)
@@ -159,35 +146,10 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                 }
 
                 OriaHomeSection {
-                    OriaSectionTitle("Choisir ce qu’Oria annonce")
-                    OriaPerceptionSelector(
-                        obstacleMode = state.obstacleMode,
-                        enabled = canSelectMode,
-                        onObstacleModeChange = controller::setObstacleMode,
-                    )
-                    Text("Un seul mode fonctionne à la fois.", style = MaterialTheme.typography.bodyMedium)
-                    if (state.obstacleMode) {
-                        Text("Obstacle possible · sans distance mesurée", style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = FontWeight.SemiBold)
-                        Text(state.obstacleStatus, style = MaterialTheme.typography.bodyMedium)
-                        if (state.running && state.suppression.isNotBlank()) {
-                            Text("Décision : ${state.suppression}", style = MaterialTheme.typography.bodyMedium)
-                        }
-                        if (state.obstacleLatencyMs > 0.0) {
-                            Text("Âge de l’image analysée : ${String.format(Locale.FRANCE, "%.0f", state.obstacleLatencyMs)} ms",
-                                style = MaterialTheme.typography.bodyMedium)
-                        }
-                        Text("La caméra estime le relief. Une image sombre ou peu structurée peut rendre l’analyse incertaine. Le silence ne garantit pas un passage libre.",
-                            style = MaterialTheme.typography.bodyMedium)
+                    OriaExperienceSummary()
+                    if (state.pocketPreparing || state.pocketActive || state.running) {
+                        Text(state.pocketStatus, style = MaterialTheme.typography.bodyMedium)
                     }
-                    if (!canSelectMode) Text(
-                        when {
-                            state.running || state.pocketPreparing -> "Arrêtez Oria pour changer de mode."
-                            state.audioUnknown -> "Le changement de mode est suspendu : une demande vocale reste incertaine."
-                            state.audioBusy -> "Attendez la fin de la phrase pour changer de mode."
-                            state.modelLoading || state.obstacleModelLoading -> "Attendez la fin du chargement pour changer de mode."
-                            else -> "Attendez la fin de la capture pour changer de mode."
-                        }, style = MaterialTheme.typography.bodyMedium)
                 }
 
                 if (capture.phase == OriaLabPhase.RECORDING || capture.phase == OriaLabPhase.FINALIZING) {
@@ -204,90 +166,23 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                     }
                 }
 
-                OriaHomeSection {
-                    OriaHomeDisclosure(
-                        label = "Préparer les annonces",
-                        expanded = preparationExpanded,
-                        onClick = { preparationExpanded = !preparationExpanded },
-                    )
-                    Text(if (state.orientationVerified) "Directions autorisées" else "Une vérification est nécessaire",
-                        style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                    if (preparationExpanded) {
-                        Text("1. Écouter la voix", style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-                        Text("Écoutez les tests dans les lunettes. Le son favorise le côté annoncé et reste présent dans les deux oreilles.",
-                            style = MaterialTheme.typography.bodyLarge)
-                        if (state.voiceBackend == OriaVoiceBackend.BLUETOOTH) {
-                            listOf(SpeechPan.LEFT to "Tester la voix à gauche", SpeechPan.CENTER to "Tester la voix au centre",
-                                SpeechPan.RIGHT to "Tester la voix à droite").forEach { (pan, label) ->
-                                OutlinedButton(onClick = { controller.testVoice(pan) }, enabled = voiceTestEnabled,
-                                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), contentPadding = PaddingValues(16.dp)) {
-                                    Text(label)
-                                }
-                            }
-                        } else {
-                            OutlinedButton(onClick = { controller.testVoice() }, enabled = voiceTestEnabled,
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), contentPadding = PaddingValues(16.dp)) {
-                                Text("Tester la voix")
-                            }
-                        }
-                        if (!voiceTestEnabled) {
-                            Text(when {
-                                !state.connected -> "Connectez les lunettes pour écouter le test."
-                                state.audioUnknown -> "Le test est indisponible : une réponse vocale HTC reste incertaine."
-                                state.audioBusy -> "Attendez la fin de la phrase en cours."
-                                state.simulator -> "Le test Bluetooth nécessite les lunettes réelles."
-                                else -> state.localVoiceStatus
-                            }, style = MaterialTheme.typography.bodyMedium)
-                        }
-                        HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                        Text("2. Vérifier les directions", style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
-                        Text("Démarrez Oria, puis ouvrez l’aperçu ci-dessous. Faites vérifier, avec un accompagnant si besoin, qu’un objet placé à gauche puis à droite apparaît du bon côté. Vérifiez aussi les tests vocaux.",
-                            style = MaterialTheme.typography.bodyLarge)
-                        Text("Cochez seulement après ces vérifications. Sans validation, les annonces automatiques restent désactivées.",
-                            style = MaterialTheme.typography.bodyMedium)
-                        OriaHomeCheck(
-                            checked = state.orientationVerified,
-                            onCheckedChange = controller::confirmOrientation,
-                            label = "Les directions de l’image et de la voix ont été vérifiées. J’autorise les annonces.",
-                        )
-                    }
-                }
-
                 OriaHomeSection(containerColor = MaterialTheme.colorScheme.primaryContainer) {
                     OriaSectionTitle("Dernière annonce demandée")
                     Text(state.lastAlert, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text(state.audio, style = MaterialTheme.typography.bodyMedium)
-                    if (state.audioAutomaticPaused && !state.audioUnknown) {
-                        Text("Annonces automatiques suspendues. Testez la voix pour les réactiver.",
-                            style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
-                    }
-                    if (state.audioUnknown) {
-                        Text("La voix est suspendue : une réponse HTC n’a pas pu être attribuée. La phrase déjà envoyée peut continuer.",
-                            style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
-
-                OriaHomeSection {
-                    OriaSectionTitle("Utiliser Oria en poche")
-                    OriaSettingToggle(
-                        checked = state.pocketEnabled,
-                        onCheckedChange = controller::setPocketMode,
-                        enabled = !state.running && !state.pocketPreparing,
-                        title = "Continuer écran verrouillé",
+                    OriaAudioRecovery(
+                        paused = state.audioAutomaticPaused,
+                        unknown = state.audioUnknown,
+                        connected = state.connected,
+                        busy = state.audioBusy,
+                        onResume = controller::resumeAutomaticVoice,
                     )
-                    Text(state.pocketStatus, style = MaterialTheme.typography.bodyLarge)
-                    Text("Mode expérimental, sans limite de durée. Une coupure de connexion peut arrêter Oria. Oria Lab s’arrête toujours en arrière-plan.",
-                        style = MaterialTheme.typography.bodyMedium)
-                    if (state.running || state.pocketPreparing) Text("Arrêtez Oria pour modifier ce réglage.",
-                        style = MaterialTheme.typography.bodyMedium)
                 }
 
                 OriaHomeSection {
                     OriaHomeDisclosure("Aperçu de la caméra", previewExpanded, { previewExpanded = !previewExpanded })
                     if (previewExpanded) {
-                        Text("Pour vérifier le sens de l’image, avec un accompagnant si besoin. Aucune distance n’est mesurée.",
+                        Text("Images reçues des lunettes et objets reconnus. Aucune distance n’est mesurée.",
                             style = MaterialTheme.typography.bodyLarge)
                         if (state.running) {
                             Box(Modifier.fillMaxWidth().aspectRatio(previewAspectRatio).background(Color(0xFF112A2D)),
@@ -297,7 +192,7 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                                     Image(bitmap.asImageBitmap(), "Aperçu de la caméra des lunettes", Modifier.fillMaxSize(),
                                         contentScale = ContentScale.FillBounds)
                                     Canvas(Modifier.fillMaxSize()) {
-                                        if (!state.obstacleMode) state.detections.forEach { detection ->
+                                        state.detections.forEach { detection ->
                                             val b = detection.box
                                             drawRect(Color(0xFF63FFC3), Offset(b.left * size.width, b.top * size.height),
                                                 Size(b.width * size.width, b.height * size.height), style = Stroke(2.dp.toPx()))
@@ -322,43 +217,28 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                             OriaSettingToggle("Utiliser le simulateur HTC", simulatorChoice, { simulatorChoice = it })
                             Text("Activez ce réglage avant de connecter le simulateur.", style = MaterialTheme.typography.bodyMedium)
                         }
-                        OriaSectionTitle("Sortie vocale")
-                        listOf(OriaVoiceBackend.BLUETOOTH to "Bluetooth VIVE", OriaVoiceBackend.HTC to "HTC · diagnostic").forEach { (backend, label) ->
-                            FilterChip(selected = state.voiceBackend == backend,
-                                enabled = !state.running && !state.audioBusy && !state.audioUnknown,
-                                onClick = { controller.setVoiceBackend(backend) },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), label = { Text(label) })
-                        }
-                        Text("La voix HTC est réservée au diagnostic sans vidéo. La voix locale utilise la sortie Bluetooth VIVE détectée.",
-                            style = MaterialTheme.typography.bodyMedium)
-                        if (state.voiceBackend == OriaVoiceBackend.BLUETOOTH) Text(state.localVoiceStatus,
-                            style = MaterialTheme.typography.bodyMedium)
+                        OriaSectionTitle("Voix dans les lunettes")
+                        Text(state.localVoiceStatus, style = MaterialTheme.typography.bodyMedium)
                         OriaSectionTitle("Suivi des objets")
                         OriaSettingToggle(
                             checked = state.trackingMode == RgbTrackingMode.STABLE_RGB_V2,
                             onCheckedChange = { controller.setTrackingMode(if (it) RgbTrackingMode.STABLE_RGB_V2 else RgbTrackingMode.LEGACY_IOU) },
                             title = "Suivi stable V2 · expérimental",
-                            enabled = !state.obstacleMode && !state.running && !state.pocketPreparing && !state.audioBusy && !state.audioUnknown,
+                            enabled = !state.running && !state.pocketPreparing && !state.audioBusy && !state.audioUnknown,
                         )
                         Text("Le suivi habituel reste activé par défaut. Comparez les deux modes dans Oria Lab avant un essai terrain.",
                             style = MaterialTheme.typography.bodyMedium)
-                        OriaSectionTitle("Repère de la caméra")
-                        listOf(0, 90, 180, 270).forEach { rotation ->
-                            FilterChip(selected = state.rotation == rotation,
-                                onClick = { controller.setGeometry(rotation, state.mirrored) },
-                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
-                                label = { Text("Rotation : $rotation degrés") })
-                        }
-                        OriaSettingToggle("Corriger une image miroir", state.mirrored, { controller.setGeometry(state.rotation, it) })
                         OriaSettingToggle("XNNPACK · accélération des objets", state.xnnpack, controller::loadModel,
-                            enabled = !state.obstacleMode && !state.running && !state.modelLoading)
+                            enabled = !state.running && !state.modelLoading)
                         Text("Images reçues pour analyse : ${state.received}\nRésultats frais : ${state.analyzed} · périmés : ${state.stale}\nCadence utile : ${String.format(Locale.FRANCE, "%.1f", state.fps)} Hz\nRéception → décision : ${state.lastLatencyMs} ms · p95 accepté ${state.p95Ms} ms\nP95 toutes inférences : ${state.allInferenceP95Ms} ms\nPrétraitement : ${state.preprocessMs.toInt()} ms · modèle : ${state.inferenceMs.toInt()} ms\nPolitique : ${state.suppression}",
+                            style = MaterialTheme.typography.bodyMedium)
+                        Text("Obstacles possibles : ${state.obstacleStatus}\nÂge de l’image analysée : ${String.format(Locale.FRANCE, "%.0f", state.obstacleLatencyMs)} ms",
                             style = MaterialTheme.typography.bodyMedium)
                         Text("La réception est mesurée sur le téléphone. Le délai de capture et le son audible restent à mesurer séparément.",
                             style = MaterialTheme.typography.bodyMedium)
-                        if (!state.obstacleMode && !state.xnnpack) Text("CPU expérimental : un échec de parité stricte a été observé sur le téléphone précédent.",
+                        if (!state.xnnpack) Text("CPU expérimental : un échec de parité stricte a été observé sur le téléphone précédent.",
                             style = MaterialTheme.typography.bodyMedium)
-                        OutlinedButton(onClick = { controller.loadModel(state.xnnpack) }, enabled = !state.obstacleMode && !state.running && !state.modelLoading,
+                        OutlinedButton(onClick = { controller.loadModel(state.xnnpack) }, enabled = !state.running && !state.modelLoading,
                             modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), contentPadding = PaddingValues(16.dp)) {
                             Text("Recharger le modèle d’objets")
                         }
@@ -395,45 +275,38 @@ private fun OriaHomeDisclosure(label: String, expanded: Boolean, onClick: () -> 
     }
 }
 
+/** Read-only guidance: detection and background operation require no user mode selection. */
 @Composable
-private fun OriaHomeCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit, label: String) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp)
-        .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
-        .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.clearAndSetSemantics { })
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-    }
+internal fun OriaExperienceSummary() {
+    OriaSectionTitle("Annonces automatiques")
+    Text("Piétons, véhicules et obstacles possibles", style = MaterialTheme.typography.bodyLarge,
+        fontWeight = FontWeight.SemiBold)
+    Text("Les annonces sont automatiques. Le son favorise la direction annoncée : avant-gauche, devant ou avant-droite.",
+        style = MaterialTheme.typography.bodyLarge)
+    Text("Vous pouvez verrouiller le téléphone : Oria continue tant que la connexion aux lunettes reste active. Arrêtez Oria avec le bouton ci-dessous ou sa notification.",
+        style = MaterialTheme.typography.bodyMedium)
+    Text("L’estimation des obstacles par caméra reste expérimentale. Le silence ne garantit pas un passage libre.",
+        style = MaterialTheme.typography.bodyMedium)
 }
 
-
-/** Exclusive, named radio choices; each complete row remains one accessible touch target. */
+/** A failed local playback can be retried; an ambiguous HTC delivery cannot be cleared here. */
 @Composable
-internal fun OriaPerceptionSelector(
-    obstacleMode: Boolean,
-    enabled: Boolean,
-    onObstacleModeChange: (Boolean) -> Unit,
+internal fun OriaAudioRecovery(
+    paused: Boolean,
+    unknown: Boolean,
+    connected: Boolean,
+    busy: Boolean,
+    onResume: () -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().selectableGroup(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        listOf(
-            Triple(false, "Objets", "Personnes, véhicules, deux-roues et poteaux."),
-            Triple(true, "Obstacles caméra · expérimental", "Relief seul, indépendant des catégories d’objets."),
-        ).forEach { (obstacles, label, description) ->
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 64.dp)
-                    .selectable(selected = obstacleMode == obstacles, enabled = enabled,
-                        role = Role.RadioButton, onClick = { if (obstacleMode != obstacles) onObstacleModeChange(obstacles) })
-                    .padding(vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                RadioButton(selected = obstacleMode == obstacles, enabled = enabled, onClick = null,
-                    modifier = Modifier.clearAndSetSemantics { })
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(label, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(description, style = MaterialTheme.typography.bodyMedium)
-                }
-            }
+    if (unknown) {
+        Text("La voix est suspendue : une réponse HTC n’a pas pu être attribuée. La phrase déjà envoyée peut continuer. Consultez le diagnostic HTC.",
+            style = MaterialTheme.typography.bodyLarge)
+    } else if (paused) {
+        Text("Les annonces sont suspendues après une erreur audio.",
+            style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+        OutlinedButton(onClick = onResume, enabled = connected && !busy,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), contentPadding = PaddingValues(16.dp)) {
+            Text("Reprendre les annonces")
         }
     }
 }

@@ -24,8 +24,11 @@ import androidx.core.content.ContextCompat
 import com.htc.vive.eagle.hackathon.starter.MainActivity
 import com.htc.vive.eagle.hackathon.starter.R
 import com.htc.vive.eagle.hackathon.starter.oria.OriaController
+import com.htc.vive.eagle.hackathon.starter.oria.OriaVoiceBackend
+import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabPhase
 
-/** Explicit foreground experiment without a session duration cap. An Activity destruction ends the session.
+/** Keeps every explicitly started assistance session active when its Activity is hidden or the
+ * screen sleeps, without a session duration cap. Activity destruction still ends the session.
  * Never sticky: a dead process or an old notification cannot restart camera or speech.
  * All ownership transitions are serialized on the main thread, like OriaController.
  */
@@ -56,11 +59,11 @@ class PocketSessionService : Service() {
             return START_NOT_STICKY
         }
         val pending = requested
-        if (pending == null || pending.token != token || !pending.visible() ||
-            !pending.controller.state.value.pocketEnabled || pending.controller.state.value.running) {
+        if (pending == null || pending.token != token ||
+            !canPrepare(pending.controller, pending.visible())) {
             if (pending != null && pending.token == token) {
                 requested = null
-                pending.controller.reportPocketError("Mode poche annulé · revenir dans Oria pour démarrer")
+                pending.controller.reportPocketError("Démarrage annulé · revenir dans Oria pour démarrer")
             }
             if (owner == null) stopSelfResult(startId)
             return START_NOT_STICKY
@@ -89,8 +92,8 @@ class PocketSessionService : Service() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val notification = NotificationCompat.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.glasses_solid_full)
-                .setContentTitle("Oria · mode poche expérimental")
-                .setContentText("Analyse des lunettes active · jusqu’à votre arrêt")
+                .setContentTitle("Oria · assistance active")
+                .setContentText("Analyse active, même écran éteint · bouton Arrêter disponible")
                 .setUsesChronometer(true).setWhen(System.currentTimeMillis())
                 .setContentIntent(open).setOngoing(true).setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -108,10 +111,10 @@ class PocketSessionService : Service() {
             startedAt = SystemClock.elapsedRealtime()
             pending.controller.pocketServiceReady()
             pending.controller.start()
-            if (!pending.controller.state.value.running) finish("Mode poche : démarrage refusé")
+            if (!pending.controller.state.value.running) finish("Assistance : démarrage refusé")
             else scheduleRenewal(pending.controller, pending.token)
         } catch (error: Exception) {
-            finish("Mode poche indisponible : ${error.message ?: error.javaClass.simpleName}")
+            finish("Assistance indisponible : ${error.message ?: error.javaClass.simpleName}")
         }
         return START_NOT_STICKY
     }
@@ -123,7 +126,7 @@ class PocketSessionService : Service() {
             override fun run() {
                 if (active !== this@PocketSessionService || owner !== controller || ownerToken != token) return
                 if (!controller.canContinueInBackground()) {
-                    finish("Mode poche interrompu · session indisponible")
+                    finish("Assistance interrompue · session indisponible")
                     return
                 }
                 try {
@@ -132,7 +135,7 @@ class PocketSessionService : Service() {
                     lock.acquire(WAKE_LEASE_MS)
                     handler.postDelayed(this, WAKE_RENEW_INTERVAL_MS)
                 } catch (error: Exception) {
-                    finish("Mode poche interrompu : ${error.message ?: error.javaClass.simpleName}")
+                    finish("Assistance interrompue : ${error.message ?: error.javaClass.simpleName}")
                 }
             }
         }
@@ -185,10 +188,8 @@ class PocketSessionService : Service() {
 
         fun request(context: Context, controller: OriaController, visible: () -> Boolean) {
             if (requested != null || active != null || !visible()) return
-            val state = controller.state.value
-            val selectedModelReady = if (state.obstacleMode) state.obstacleModelReady else state.modelReady
-            if (!state.pocketEnabled || state.running || !state.connected || !selectedModelReady || state.simulator) {
-                controller.reportPocketError("Mode poche : connecter les lunettes réelles et attendre le modèle")
+            if (!canPrepare(controller, visible())) {
+                controller.reportPocketError("Assistance : connecter les lunettes et attendre les modèles et la voix")
                 return
             }
             val request = Request(++sequence, controller, visible)
@@ -199,8 +200,18 @@ class PocketSessionService : Service() {
                     .setAction(ACTION_START).putExtra("token", request.token))
             } catch (error: Exception) {
                 if (requested === request) requested = null
-                controller.reportPocketError("Mode poche indisponible : ${error.message ?: error.javaClass.simpleName}")
+                controller.reportPocketError("Assistance indisponible : ${error.message ?: error.javaClass.simpleName}")
             }
+        }
+
+        private fun canPrepare(controller: OriaController, visible: Boolean): Boolean {
+            val state = controller.state.value
+            val lab = controller.oriaLabState.value
+            return PocketSessionPolicy.canPrepare(visible, state.running, state.connected,
+                state.simulator, state.modelReady, state.obstacleModelReady,
+                state.localVoiceReady && !state.audioUnknown && !state.audioBusy &&
+                    state.voiceBackend == OriaVoiceBackend.BLUETOOTH,
+                lab.phase in setOf(OriaLabPhase.RECORDING, OriaLabPhase.FINALIZING), lab.storageBusy)
         }
 
         fun isReadyFor(controller: OriaController): Boolean = active?.owner === controller &&

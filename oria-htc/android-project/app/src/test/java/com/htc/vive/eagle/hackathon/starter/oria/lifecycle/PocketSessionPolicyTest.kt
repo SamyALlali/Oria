@@ -4,6 +4,25 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PocketSessionPolicyTest {
+    @Test fun assistancePreparationRequiresBothModels() {
+        assertTrue(PocketSessionPolicy.canPrepare(true, false, true, false, true, true, true, false, false))
+        assertFalse(PocketSessionPolicy.canPrepare(true, false, true, false, false, true, true, false, false))
+        assertFalse(PocketSessionPolicy.canPrepare(true, false, true, false, true, false, true, false, false))
+    }
+    @Test fun assistanceWaitsForUsableBluetoothVoice() {
+        assertFalse(PocketSessionPolicy.canPrepare(true, false, true, false, true, true, false, false, false))
+    }
+    @Test fun aDelayedServiceRequestCannotStartAfterLeavingOrLosingTheGlasses() {
+        assertFalse(PocketSessionPolicy.canPrepare(false, false, true, false, true, true, true, false, false))
+        assertFalse(PocketSessionPolicy.canPrepare(true, false, false, false, true, true, true, false, false))
+        assertFalse(PocketSessionPolicy.canPrepare(true, false, true, true, true, true, true, false, false))
+        assertFalse(PocketSessionPolicy.canPrepare(true, true, true, false, true, true, true, false, false))
+    }
+    @Test fun assistancePreparationCannotTakeOverARecordingOrStorageOperation() {
+        assertFalse(PocketSessionPolicy.canPrepare(true, false, true, false, true, true, true, true, false))
+        assertFalse(PocketSessionPolicy.canPrepare(true, false, true, false, true, true, true, false, true))
+    }
+
     @Test fun onlyAnActiveRealConnectedSessionCanContinue() {
         assertTrue(PocketSessionPolicy.canContinue(true, true, true, false, false, 1))
         assertFalse(PocketSessionPolicy.canContinue(false, true, true, false, false, 1))

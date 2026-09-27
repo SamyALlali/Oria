@@ -28,6 +28,12 @@ class DepthObstaclePolicyTest {
         assertEquals(RgbZone.RIGHT, confirmed(started(), zones(.4f, 0f, .6f)).zone)
     }
 
+    @Test fun obstaclePhrasesUseTheSameCameraRelativeVocabularyAsYolo() {
+        assertEquals("Obstacle possible avant-gauche", confirmed(started(), zones(.4f, 0f, 0f)).text)
+        assertEquals("Obstacle possible devant", confirmed(started()).text)
+        assertEquals("Obstacle possible avant-droite", confirmed(started(), zones(0f, 0f, .4f)).text)
+    }
+
     @Test fun intentionDoesNotConsumeCooldownAndNewFrameInvalidatesPreviousOffer() {
         val p = started(); val first = confirmed(p)
         val second = p.evaluate(1, 3, 750, zones(), 750).eligibleAlert!!

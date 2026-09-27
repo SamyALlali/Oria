@@ -54,7 +54,7 @@ private val TestInk = Color(0xFF101A23)
 fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDiagnostics: () -> Unit) {
     val live by controller.state.collectAsStateWithLifecycle()
     val recording by controller.oriaLabState.collectAsStateWithLifecycle()
-    val selectedModelReady = if (live.obstacleMode) live.obstacleModelReady else live.modelReady
+    val modelsReady = live.modelReady && live.obstacleModelReady && !live.modelLoading && !live.obstacleModelLoading
     val scope = rememberCoroutineScope()
     var simulatorChoice by rememberSaveable { mutableStateOf(false) }
     var pendingExport by rememberSaveable { mutableStateOf<String?>(null) }
@@ -140,9 +140,10 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
             bottomBar = {
                 Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 3.dp) {
                     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Gardez Oria Lab ouvert pendant l’enregistrement.", style = MaterialTheme.typography.bodyMedium)
                         if (!live.running && !recordingActive && !finalizing) {
                             Button(onClick = onRecord,
-                                enabled = live.connected && selectedModelReady && !recordingActive && !finalizing && !storageBusy,
+                                enabled = live.connected && modelsReady && !live.pocketPreparing && !recordingActive && !finalizing && !storageBusy,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) { Text("Enregistrer une scène") }
                         }
                         if (recordingActive || live.running) {
@@ -172,10 +173,11 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                             Button(onClick = { controller.connect(simulatorChoice) },
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text("Connecter la source") }
                         }
-                        Text(if (live.obstacleMode) live.obstacleStatus else if (selectedModelReady) "Modèle prêt" else "Chargement du modèle…")
+                        Text(if (modelsReady) "Analyse des objets et des obstacles prête" else "Préparation des analyses…")
+                        if (!live.obstacleModelReady) Text(live.obstacleStatus, style = MaterialTheme.typography.bodyMedium)
                         if (live.running && !recordingActive && !finalizing) {
                             Button(onClick = onRecord,
-                                enabled = live.connected && selectedModelReady && !recordingActive && !finalizing && !storageBusy,
+                                enabled = live.connected && modelsReady && !live.pocketPreparing && !recordingActive && !finalizing && !storageBusy,
                                 modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) { Text("Enregistrer cette scène") }
                         }
                         OutlinedButton(onClick = onOpenHtcDiagnostics,
@@ -199,7 +201,6 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                         if (finalizing) LinearProgressIndicator(Modifier.fillMaxWidth())
                         Text(live.status, style = MaterialTheme.typography.bodySmall)
                         Text("Images analysées fraîches : ${live.analyzed} · périmées : ${live.stale}", style = MaterialTheme.typography.bodySmall)
-                        if (!live.orientationVerified) Text("Le repère n’est pas confirmé : les annonces automatiques restent désactivées. Vérifiez image et audio dans Oria.", style = MaterialTheme.typography.bodySmall)
                         Text("Dernière annonce : ${live.lastAlert}", style = MaterialTheme.typography.bodySmall)
                     }
                 }

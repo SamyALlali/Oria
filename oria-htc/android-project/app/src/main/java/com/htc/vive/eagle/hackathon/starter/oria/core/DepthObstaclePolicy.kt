@@ -26,9 +26,9 @@ data class DepthVoiceAlert(
     val observationIndex: Long, val observedAtMs: Long, val zone: RgbZone,
 ) {
     val text: String get() = when (zone) {
-        RgbZone.LEFT -> "Obstacle possible à gauche"
+        RgbZone.LEFT -> "Obstacle possible avant-gauche"
         RgbZone.CENTER -> "Obstacle possible devant"
-        RgbZone.RIGHT -> "Obstacle possible à droite"
+        RgbZone.RIGHT -> "Obstacle possible avant-droite"
     }
 }
 
