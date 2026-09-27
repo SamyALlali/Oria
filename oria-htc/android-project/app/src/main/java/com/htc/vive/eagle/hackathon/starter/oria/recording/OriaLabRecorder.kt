@@ -71,7 +71,9 @@ class OriaLabRecorder(
         const val RESERVED_FREE_BYTES = 512L * 1024 * 1024
         const val MAX_QUEUED_BYTES = 20L * 1024 * 1024
         private const val MAX_TASKS = 160
-        private const val MAX_JSON_BYTES = 256 * 1024
+        // A 128x128 Float32 map written as JSON Double values exceeds 256 KiB (~309 KB).
+        // This per-event bound preserves the full map; the 20 MiB queue/disk reserve remain unchanged.
+        private const val MAX_JSON_BYTES = 512 * 1024
         private const val MANIFEST_RESERVE = 1024L * 1024
     }
 
@@ -125,7 +127,9 @@ class OriaLabRecorder(
 
     /** Caller must restart video after arming capture, so its codec configuration is captured too. */
     fun start(metadata: JSONObject): Boolean {
-        val frozen = try { metadata.toString().also { require(it.toByteArray().size <= MAX_JSON_BYTES) }.let(::JSONObject) }
+        val frozen = try { OriaLabPrivacyJson.sanitizeMetadata(metadata).also {
+            require(it.toString().toByteArray().size <= MAX_JSON_BYTES)
+        } }
         catch (_: Exception) { return false }
         val videoSessionId = frozen.optLong("videoSessionId", Long.MIN_VALUE)
         if (videoSessionId == Long.MIN_VALUE) return false
@@ -222,7 +226,7 @@ class OriaLabRecorder(
         var reserved = false
         var bytesCount = 0L
         try {
-            copied = JSONObject(event.toString()).put("recordedAtMs", now()).put("recordingSessionId", run.id)
+            copied = OriaLabPrivacyJson.sanitizeEvent(event).put("recordedAtMs", now()).put("recordingSessionId", run.id)
             val bytes = (copied.toString() + "\n").toByteArray(Charsets.UTF_8)
             if (bytes.size > MAX_JSON_BYTES) { failRun(run, "event_too_large"); return }
             bytesCount = bytes.size.toLong()

@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 import tempfile
 import threading
@@ -18,9 +19,9 @@ from server import create_server
 FIXTURES = ROOT / 'android-project/app/src/androidTest/assets/ml'
 
 
-def capture(path, count=3):
+def capture(path, count=3, schema_version=1):
     path.mkdir(); (path / 'frames').mkdir()
-    manifest = {'schemaVersion': 1, 'kind': 'oria-lab-session', 'sessionId': 'capture-test', 'status': 'complete',
+    manifest = {'schemaVersion': schema_version, 'kind': 'oria-lab-session', 'sessionId': 'capture-test', 'status': 'complete',
                 'monotonicOriginMs': 1000, 'endedAtMonotonicMs': max(5000, 1000 + count * 333 + 1000),
                 'metadata': {'onnxSha256': MODEL_SHA, 'policyConfig': {'confirmationSamples': 3, 'repeatIntervalMs': 4000, 'zoneLeftBoundary': .39}}}
     (path / 'manifest.json').write_text(json.dumps(manifest))
@@ -39,6 +40,61 @@ def capture(path, count=3):
 
 
 class ImportTests(unittest.TestCase):
+    def test_v1_v2_folder_and_zip_preserve_every_source_byte_and_unknown_events(self):
+        for version in (1, 2):
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); source = capture(root / 'capture', schema_version=version)
+                extra = {'type': 'future_structured_diagnostic', 'sessionId': 7, 'frameId': 1,
+                         'atMs': 1102, 'schemaVersion': version, 'payload': {'candidateCount': 2}}
+                with (source / 'events.jsonl').open('a') as output:
+                    output.write(json.dumps(extra) + '\n')
+                def hashes(folder):
+                    return {str(p.relative_to(folder)): hashlib.sha256(p.read_bytes()).hexdigest()
+                            for p in folder.rglob('*') if p.is_file()}
+                before = hashes(source)
+                store = SessionStore(root / 'store')
+                imported = store.import_folder(source)
+                self.assertEqual(imported.manifest['schemaVersion'], version)
+                self.assertIn(extra, imported.frame(0)['events'])
+                self.assertEqual(before, hashes(source))
+                archive = root / 'capture.zip'
+                with zipfile.ZipFile(archive, 'w') as bundle:
+                    for name in before: bundle.write(source / name, name)
+                archive_before = hashlib.sha256(archive.read_bytes()).hexdigest()
+                zipped = store.import_zip(archive)
+                self.assertEqual(zipped.manifest['schemaVersion'], version)
+                self.assertEqual(before, hashes(zipped.path))
+                self.assertEqual(archive_before, hashlib.sha256(archive.read_bytes()).hexdigest())
+
+    def test_schema_is_strict_integer_with_consistent_aliases_before_publication(self):
+        invalid = [None, True, False, 1.0, 2.0, 1.5, '1', '2', 0, 3, -1, [], {}]
+        for value in invalid:
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); source = capture(root / 'capture', schema_version=value)
+                store = SessionStore(root / 'store')
+                before = (source / 'manifest.json').read_bytes()
+                with self.assertRaisesRegex(ValueError, 'Version de capture invalide'):
+                    store.import_folder(source)
+                self.assertEqual(store.library(), [])
+                self.assertEqual(before, (source / 'manifest.json').read_bytes())
+        for aliases, accepted in [({}, False), ({'schema_version': 2}, True),
+                                  ({'schemaVersion': 2, 'schema_version': 2}, True),
+                                  ({'schemaVersion': 1, 'schema_version': 2}, False),
+                                  ({'schemaVersion': 1, 'schema_version': True}, False),
+                                  ({'schemaVersion': 2, 'schema_version': 2.0}, False)]:
+            with self.subTest(aliases=aliases), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp); source = capture(root / 'capture')
+                manifest = json.loads((source / 'manifest.json').read_text())
+                manifest.pop('schemaVersion'); manifest.update(aliases)
+                (source / 'manifest.json').write_text(json.dumps(manifest))
+                store = SessionStore(root / 'store')
+                if accepted:
+                    self.assertEqual(store.import_folder(source).manifest, manifest)
+                else:
+                    with self.assertRaisesRegex(ValueError, 'Version de capture invalide'):
+                        store.import_folder(source)
+                    self.assertEqual(store.library(), [])
+
     def test_folder_zip_and_navigation_join(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp); source = capture(root / 'capture')

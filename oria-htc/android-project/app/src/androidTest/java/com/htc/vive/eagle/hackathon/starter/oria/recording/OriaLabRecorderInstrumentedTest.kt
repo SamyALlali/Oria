@@ -15,11 +15,13 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.yield
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import java.util.zip.CRC32
@@ -28,6 +30,63 @@ import java.util.zip.ZipFile
 /** Real Android Bitmap/files/ZIP test; synthetic inputs, not a live HTC transport proof. */
 @RunWith(AndroidJUnit4::class)
 class OriaLabRecorderInstrumentedTest {
+    @Test fun full128DepthAndYoloRawDiagnosticsPersistWithoutTruncation() = fixture { recorder ->
+        val assets = InstrumentationRegistry.getInstrumentation().context.assets
+        val bytes = assets.open("depth/synthetic_portrait.normalized.f32").use { it.readBytes() }
+        assertEquals(128 * 128 * 4, bytes.size)
+        val values = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
+        val rows = JSONArray().apply { repeat(128) { put(JSONArray().apply { repeat(128) { put(values.get().toDouble()) } }) } }
+        val depth = JSONObject().put("type", "depth_inference").put("sessionId", 111).put("frameId", 1)
+            .put("relativeDepth", JSONObject().put("width", 128).put("height", 128).put("values", rows))
+        assertTrue("Regression: a valid existing depth payload exceeded the old256KiB cap",
+            depth.toString().toByteArray().size > 256 * 1024)
+        assertTrue(recorder.start(metadata(111)))
+        recorder.recordEvent(depth)
+        val raw = JSONArray().apply { repeat(1800) { put(it / 1800.0) } }
+        recorder.recordEvent(JSONObject().put("type", "inference").put("sessionId", 111).put("frameId", 1)
+            .put("rawModelOutput", raw).put("detections", JSONArray()))
+        recorder.stop("large_diagnostic_fixture_stop")
+        val saved = awaitSaved(recorder)
+        assertTrue("No size-triggered capture interruption", saved.complete)
+        val events = File(saved.directory, "events.jsonl").readLines().filter { it.isNotBlank() }.map(::JSONObject)
+        assertEquals(2, events.size)
+        assertEquals(rows.toString(), events[0].getJSONObject("relativeDepth").getJSONArray("values").toString())
+        assertEquals(raw.toString(), events[1].getJSONArray("rawModelOutput").toString())
+        assertEquals(1, JSONObject(File(saved.directory, "manifest.json").readText()).getInt("schemaVersion"))
+    }
+
+    @Test fun privacyCoversMetadataAndEventsWithoutErasingDeterministicDangerPhrases() = fixture { recorder ->
+        val secret = "12 rue privée, domicile"
+        val metadata = metadata(109).put("destination", secret).put("operatorNote", secret)
+            .put("navigation", JSONObject().put("routeVersion", 3).put("status", secret))
+        assertTrue(recorder.start(metadata))
+        recorder.recordEvent(JSONObject().put("type", "navigation_error").put("sessionId", 109)
+            .put("atMs", SystemClock.elapsedRealtime()).put("error", secret).put("detail", secret)
+            .put("routeVersion", 3))
+        val speech = JSONObject().put("type", "speech_submitted").put("sessionId", 109)
+            .put("text", "Obstacle possible avant-gauche").put("pan", "LEFT")
+            .put("requestId", "12345678-1234-1234-1234-123456789abc")
+        recorder.recordEvent(speech)
+        recorder.recordEvent(JSONObject().put("type", "decision").put("sessionId", 109)
+            .put("frameId", 1).put("eligibleAlert", JSONObject().put("text", "Piéton devant").put("id", 5)))
+        recorder.stop("privacy_fixture_stop")
+        val saved = awaitSaved(recorder)
+        assertTrue(saved.complete)
+        val manifestText = File(saved.directory, "manifest.json").readText()
+        val eventsText = File(saved.directory, "events.jsonl").readText()
+        assertFalse(manifestText.contains(secret)); assertFalse(eventsText.contains(secret))
+        val manifest = JSONObject(manifestText)
+        assertEquals(1, manifest.getInt("schemaVersion"))
+        assertEquals(109L, manifest.getJSONObject("metadata").getLong("videoSessionId"))
+        val events = eventsText.lineSequence().filter { it.isNotBlank() }.map(::JSONObject).toList()
+        assertEquals(3, events.size)
+        assertEquals(3, events[0].getInt("routeVersion"))
+        assertEquals("Obstacle possible avant-gauche", events[1].getString("text"))
+        assertEquals("Piéton devant", events[2].getJSONObject("eligibleAlert").getString("text"))
+        assertEquals(secret, metadata.getString("destination"))
+        assertEquals("Obstacle possible avant-gauche", speech.getString("text"))
+    }
+
     @Test fun ownedPixelsAndExactBufferSliceSurviveStopAndZipExport() = fixture { recorder ->
         assertTrue(recorder.start(metadata(101)))
         val input = ByteBuffer.wrap(byteArrayOf(99, 98, 0, 0, 0, 1, 103, 42, 97))
