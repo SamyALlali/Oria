@@ -337,3 +337,11 @@ Les chemins sortant de la capture et liens symboliques restent refusés à l’i
 ## D30 — Données Oria Lab conservées en cas d’image manquante (27 septembre)
 
 La galerie HTC distingue maintenant l’intégrité des lignes d’observation de la disponibilité des PNG. Si les données capturées ont une identité et une horloge cohérentes, l’inférence stockée peut être consultée sous forme textuelle malgré une PNG absente ; aucune surimpression ni image factice n’est produite. Les données ambiguës restent bloquées sans association arbitraire. Fixtures communes et 12 tests galerie instrumentés passent (1 autre est ignoré) sur CN46V3M00284 ; revue indépendante sans bloqueur. Les octets capturés ne sont pas réécrits. L’intégration ne modifie ni le moteur de tri, ni ONNX, ni les seuils. Voir le bilan du quatrième passage dans `oria-htc/validation/NIGHT_WORK_20260927.md`.
+
+## D31 — Accueil lisible et contrôles d’accessibilité (27 septembre)
+
+**Demande utilisateur :** nettoyer le visuel et adapter en priorité Oria aux déficients visuels, avec trois agents. L’accueil affiche les états utiles, les tests vocaux et une commande principale fixe d’au moins 64 dp. Aperçu et réglages techniques sont repliables ; les commandes se disposent verticalement et le texte conserve l’agrandissement Android. Oria Lab et les onglets partagent la même palette claire/sombre. Titres, rôles, noms et états sont exposés aux services d’accessibilité ; chaque interrupteur forme un seul contrôle. Les mises à jour de détections ne sont pas des régions vocales automatiques.
+
+**Arbitrage :** conserver la confirmation du repère. La vérification visuelle peut être accompagnée et la vérification auditive reste humaine. Les causes de suspension vocale prennent la priorité sur un message de disponibilité. Aucun changement du modèle, du tri, des gains audio ni de la gestion des captures.
+
+**État :** candidat 1.5 compilé, 83 tests JVM et revue indépendante sans bloqueur. Contrastes de palette calculés ; rendu agrandi, TalkBack et essai utilisateur non exécutés. HTC débranché avant installation : 1.4 reste installé, sauvegarde préalable conservée. Voir `oria-htc/validation/ACCESSIBILITY_DELIVERY_20260927.md`.

@@ -4,9 +4,15 @@ Prototype du hackathon SILMO pour HTC VIVE Eagle : la caméra des lunettes trans
 
 Le prototype reprend notre modèle YOLO et des politiques portées depuis une base Swift. Le package autorisé reste `com.htc.vive.eagle.hackathon.starter`.
 
-## Version de nuit — 27 septembre
+## Interface 1.5 et version installée — 27 septembre
 
-**Oria 1.3-night est installé sur le HTC CN46V3M00284**, par mise à jour conservant les données. Les captures n’ont plus de limite de durée et le mode poche n’expire plus après 15 minutes. Le stockage garde 512 Mio libres, sans purge automatique. Le suivi habituel reste le défaut et le mode poche reste une option expérimentale. [Livraison, mesures et suite des travaux](oria-htc/validation/NIGHT_WORK_20260927.md).
+**Le candidat 1.5-accessibility est compilé, pas encore installé.** Accueil simplifié, grandes commandes, thème clair/sombre contrasté et contrôles nommés pour TalkBack ; Oria Lab reprend le même style. Trois agents ont assuré réalisation et revue ; 83 tests JVM passent. Le rendu agrandi et le parcours TalkBack restent à vérifier sur HTC. [Livraison 1.5 et limites](oria-htc/validation/ACCESSIBILITY_DELIVERY_20260927.md).
+
+**Dernière version installée : 1.4-night sur CN46V3M00284.** Vidéo et trois positions vocales 70/30 confirmées avec l’utilisateur. Le mode poche, pour lequel une coupure possible a été signalée, reste à retester. [Recette physique 1.4](oria-htc/validation/LIVE_20260927_V14.md).
+
+## Travaux de nuit antérieurs
+
+**Oria 1.3-night a été installé sur le HTC CN46V3M00284**, puis remplacé par 1.4. Les captures n’ont plus de limite de durée et le mode poche n’expire plus après 15 minutes. Le stockage garde 512 Mio libres, sans purge automatique. Le suivi habituel reste le défaut et le mode poche reste une option expérimentale. [Livraison, mesures et suite des travaux](oria-htc/validation/NIGHT_WORK_20260927.md).
 
 **Livraison 1.3 : 83 tests JVM Android et 10 tests de galerie sur HTC passent.** Les 164 images et 240 détections de la capture réelle concordent avec une lecture indépendante ; galerie synthétique de 21 622 images ouverte en 14,2 s sur HTC. Le ZIP Mac se télécharge nativement, sans blob intégral ; 169 fichiers réels vérifiés identiques par SHA-256.
 
@@ -16,7 +22,7 @@ Le prototype reprend notre modèle YOLO et des politiques portées depuis une ba
 
 Oria Lab Mac lit les données détaillées à la demande et écrit ses rapports progressivement : l’index de la scène de 164 images pèse désormais 56,2 Ko, diagnostics d’intégrité compris, contre 11,44 Mo avant les travaux de nuit. Captures, corbeille/restauration, export et comparaison A/B sont disponibles. Le suivi V2 reste facultatif.
 
-Pour produire l’APK et son manifeste : `python3 oria-htc/validation/build_offline.py`. La release ci-dessous reste historique ; la version de nuit compilée et installée est identifiée dans [le manifeste](oria-htc/artifacts/offline_candidate_manifest.json).
+Pour produire l’APK et son manifeste : `python3 oria-htc/validation/build_offline.py`. La release ci-dessous reste historique ; [le manifeste du candidat](oria-htc/artifacts/offline_candidate_manifest.json) identifie la dernière compilation, sans prouver son installation.
 
 ## Démarrer après un clone
 
@@ -52,7 +58,7 @@ Le lanceur **[Lancer Oria Lab.command](<oria-htc/oria-lab-desktop/Lancer Oria La
 
 - Build Oria : **51 tests JVM, 12 tests Mac et 4 tests de rejeu Kotlin réussis**, installé sur HTC U24 pro / Android 14.
 - Chaîne lunettes → inférence → annonces vocales démontrée sur CN46V3M00284 avant le renommage. Installation historique du 26 septembre sur CN4B53M00860 : lancement et modèle chargé vérifiés, sans nouvelle preuve vidéo/voix.
-- Gains PCM actuels : gauche **70/30**, droite **30/70**, centre **1/1**. L’écoute de ce nouveau mélange reste à confirmer ; la preuve humaine précédente concernait 100/0.
+- Gains PCM actuels : gauche **70/30**, droite **30/70**, centre **1/1**. Écoute des trois positions confirmée sur 1.4 le 27 septembre ; la preuve humaine plus ancienne concernait 100/0.
 - Audit d’une capture de 60 secondes : **164/164 décisions reproduites**, **240/240 détections ≥0,70 concordantes** entre téléphone et Mac. La parité brute échoue sur certaines lignes de très faible confiance ; des limites de suivi et des faux positifs restent documentés.
 
 Le rejeu Mac simule les transactions vocales et ne reproduit pas les délais matériels HTC/Bluetooth. La caméra RGB n’apporte ni profondeur, ni distance métrique, ni garantie de voie libre.

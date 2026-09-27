@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -18,24 +19,28 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.htc.vive.eagle.hackathon.starter.oria.OriaController
 import com.htc.vive.eagle.hackathon.starter.oria.OriaVoiceBackend
 import com.htc.vive.eagle.hackathon.starter.oria.audio.SpeechPan
+import com.htc.vive.eagle.hackathon.starter.oria.core.RgbTrackingMode
 import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabPhase
 import java.util.Locale
-
-private val Ink = Color(0xFF101A23)
-private val Paper = Color(0xFFF5F6F2)
-private val Teal = Color(0xFF086D65)
 
 @Composable
 fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnostics: () -> Unit) {
     val state by controller.state.collectAsStateWithLifecycle()
     val capture by controller.oriaLabState.collectAsStateWithLifecycle()
     var diagnostics by rememberSaveable { mutableStateOf(false) }
+    var preparationExpanded by rememberSaveable { mutableStateOf(true) }
+    var previewExpanded by rememberSaveable { mutableStateOf(false) }
     var simulatorChoice by rememberSaveable { mutableStateOf(false) }
     // Preserve layout when freshness removes the bitmap; never retain old pixels or boxes.
     var lastPreviewAspectRatio by remember(state.running, state.rotation, state.simulator) {
@@ -48,187 +53,315 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
             lastPreviewAspectRatio = currentPreviewAspectRatio
         }
     }
-    MaterialTheme(colorScheme = lightColorScheme(primary = Teal, background = Paper, surface = Color.White, onSurface = Ink)) {
+    val canStart = state.connected && state.modelReady && !state.running &&
+        !state.pocketPreparing && !capture.storageBusy
+    val voiceTestEnabled = state.connected && !state.audioBusy && !state.audioUnknown &&
+        (state.voiceBackend == OriaVoiceBackend.HTC || (state.localVoiceReady && !state.simulator))
+    val voiceBlock = when {
+        state.audioUnknown -> "Voix suspendue · réponse HTC incertaine"
+        state.audioAutomaticPaused -> "Annonces suspendues · testez la voix"
+        state.voiceBackend == OriaVoiceBackend.BLUETOOTH && state.simulator -> "Voix Bluetooth indisponible avec le simulateur"
+        state.voiceBackend == OriaVoiceBackend.BLUETOOTH && !state.localVoiceReady -> "Voix indisponible · consultez les réglages"
+        else -> null
+    }
+    val startHelp = when {
+        state.running -> when {
+            voiceBlock != null -> "Vidéo active · $voiceBlock"
+            !state.orientationVerified -> "Vidéo active · annonces à autoriser"
+            else -> "Oria est en marche"
+        }
+        state.pocketPreparing -> "Préparation du mode poche…"
+        capture.storageBusy -> "Attendez la fin de l’enregistrement"
+        !state.connected -> "Connectez vos lunettes pour commencer"
+        state.modelLoading -> "Préparation d’Oria…"
+        !state.modelReady -> "Oria n’est pas prête · voir les réglages"
+        voiceBlock != null -> voiceBlock
+        !state.orientationVerified -> "Démarrez pour vérifier les directions"
+        else -> "Prête à démarrer"
+    }
+
+    OriaUiTheme {
         Scaffold(
-            containerColor = Paper,
+            containerColor = MaterialTheme.colorScheme.background,
             contentWindowInsets = WindowInsets.safeDrawing,
             bottomBar = {
-                Surface(color = Color.White, shadowElevation = 6.dp) {
+                Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp) {
                     Column(
-                        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
+                        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(state.status, style = MaterialTheme.typography.bodySmall, maxLines = 2)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Button(onClick = onStart, enabled = state.connected && state.modelReady && !state.running && !state.pocketPreparing && !capture.storageBusy,
-                                modifier = Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Démarrer") }
-                            OutlinedButton(onClick = { controller.stop() }, enabled = state.running,
-                                modifier = Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Arrêter") }
+                        Button(
+                            onClick = { if (state.running || state.pocketPreparing) controller.stop() else onStart() },
+                            enabled = state.running || state.pocketPreparing || canStart,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (state.running || state.pocketPreparing) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                contentColor = if (state.running || state.pocketPreparing) MaterialTheme.colorScheme.onError else MaterialTheme.colorScheme.onPrimary,
+                            ),
+                            shape = RoundedCornerShape(20.dp),
+                        ) {
+                            Text(if (state.running || state.pocketPreparing) "Arrêter Oria" else "Démarrer Oria",
+                                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             },
         ) { contentPadding ->
-            Column(Modifier.fillMaxSize().padding(contentPadding).consumeWindowInsets(contentPadding)
-                .verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Oria", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Surface(shape = RoundedCornerShape(20.dp), color = Ink) {
-                        Text("SILMO • PROTOTYPE", color = Color.White, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(12.dp, 8.dp))
+            Column(
+                Modifier.fillMaxSize().padding(contentPadding).consumeWindowInsets(contentPadding)
+                    .verticalScroll(rememberScrollState()).padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Votre environnement, à l’écoute", style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
+                    Text("Les objets et leurs directions, annoncés dans vos lunettes.",
+                        style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+
+                OriaHomeSection {
+                    Text(if (state.simulator) "Simulation" else "Vos lunettes",
+                        style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                    OriaSectionTitle(if (state.connected) {
+                        if (state.simulator) "Simulateur connecté" else "Lunettes connectées"
+                    } else "Lunettes déconnectées")
+                    Text(startHelp, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                    Text(state.status, style = MaterialTheme.typography.bodyMedium)
+                    if (state.modelLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    if (!state.connected) {
+                        Text("Allumez vos lunettes et connectez-les dans VIVE Connect, puis revenez ici.",
+                            style = MaterialTheme.typography.bodyMedium)
+                        Button(onClick = { controller.connect(simulatorChoice) },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                            contentPadding = PaddingValues(16.dp)) {
+                            Text(if (simulatorChoice) "Connecter le simulateur" else "Connecter les lunettes")
+                        }
+                    } else {
+                        OutlinedButton(onClick = controller::disconnect,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                            contentPadding = PaddingValues(16.dp)) {
+                            Text(if (state.simulator) "Déconnecter le simulateur" else "Déconnecter les lunettes")
+                        }
+                    }
+                    if (state.simulator) {
+                        Text("Les images proviennent du simulateur. La voix Bluetooth exige les lunettes réelles.",
+                            style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                Text("Les objets autour de vous,\nannoncés dans vos lunettes.", style = MaterialTheme.typography.titleLarge)
-                TextButton(onClick = onOpenHtcDiagnostics) { Text("Diagnostic HTC") }
+
                 if (capture.phase == OriaLabPhase.RECORDING || capture.phase == OriaLabPhase.FINALIZING) {
-                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFE5DD))) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(if (capture.phase == OriaLabPhase.RECORDING) "● Oria Lab enregistre · ${capture.elapsedMs / 1000} s" else "Oria Lab finalise la capture", fontWeight = FontWeight.Bold)
-                            Text("${capture.frames} images · ${capture.detail}", style = MaterialTheme.typography.bodySmall)
-                            TextButton(onClick = controller::stopOriaLab, enabled = capture.phase == OriaLabPhase.RECORDING) { Text("Arrêter et finaliser") }
+                    OriaHomeSection(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
+                        OriaSectionTitle(if (capture.phase == OriaLabPhase.RECORDING)
+                            "Oria Lab enregistre" else "Finalisation de la capture")
+                        Text(if (capture.phase == OriaLabPhase.RECORDING) "${capture.elapsedMs / 1000} secondes enregistrées" else capture.detail,
+                            style = MaterialTheme.typography.bodyLarge)
+                        Text("${capture.frames} images · ${capture.detail}", style = MaterialTheme.typography.bodyMedium)
+                        OutlinedButton(onClick = controller::stopOriaLab, enabled = capture.phase == OriaLabPhase.RECORDING,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), contentPadding = PaddingValues(16.dp)) {
+                            Text("Arrêter et finaliser la capture")
                         }
                     }
                 }
-                Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(if (state.simulator) "SIMULATEUR HTC" else "LUNETTES HTC · CAMÉRA RÉELLE", style = MaterialTheme.typography.labelLarge, color = Teal)
-                        Text(if (state.connected) "Lunettes connectées" else "Lunettes déconnectées", fontWeight = FontWeight.Bold)
-                        if (!state.connected) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Switch(checked = simulatorChoice, onCheckedChange = { simulatorChoice = it })
-                                Text("Utiliser le simulateur", modifier = Modifier.padding(start = 8.dp))
-                            }
-                            Button(onClick = { controller.connect(simulatorChoice) }, modifier = Modifier.fillMaxWidth()) { Text("Connecter") }
-                        } else {
-                            TextButton(onClick = { controller.disconnect() }) { Text("Déconnecter") }
-                        }
-                    }
-                }
-                Card(colors = CardDefaults.cardColors(containerColor = if (state.running) Color(0xFFE0F0E8) else Color.White)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(state.status, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        if (state.modelLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-                        Text(if (state.modelReady) "Modèle chargé • calcul sur le téléphone" else "Le modèle doit être prêt avant de démarrer.", style = MaterialTheme.typography.bodyMedium)
-                        Text("Caméra seule : catégories et directions, sans mesure de distance.", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                Card(colors = CardDefaults.cardColors(containerColor = Ink)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("DERNIÈRE DEMANDE VOCALE", color = Color(0xFFA9D8CC), style = MaterialTheme.typography.labelMedium)
-                        Text(state.lastAlert, style = MaterialTheme.typography.titleLarge, color = Color.White)
-                        Text(state.audio, color = Color.White, style = MaterialTheme.typography.bodySmall)
+
+                OriaHomeSection {
+                    OriaHomeDisclosure(
+                        label = "Préparer les annonces",
+                        expanded = preparationExpanded,
+                        onClick = { preparationExpanded = !preparationExpanded },
+                    )
+                    Text(if (state.orientationVerified) "Directions autorisées" else "Une vérification est nécessaire",
+                        style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                    if (preparationExpanded) {
+                        Text("1. Écouter la voix", style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
+                        Text("Écoutez les tests dans les lunettes. Le son favorise le côté annoncé et reste présent dans les deux oreilles.",
+                            style = MaterialTheme.typography.bodyLarge)
                         if (state.voiceBackend == OriaVoiceBackend.BLUETOOTH) {
-                            Text(if (state.simulator) "Sortie Bluetooth réservée aux lunettes réelles" else state.localVoiceStatus,
-                                color = Color(0xFFA9D8CC), style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (state.audioAutomaticPaused && !state.audioUnknown) {
-                            Text("Annonces automatiques suspendues. Tester la voix pour les réactiver.",
-                                color = Color(0xFFFFD4AB), style = MaterialTheme.typography.bodySmall)
-                        }
-                        val voiceTestEnabled = state.connected && !state.audioBusy && !state.audioUnknown &&
-                            (state.voiceBackend == OriaVoiceBackend.HTC || (state.localVoiceReady && !state.simulator))
-                        if (state.voiceBackend == OriaVoiceBackend.BLUETOOTH) {
-                            Text("Voix orientée selon l’objet. Tester les côtés :", color = Color.White,
-                                style = MaterialTheme.typography.bodySmall)
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf(SpeechPan.LEFT to "Gauche", SpeechPan.CENTER to "Centre", SpeechPan.RIGHT to "Droite").forEach { (pan, label) ->
-                                    OutlinedButton(onClick = { controller.testVoice(pan) }, enabled = voiceTestEnabled,
-                                        modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 6.dp),
-                                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)) { Text(label) }
+                            listOf(SpeechPan.LEFT to "Tester la voix à gauche", SpeechPan.CENTER to "Tester la voix au centre",
+                                SpeechPan.RIGHT to "Tester la voix à droite").forEach { (pan, label) ->
+                                OutlinedButton(onClick = { controller.testVoice(pan) }, enabled = voiceTestEnabled,
+                                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), contentPadding = PaddingValues(16.dp)) {
+                                    Text(label)
                                 }
                             }
                         } else {
                             OutlinedButton(onClick = { controller.testVoice() }, enabled = voiceTestEnabled,
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)) { Text("Tester la voix") }
-                        }
-                        if (state.audioUnknown) Text("La voix est suspendue : une réponse HTC n’a pas pu être attribuée. La phrase déjà envoyée peut continuer.", color = Color(0xFFFFD4AB))
-                    }
-                }
-                Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Switch(checked = state.pocketEnabled, onCheckedChange = controller::setPocketMode,
-                                enabled = !state.running && !state.pocketPreparing)
-                            Text("Mode poche · expérimental", Modifier.padding(start = 8.dp), fontWeight = FontWeight.Bold)
-                        }
-                        Text(state.pocketStatus, style = MaterialTheme.typography.bodySmall)
-                        Text("Continuer écran verrouillé jusqu’à votre arrêt ou une interruption de connexion. À valider sur HTC. Oria Lab s’arrête toujours en arrière-plan.",
-                            style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = state.orientationVerified, onCheckedChange = controller::confirmOrientation)
-                    Text("J’ai vérifié gauche / droite dans l’aperçu et le test vocal. Autoriser les annonces d’objets.", style = MaterialTheme.typography.bodyMedium)
-                }
-                if (!state.orientationVerified) Text("Vérifiez l’aperçu avec un objet de chaque côté, puis les boutons vocaux Gauche / Droite avant d’autoriser les annonces.", style = MaterialTheme.typography.bodySmall)
-                if (state.running) {
-                    Box(
-                        Modifier.fillMaxWidth().aspectRatio(previewAspectRatio).background(Ink),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        val bitmap = state.preview
-                        if (bitmap != null) {
-                            Image(bitmap.asImageBitmap(), "Aperçu de la caméra des lunettes", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
-                            Canvas(Modifier.fillMaxSize()) {
-                                state.detections.forEach { detection ->
-                                    val b = detection.box
-                                    drawRect(Color(0xFF63FFC3), Offset(b.left * size.width, b.top * size.height),
-                                        Size(b.width * size.width, b.height * size.height), style = Stroke(2.dp.toPx()))
-                                }
-                                listOf(.39f, .61f).forEach { x -> drawLine(Color.White.copy(alpha = .6f), Offset(x * size.width, 0f), Offset(x * size.width, size.height), 1.dp.toPx()) }
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), contentPadding = PaddingValues(16.dp)) {
+                                Text("Tester la voix")
                             }
-                        } else {
-                            Text("En attente d’image fraîche", color = Color.White, modifier = Modifier.padding(24.dp))
                         }
+                        if (!voiceTestEnabled) {
+                            Text(when {
+                                !state.connected -> "Connectez les lunettes pour écouter le test."
+                                state.audioUnknown -> "Le test est indisponible : une réponse vocale HTC reste incertaine."
+                                state.audioBusy -> "Attendez la fin de la phrase en cours."
+                                state.simulator -> "Le test Bluetooth nécessite les lunettes réelles."
+                                else -> state.localVoiceStatus
+                            }, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+                        Text("2. Vérifier les directions", style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
+                        Text("Démarrez Oria, puis ouvrez l’aperçu ci-dessous. Faites vérifier, avec un accompagnant si besoin, qu’un objet placé à gauche puis à droite apparaît du bon côté. Vérifiez aussi les tests vocaux.",
+                            style = MaterialTheme.typography.bodyLarge)
+                        Text("Cochez seulement après ces vérifications. Sans validation, les annonces d’objets restent désactivées.",
+                            style = MaterialTheme.typography.bodyMedium)
+                        OriaHomeCheck(
+                            checked = state.orientationVerified,
+                            onCheckedChange = controller::confirmOrientation,
+                            label = "Les directions de l’image et de la voix ont été vérifiées. J’autorise les annonces.",
+                        )
                     }
                 }
-                TextButton(onClick = { diagnostics = !diagnostics }) { Text(if (diagnostics) "Masquer les réglages" else "Réglages Oria") }
-                if (diagnostics) {
-                    HorizontalDivider()
-                    Text("Sortie vocale", fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = state.voiceBackend == OriaVoiceBackend.BLUETOOTH,
-                            enabled = !state.running && !state.audioBusy && !state.audioUnknown,
-                            onClick = { controller.setVoiceBackend(OriaVoiceBackend.BLUETOOTH) },
-                            label = { Text("Bluetooth VIVE") })
-                        FilterChip(selected = state.voiceBackend == OriaVoiceBackend.HTC,
-                            enabled = !state.running && !state.audioBusy && !state.audioUnknown,
-                            onClick = { controller.setVoiceBackend(OriaVoiceBackend.HTC) },
-                            label = { Text("HTC · diagnostic") })
+
+                OriaHomeSection(containerColor = MaterialTheme.colorScheme.primaryContainer) {
+                    OriaSectionTitle("Dernière annonce demandée")
+                    Text(state.lastAlert, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(state.audio, style = MaterialTheme.typography.bodyMedium)
+                    if (state.audioAutomaticPaused && !state.audioUnknown) {
+                        Text("Annonces automatiques suspendues. Testez la voix pour les réactiver.",
+                            style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                     }
-                    Text("La voix HTC est réservée au diagnostic sans vidéo. La voix locale utilise la sortie Bluetooth VIVE détectée.",
-                        style = MaterialTheme.typography.bodySmall)
-                    Text("Suivi des objets", fontWeight = FontWeight.Bold)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = state.trackingMode == com.htc.vive.eagle.hackathon.starter.oria.core.RgbTrackingMode.STABLE_RGB_V2,
+                    if (state.audioUnknown) {
+                        Text("La voix est suspendue : une réponse HTC n’a pas pu être attribuée. La phrase déjà envoyée peut continuer.",
+                            style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+
+                OriaHomeSection {
+                    OriaSectionTitle("Utiliser Oria en poche")
+                    OriaSettingToggle(
+                        checked = state.pocketEnabled,
+                        onCheckedChange = controller::setPocketMode,
+                        enabled = !state.running && !state.pocketPreparing,
+                        title = "Continuer écran verrouillé",
+                    )
+                    Text(state.pocketStatus, style = MaterialTheme.typography.bodyLarge)
+                    Text("Mode expérimental, sans limite de durée. Une coupure de connexion peut arrêter Oria. Oria Lab s’arrête toujours en arrière-plan.",
+                        style = MaterialTheme.typography.bodyMedium)
+                    if (state.running || state.pocketPreparing) Text("Arrêtez Oria pour modifier ce réglage.",
+                        style = MaterialTheme.typography.bodyMedium)
+                }
+
+                OriaHomeSection {
+                    OriaHomeDisclosure("Aperçu de la caméra", previewExpanded, { previewExpanded = !previewExpanded })
+                    if (previewExpanded) {
+                        Text("Pour vérifier le sens de l’image, avec un accompagnant si besoin. Aucune distance n’est mesurée.",
+                            style = MaterialTheme.typography.bodyLarge)
+                        if (state.running) {
+                            Box(Modifier.fillMaxWidth().aspectRatio(previewAspectRatio).background(Color(0xFF112A2D)),
+                                contentAlignment = Alignment.Center) {
+                                val bitmap = state.preview
+                                if (bitmap != null) {
+                                    Image(bitmap.asImageBitmap(), "Aperçu de la caméra des lunettes", Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.FillBounds)
+                                    Canvas(Modifier.fillMaxSize()) {
+                                        state.detections.forEach { detection ->
+                                            val b = detection.box
+                                            drawRect(Color(0xFF63FFC3), Offset(b.left * size.width, b.top * size.height),
+                                                Size(b.width * size.width, b.height * size.height), style = Stroke(2.dp.toPx()))
+                                        }
+                                        listOf(.39f, .61f).forEach { x ->
+                                            drawLine(Color.White.copy(alpha = .6f), Offset(x * size.width, 0f),
+                                                Offset(x * size.width, size.height), 1.dp.toPx())
+                                        }
+                                    }
+                                } else {
+                                    Text("En attente d’une image fraîche", color = Color.White, modifier = Modifier.padding(24.dp))
+                                }
+                            }
+                        } else Text("Démarrez Oria pour afficher la caméra.", style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+
+                OriaHomeSection {
+                    OriaHomeDisclosure("Réglages avancés et diagnostic", diagnostics, { diagnostics = !diagnostics })
+                    if (diagnostics) {
+                        if (!state.connected) {
+                            OriaSettingToggle("Utiliser le simulateur HTC", simulatorChoice, { simulatorChoice = it })
+                            Text("Activez ce réglage avant de connecter le simulateur.", style = MaterialTheme.typography.bodyMedium)
+                        }
+                        OriaSectionTitle("Sortie vocale")
+                        listOf(OriaVoiceBackend.BLUETOOTH to "Bluetooth VIVE", OriaVoiceBackend.HTC to "HTC · diagnostic").forEach { (backend, label) ->
+                            FilterChip(selected = state.voiceBackend == backend,
+                                enabled = !state.running && !state.audioBusy && !state.audioUnknown,
+                                onClick = { controller.setVoiceBackend(backend) },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), label = { Text(label) })
+                        }
+                        Text("La voix HTC est réservée au diagnostic sans vidéo. La voix locale utilise la sortie Bluetooth VIVE détectée.",
+                            style = MaterialTheme.typography.bodyMedium)
+                        if (state.voiceBackend == OriaVoiceBackend.BLUETOOTH) Text(state.localVoiceStatus,
+                            style = MaterialTheme.typography.bodyMedium)
+                        OriaSectionTitle("Suivi des objets")
+                        OriaSettingToggle(
+                            checked = state.trackingMode == RgbTrackingMode.STABLE_RGB_V2,
+                            onCheckedChange = { controller.setTrackingMode(if (it) RgbTrackingMode.STABLE_RGB_V2 else RgbTrackingMode.LEGACY_IOU) },
+                            title = "Suivi stable V2 · expérimental",
                             enabled = !state.running && !state.pocketPreparing && !state.audioBusy && !state.audioUnknown,
-                            onCheckedChange = { controller.setTrackingMode(if (it)
-                                com.htc.vive.eagle.hackathon.starter.oria.core.RgbTrackingMode.STABLE_RGB_V2
-                                else com.htc.vive.eagle.hackathon.starter.oria.core.RgbTrackingMode.LEGACY_IOU) })
-                        Text("Suivi stable V2 · expérimental", Modifier.padding(start = 8.dp))
-                    }
-                    Text("Le suivi habituel reste activé par défaut. Comparez les deux modes dans Oria Lab avant un essai terrain.",
-                        style = MaterialTheme.typography.bodySmall)
-                    Text("Repère de la caméra", fontWeight = FontWeight.Bold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        )
+                        Text("Le suivi habituel reste activé par défaut. Comparez les deux modes dans Oria Lab avant un essai terrain.",
+                            style = MaterialTheme.typography.bodyMedium)
+                        OriaSectionTitle("Repère de la caméra")
                         listOf(0, 90, 180, 270).forEach { rotation ->
-                            FilterChip(selected = state.rotation == rotation, onClick = { controller.setGeometry(rotation, state.mirrored) }, label = { Text("$rotation°") })
+                            FilterChip(selected = state.rotation == rotation,
+                                onClick = { controller.setGeometry(rotation, state.mirrored) },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                                label = { Text("Rotation : $rotation degrés") })
                         }
+                        OriaSettingToggle("Corriger une image miroir", state.mirrored, { controller.setGeometry(state.rotation, it) })
+                        OriaSettingToggle("XNNPACK · accélération locale", state.xnnpack, controller::loadModel,
+                            enabled = !state.running && !state.modelLoading)
+                        Text("Images reçues pour analyse : ${state.received}\nRésultats frais : ${state.analyzed} · périmés : ${state.stale}\nCadence utile : ${String.format(Locale.FRANCE, "%.1f", state.fps)} Hz\nRéception → décision : ${state.lastLatencyMs} ms · p95 accepté ${state.p95Ms} ms\nP95 toutes inférences : ${state.allInferenceP95Ms} ms\nPrétraitement : ${state.preprocessMs.toInt()} ms · modèle : ${state.inferenceMs.toInt()} ms\nPolitique : ${state.suppression}",
+                            style = MaterialTheme.typography.bodyMedium)
+                        Text("La réception est mesurée sur le téléphone. Le délai de capture et le son audible restent à mesurer séparément.",
+                            style = MaterialTheme.typography.bodyMedium)
+                        if (!state.xnnpack) Text("CPU expérimental : un échec de parité stricte a été observé sur le téléphone précédent.",
+                            style = MaterialTheme.typography.bodyMedium)
+                        OutlinedButton(onClick = { controller.loadModel(state.xnnpack) }, enabled = !state.running && !state.modelLoading,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp), contentPadding = PaddingValues(16.dp)) {
+                            Text("Recharger le modèle")
+                        }
+                        OutlinedButton(onClick = onOpenHtcDiagnostics, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                            contentPadding = PaddingValues(16.dp)) { Text("Ouvrir le diagnostic HTC") }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = state.mirrored, onCheckedChange = { controller.setGeometry(state.rotation, it) })
-                        Text("Corriger une image miroir", Modifier.padding(start = 8.dp))
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = state.xnnpack, enabled = !state.running && !state.modelLoading, onCheckedChange = controller::loadModel)
-                        Text("XNNPACK · accélération locale", Modifier.padding(start = 8.dp))
-                    }
-                    Text("Images reçues pour analyse : ${state.received}\nRésultats frais : ${state.analyzed} · périmés : ${state.stale}\nCadence utile : ${String.format(Locale.FRANCE, "%.1f", state.fps)} Hz\nRéception → décision : ${state.lastLatencyMs} ms · p95 accepté ${state.p95Ms} ms\nP95 toutes inférences : ${state.allInferenceP95Ms} ms\nPrétraitement : ${state.preprocessMs.toInt()} ms · modèle : ${state.inferenceMs.toInt()} ms\nPolitique : ${state.suppression}", style = MaterialTheme.typography.bodySmall)
-                    Text("La réception est mesurée sur le téléphone. Le délai de capture et le son audible restent à mesurer séparément.", style = MaterialTheme.typography.bodySmall)
-                    if (!state.xnnpack) Text("CPU expérimental : un échec de parité stricte a été observé sur le téléphone précédent.", style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = { controller.loadModel(state.xnnpack) }, enabled = !state.running && !state.modelLoading) { Text("Recharger le modèle") }
                 }
-                Text("Oria × VIVE Eagle · Démonstration contrôlée", style = MaterialTheme.typography.labelSmall, color = Color.DarkGray)
+                Text("Oria × VIVE Eagle · Prototype", style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+    }
+}
+
+@Composable
+private fun OriaHomeSection(
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), color = containerColor) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+    }
+}
+
+@Composable
+private fun OriaHomeDisclosure(label: String, expanded: Boolean, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+        .semantics { heading(); stateDescription = if (expanded) "Développé" else "Replié" },
+        contentPadding = PaddingValues(vertical = 8.dp, horizontal = 0.dp)) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(if (expanded) "Masquer" else "Afficher", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun OriaHomeCheck(checked: Boolean, onCheckedChange: (Boolean) -> Unit, label: String) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp)
+        .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+        .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Checkbox(checked = checked, onCheckedChange = null, modifier = Modifier.clearAndSetSemantics { })
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
     }
 }

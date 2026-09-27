@@ -4,6 +4,10 @@ L’application **Oria** s’ouvre sur l’assistance en direct et propose deux 
 
 Le package et le namespace restent `com.htc.vive.eagle.hackathon.starter`. Le SDK, les dépendances locales et la clé debug sont conservés. Les paramètres numériques du modèle, les règles RGB, les seuils et les fixtures partagées Swift sont inchangés ; seules les métadonnées descriptives du modèle ont été renommées.
 
+## Candidat 1.5 — interface et accessibilité
+
+**1.5-accessibility / code 6 est compilé, pas encore installé.** Accueil simplifié, thèmes clair/sombre, grandes commandes, aperçu et réglages repliables, contrôles nommés pour les services d’accessibilité ; Oria Lab reprend le même style. Les 83 tests JVM passent et la revue indépendante ne relève pas de blocage. Le HTC a été débranché avant la mise à jour : rendu à 200 % et TalkBack restent à tester. [Livraison et recette restante](validation/ACCESSIBILITY_DELIVERY_20260927.md).
+
 ## Version de nuit installée — 27 septembre
 
 **Oria 1.4-night**, versionCode 5, est actuellement installé sur **CN46V3M00284** : APK `aaec205c5f0916d2789c082e707eecf0ab810fd51038959b74d9e7beaca8b8dc`, signature habituelle du projet. L’APK et les données privées de la version précédente ont été sauvegardés avant la mise à jour. Un runner d’instrumentation a ensuite désinstallé automatiquement le package ; l’application et ses 521 fichiers privés ont été restaurés et vérifiés, puis l’app a été arrêtée. Voir le [bilan de nuit](validation/NIGHT_WORK_20260927.md) et le [manifeste de compilation](artifacts/night-20260927-v1.4-validation.json).

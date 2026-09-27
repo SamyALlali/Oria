@@ -22,8 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -75,6 +73,7 @@ import com.htc.vive.eagle.hackathon.starter.oria.lifecycle.PocketSessionService
 import com.htc.vive.eagle.hackathon.starter.oria.OriaController
 import com.htc.vive.eagle.hackathon.starter.oria.ui.OriaScreen
 import com.htc.vive.eagle.hackathon.starter.oria.ui.OriaLabScreen
+import com.htc.vive.eagle.hackathon.starter.oria.ui.OriaNavigation
 import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabPhase
 
 class MainActivity : AppCompatActivity() {
@@ -364,15 +363,7 @@ fun SampleApp(
                     ),
                 )
             } else {
-                TabRow(selectedTabIndex = if (currentRoute == AppDestination.OriaLab.route) 1 else 0,
-                    modifier = Modifier.statusBarsPadding(), containerColor = Color(0xFFF5F6F2),
-                    contentColor = Color(0xFF086D65)) {
-                    AppDestination.echoItems.forEach { destination ->
-                        Tab(selected = currentRoute == destination.route, onClick = { openEcho(destination) },
-                            text = { Text(if (destination == AppDestination.OriaLab && capture.phase == OriaLabPhase.RECORDING)
-                                "Oria Lab ●" else destination.label) })
-                    }
-                }
+                OriaNavigation(currentRoute, capture.phase == OriaLabPhase.RECORDING, ::openEcho)
             }
         },
         bottomBar = {

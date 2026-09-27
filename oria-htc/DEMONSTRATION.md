@@ -1,5 +1,7 @@
 # Démonstration Oria — nouveau HTC CN46V3M00284
 
+> **Candidat 1.5-accessibility compilé, non installé :** accueil et Oria Lab redessinés. Après sa future installation, ouvrir **Préparer les annonces** pour les tests vocaux et la confirmation du repère, **Aperçu de la caméra** pour l’image et **Réglages avancés et diagnostic** pour les options techniques. Le bouton principal devient **Démarrer Oria / Arrêter Oria**. La recette visuelle et TalkBack reste à faire ; voir la [livraison 1.5](validation/ACCESSIBILITY_DELIVERY_20260927.md). Le parcours ci-dessous documente encore la version 1.4 installée.
+
 > Version actuelle : Oria 1.4-night/code 5 sur **CN46V3M00284**. Vidéo réelle et tests vocaux 70/30 confirmés le 27 septembre dans la [recette de 1.4](validation/LIVE_20260927_V14.md). Le mode poche écran verrouillé reste non validé. Voir le [bilan de nuit](validation/NIGHT_WORK_20260927.md) pour l’incident de désinstallation du runner et la restauration vérifiée. Vérifier le numéro ADB avant chaque installation.
 
 L’application livrée s’appelle **Oria**, s’ouvre directement sur Oria et conserve le package HTC autorisé. Deux onglets donnent accès à **Oria** pour l’assistance en direct et **Oria Lab** pour enregistrer une scène explicitement. **Diagnostic HTC** donne accès aux outils du starter. Les commandes de démarrage/arrêt restent visibles en bas, même lorsque l’aperçu portrait remplit le contenu.

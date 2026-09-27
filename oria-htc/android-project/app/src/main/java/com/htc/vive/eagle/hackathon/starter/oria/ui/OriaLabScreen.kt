@@ -21,6 +21,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,8 +49,6 @@ import java.util.Date
 import java.util.Locale
 
 private val TestInk = Color(0xFF101A23)
-private val TestPaper = Color(0xFFF5F6F2)
-private val TestTeal = Color(0xFF086D65)
 
 @Composable
 fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDiagnostics: () -> Unit) {
@@ -63,6 +67,7 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
     var archiveId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedSessionId by rememberSaveable { mutableStateOf<String?>(null) }
     var frameIndex by rememberSaveable { mutableIntStateOf(0) }
+    var showCaptureHelp by rememberSaveable { mutableStateOf(false) }
     val recordingActive = recording.phase == OriaLabPhase.RECORDING
     val finalizing = recording.phase == OriaLabPhase.FINALIZING
     val storageBusy = recording.storageBusy || exporting || managing || pendingExport != null
@@ -129,58 +134,67 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
     val liveRatio = live.preview?.let { it.width.toFloat() / it.height } ?: lastAspectRatio
     SideEffect { if (live.preview != null) lastAspectRatio = liveRatio }
 
-    MaterialTheme(colorScheme = lightColorScheme(primary = TestTeal, background = TestPaper, surface = Color.White, onSurface = TestInk)) {
-        Scaffold(containerColor = TestPaper, contentWindowInsets = WindowInsets.safeDrawing,
+    OriaUiTheme {
+        Scaffold(containerColor = MaterialTheme.colorScheme.background, contentWindowInsets = WindowInsets.safeDrawing,
             bottomBar = {
-                Surface(color = Color.White, shadowElevation = 6.dp) {
+                Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 3.dp) {
                     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(recording.detail.ifBlank { "Aucun enregistrement en cours" }, style = MaterialTheme.typography.bodySmall, maxLines = 2)
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (!live.running && !recordingActive && !finalizing) {
                             Button(onClick = onRecord,
                                 enabled = live.connected && live.modelReady && !recordingActive && !finalizing && !storageBusy,
-                                modifier = Modifier.weight(1f).heightIn(min = 56.dp)) { Text("Enregistrer une scène") }
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) { Text("Enregistrer une scène") }
+                        }
+                        if (recordingActive || live.running) {
                             OutlinedButton(onClick = controller::stopOriaLab,
                                 enabled = recordingActive || live.running,
-                                modifier = Modifier.weight(1f).heightIn(min = 56.dp)) {
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
                                 Text(if (recordingActive) "Arrêter et finaliser" else "Arrêter la vidéo")
                             }
                         }
+                        if (finalizing) Text("Finalisation de la capture…", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }) { padding ->
             Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding)
                 .verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Oria Lab", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
-                Text("Capturer une scène pour l’analyser et la rejouer sur Mac.", style = MaterialTheme.typography.titleMedium)
-                TextButton(onClick = onOpenHtcDiagnostics) { Text("Diagnostic HTC") }
-                Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(if (live.simulator) "SOURCE : SIMULATEUR HTC" else "SOURCE : CAMÉRA DES LUNETTES", fontWeight = FontWeight.Bold)
-                        Text(if (live.connected) "Lunettes connectées" else "Lunettes déconnectées")
+                Text("Oria Lab", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.semantics { heading() })
+                Text("Enregistrez une scène. Retrouvez chaque image ici ou sur Mac.", style = MaterialTheme.typography.bodyLarge)
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OriaSectionTitle("Source de la capture")
+                        Text(if (live.simulator) "Simulateur HTC" else "Caméra des lunettes", style = MaterialTheme.typography.titleMedium)
+                        Text(if (live.connected) "Lunettes connectées" else "Lunettes déconnectées", fontWeight = FontWeight.SemiBold)
                         if (!live.connected) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Switch(checked = simulatorChoice, onCheckedChange = { simulatorChoice = it })
-                                Text("Utiliser le simulateur", Modifier.padding(start = 8.dp))
-                            }
-                            Button(onClick = { controller.connect(simulatorChoice) }) { Text("Connecter") }
+                            OriaSettingToggle(title = "Utiliser le simulateur", checked = simulatorChoice,
+                                onCheckedChange = { simulatorChoice = it })
+                            Button(onClick = { controller.connect(simulatorChoice) },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text("Connecter la source") }
                         }
                         Text(if (live.modelReady) "Modèle prêt" else "Chargement du modèle…")
-                        Text("L’enregistrement commence uniquement avec « Enregistrer une scène ». Il contient la vidéo, les images exactes analysées et la télémétrie, sans piste microphone.")
-                        Text("Sans limite de durée : terminez avec « Arrêter et finaliser ». La capture s’arrête si le téléphone ne peut plus conserver 512 Mio libres, ou si la file d’écriture déborde. Aucune suppression automatique.", style = MaterialTheme.typography.bodySmall)
-                        Text("Une nouvelle capture redémarre le flux pour conserver ses en-têtes vidéo. Le retour sur cet écran ne déclenche rien.", style = MaterialTheme.typography.bodySmall)
+                        if (live.running && !recordingActive && !finalizing) {
+                            Button(onClick = onRecord,
+                                enabled = live.connected && live.modelReady && !recordingActive && !finalizing && !storageBusy,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp)) { Text("Enregistrer cette scène") }
+                        }
+                        OutlinedButton(onClick = onOpenHtcDiagnostics,
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text("Ouvrir le diagnostic HTC") }
                     }
                 }
-                Card(colors = CardDefaults.cardColors(containerColor = if (recordingActive) Color(0xFFFFE5DD) else Color.White)) {
-                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(when (recording.phase) {
-                            OriaLabPhase.RECORDING -> "● ENREGISTREMENT"
-                            OriaLabPhase.FINALIZING -> "FINALISATION EN COURS"
-                            OriaLabPhase.ERROR -> "CAPTURE À VÉRIFIER"
-                            OriaLabPhase.OFF -> "ENREGISTREMENT ARRÊTÉ"
-                        }, fontWeight = FontWeight.Bold)
-                        Text("Durée : ${recording.elapsedMs / 1000} s · images : ${recording.frames} · paquets : ${recording.packets}")
+                Card(colors = CardDefaults.cardColors(containerColor = if (recordingActive) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surface)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OriaSectionTitle(when (recording.phase) {
+                            OriaLabPhase.RECORDING -> "Capture en cours"
+                            OriaLabPhase.FINALIZING -> "Finalisation en cours"
+                            OriaLabPhase.ERROR -> "Capture à vérifier"
+                            OriaLabPhase.OFF -> "Capture arrêtée"
+                        })
+                        Text(recording.detail.ifBlank { "Aucun enregistrement en cours" }, style = MaterialTheme.typography.bodyLarge)
+                        Text("Sans limite de durée. Arrêtez et finalisez quand vous le souhaitez.", style = MaterialTheme.typography.bodyMedium)
+                        Text("${recording.elapsedMs / 1000} secondes · ${recording.frames} images", style = MaterialTheme.typography.titleMedium)
+                        Text("${recording.packets} paquets vidéo", style = MaterialTheme.typography.bodySmall)
                         Text("Écrits : ${mib(recording.bytesWritten)} Mio · en attente : ${mib(recording.queuedBytes)} Mio", style = MaterialTheme.typography.bodySmall)
-                        if (recording.incomplete) Text("Capture incomplète : consulter le motif et le manifeste exporté.", color = Color(0xFF9E2F1A))
+                        if (recording.incomplete) Text("Capture incomplète : consulter le motif et le manifeste exporté.", color = MaterialTheme.colorScheme.error)
                         if (finalizing) LinearProgressIndicator(Modifier.fillMaxWidth())
                         Text(live.status, style = MaterialTheme.typography.bodySmall)
                         Text("Images analysées fraîches : ${live.analyzed} · périmées : ${live.stale}", style = MaterialTheme.typography.bodySmall)
@@ -189,70 +203,83 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                     }
                 }
                 if (live.running) {
-                    Text("Aperçu live", fontWeight = FontWeight.Bold)
-                    ReviewImage(live.preview, live.detections, liveRatio, "En attente d’image fraîche")
+                    OriaSectionTitle("Vidéo en direct")
+                    ReviewImage(live.preview, live.detections, liveRatio, "En attente d’image fraîche",
+                        "Aperçu vidéo en direct")
                 }
                 HorizontalDivider()
-                Text("Captures enregistrées", style = MaterialTheme.typography.titleLarge)
-                Text("Le ZIP contient les fichiers de la session. Choisissez son emplacement avec le sélecteur Android ; aucun serveur n’est utilisé par Oria Lab.", style = MaterialTheme.typography.bodySmall)
-                if (live.running || recordingActive || finalizing) Text("Arrêtez la vidéo et attendez la finalisation avant de revoir ou exporter une capture.", style = MaterialTheme.typography.bodySmall)
-                Text("Espace occupé : ${mib(recording.totalStorageBytes)} Mio · corbeille : ${mib(recording.trashBytes)} Mio", style = MaterialTheme.typography.bodyMedium)
-                Text("Espace libre estimé : ${mib(recording.availableStorageBytes)} Mio · réserve : 512 Mio", style = MaterialTheme.typography.bodySmall)
-                Text("Le total inclut les captures et les ZIP privés. Mettre à la corbeille conserve les données et ne libère pas d’espace.", style = MaterialTheme.typography.bodySmall)
+                OriaSectionTitle("Captures enregistrées")
+                if (live.running || recordingActive || finalizing) Text("Arrêtez la vidéo et attendez la finalisation avant de revoir ou exporter une capture.", style = MaterialTheme.typography.bodyMedium)
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OriaSectionTitle("Stockage du téléphone")
+                        Text("${mib(recording.availableStorageBytes)} Mio libres estimés", style = MaterialTheme.typography.titleMedium)
+                        Text("Captures et ZIP : ${mib(recording.totalStorageBytes)} Mio\nCorbeille : ${mib(recording.trashBytes)} Mio")
+                        Text("La capture s’arrête pour préserver 512 Mio libres, ou si la file d’écriture déborde. Aucune suppression automatique.", style = MaterialTheme.typography.bodyMedium)
+                        Text("La corbeille conserve les données et ne libère pas d’espace.", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
                 if (storageBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
-                if (managementStatus.isNotBlank()) Text(managementStatus, style = MaterialTheme.typography.bodySmall)
-                if (exportStatus.isNotBlank()) Text(exportStatus, style = MaterialTheme.typography.bodySmall)
+                if (managementStatus.isNotBlank()) Text(managementStatus, style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
+                if (exportStatus.isNotBlank()) Text(exportStatus, style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 if (recording.savedSessions.isEmpty()) Text("Aucune capture finalisée pour le moment.")
                 recording.savedSessions.sortedByDescending { it.startedAtEpochMs }.forEach { session ->
-                    Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(session.displayName ?: sessionDate(session.startedAtEpochMs), fontWeight = FontWeight.Bold)
+                    val sessionName = session.displayName ?: sessionDate(session.startedAtEpochMs)
+                    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(sessionName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.semantics { heading() })
                             if (session.displayName != null) Text(sessionDate(session.startedAtEpochMs), style = MaterialTheme.typography.bodySmall)
                             Text("${session.durationMs / 1000} s · ${session.frames} images · ${mib(session.bytes)} Mio")
                             Text(if (session.complete) "Finalisée · ${session.reason}" else "Incomplète · ${session.reason}", style = MaterialTheme.typography.bodySmall)
                             if (!session.usableForReplay) Text("Sans image exploitable pour le rejeu", style = MaterialTheme.typography.bodySmall)
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                TextButton(onClick = { selectedSessionId = session.id; frameIndex = 0 },
-                                    enabled = canManage) { Text("Revoir les images") }
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilledTonalButton(onClick = { selectedSessionId = session.id; frameIndex = 0 },
+                                    enabled = canManage, modifier = Modifier.captureAction("Revoir les images", sessionName)) { Text("Revoir les images") }
                                 OutlinedButton(onClick = {
                                     pendingExport = session.id
                                     exportLauncher.launch("OriaLab-${session.id}.zip")
-                                }, enabled = canManage) { Text("Exporter ZIP") }
+                                }, enabled = canManage, modifier = Modifier.captureAction("Exporter le ZIP", sessionName)) { Text("Exporter le ZIP") }
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                 TextButton(onClick = {
                                     renameId = session.id
                                     renameText = session.displayName ?: sessionDate(session.startedAtEpochMs)
                                     renameError = null
-                                }, enabled = canManage) { Text("Renommer") }
-                                TextButton(onClick = { archiveId = session.id }, enabled = canManage) { Text("Mettre à la corbeille") }
+                                }, enabled = canManage, modifier = Modifier.captureAction("Renommer", sessionName)) { Text("Renommer") }
+                                TextButton(onClick = { archiveId = session.id }, enabled = canManage,
+                                    modifier = Modifier.captureAction("Mettre à la corbeille", sessionName)) { Text("Mettre à la corbeille") }
                             }
                         }
                     }
                 }
                 if (recording.trashedSessions.isNotEmpty()) {
                     HorizontalDivider()
-                    Text("Corbeille locale · ${recording.trashedSessions.size}", style = MaterialTheme.typography.titleLarge)
+                    OriaSectionTitle("Corbeille locale · ${recording.trashedSessions.size}")
                     Text("Les captures restent sur ce téléphone jusqu’à leur restauration. Aucune suppression automatique.", style = MaterialTheme.typography.bodySmall)
                     recording.trashedSessions.forEach { session ->
-                        Card(colors = CardDefaults.cardColors(containerColor = Color.White)) {
-                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(session.displayName ?: sessionDate(session.startedAtEpochMs), fontWeight = FontWeight.Bold)
+                        val sessionName = session.displayName ?: sessionDate(session.startedAtEpochMs)
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(sessionName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                                 Text("${session.durationMs / 1000} s · ${session.frames} images · ${mib(session.bytes)} Mio")
                                 OutlinedButton(onClick = {
                                     mutate("Capture restaurée.") { controller.restoreOriaLab(session.id) }
-                                }, enabled = canManage) { Text("Restaurer") }
+                                }, enabled = canManage, modifier = Modifier.captureAction("Restaurer", sessionName)) { Text("Restaurer") }
                             }
                         }
                     }
                 }
                 if (selectedSession != null) {
                     HorizontalDivider()
-                    Text("Relecture · capture enregistrée", style = MaterialTheme.typography.titleLarge)
+                    OriaSectionTitle("Relecture de la capture")
                     Text(selectedSession.displayName ?: selectedSession.id, style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = { selectedSessionId = null }) { Text("Fermer la relecture") }
+                    OutlinedButton(onClick = { selectedSessionId = null },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text("Fermer la relecture") }
                     if (gallery.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-                    if (gallery.error != null) Text(gallery.error!!, color = Color(0xFF9E2F1A))
+                    if (gallery.error != null) Text(gallery.error!!, color = MaterialTheme.colorScheme.error)
                     if (!gallery.loading) {
                         Text("PNG et détections sont vérifiées à la sélection, sans modifier les fichiers.", style = MaterialTheme.typography.bodySmall)
                         Text("${gallery.expectedFrames?.toString() ?: "?"} images annoncées · ${gallery.frames.size} entrées indexées\n" +
@@ -261,18 +288,23 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                             style = MaterialTheme.typography.bodySmall)
                         if (gallery.issueCount > 0) {
                             var showIssues by remember(selectedSession.id) { mutableStateOf(false) }
-                            TextButton(onClick = { showIssues = !showIssues }) { Text("${gallery.issueCount} problèmes · ${if (showIssues) "masquer" else "afficher les causes"}") }
+                            TextButton(onClick = { showIssues = !showIssues },
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics {
+                                    stateDescription = if (showIssues) "Causes affichées" else "Causes masquées"
+                                }) { Text("${gallery.issueCount} problèmes · ${if (showIssues) "masquer" else "afficher les causes"}") }
                             if (showIssues) Text(gallery.issues.joinToString("\n") +
                                 if (gallery.issueCount > gallery.issues.size) "\nListe limitée aux ${gallery.issues.size} premières causes ; aucune entrée d’image n’est retirée." else "",
-                                style = MaterialTheme.typography.bodySmall, color = Color(0xFF9E2F1A))
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                         }
                     }
                     if (!gallery.loading && gallery.frames.isEmpty()) Text("Aucune entrée dans l’index des images de cette capture.")
                     if (selectedFrame != null) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            OutlinedButton(onClick = { frameIndex = (safeIndex - 1).coerceAtLeast(0) }, enabled = safeIndex > 0) { Text("Précédente") }
-                            Text("${safeIndex + 1} / ${gallery.frames.size}")
-                            OutlinedButton(onClick = { frameIndex = safeIndex + 1 }, enabled = safeIndex + 1 < gallery.frames.size) { Text("Suivante") }
+                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Image ${safeIndex + 1} sur ${gallery.frames.size}", style = MaterialTheme.typography.titleMedium)
+                            OutlinedButton(onClick = { frameIndex = (safeIndex - 1).coerceAtLeast(0) }, enabled = safeIndex > 0,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text("Image précédente") }
+                            OutlinedButton(onClick = { frameIndex = safeIndex + 1 }, enabled = safeIndex + 1 < gallery.frames.size,
+                                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) { Text("Image suivante") }
                         }
                         Text("Ligne source ${selectedFrame.lineNumber} · vidéo ${selectedFrame.videoSessionId ?: "absente"} · image ${selectedFrame.frameId ?: "absente"}\n" +
                             "Réception ${selectedFrame.receivedAtMs?.let { "$it ms" } ?: "absente"}\n" +
@@ -283,11 +315,11 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                                 else -> "Aucune analyse associée sans ambiguïté à cette entrée"
                             }, style = MaterialTheme.typography.bodySmall)
                         if (selectedFrame.issues.isNotEmpty()) Text(selectedFrame.issues.joinToString("\n"),
-                            color = Color(0xFF9E2F1A), style = MaterialTheme.typography.bodySmall)
+                            color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         if (!review.loading && reviewImage == null && review.analysis.analyzed) {
                             Text(if (selectedFrame.image == null) "PNG indisponible, boîtes non superposées"
                                 else "Image non décodée, boîtes non superposées", fontWeight = FontWeight.Bold,
-                                color = Color(0xFF9E2F1A), style = MaterialTheme.typography.bodySmall)
+                                color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                             Text("Détections enregistrées · coordonnées normalisées dans le repère caméra",
                                 style = MaterialTheme.typography.bodySmall)
                             if (review.analysis.detections.isEmpty()) Text("Aucune détection dans l’inférence enregistrée.",
@@ -298,7 +330,23 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                         }
                         ReviewImage(reviewImage, if (reviewImage != null) review.analysis.detections else emptyList(),
                             reviewImage?.let { it.width.toFloat() / it.height } ?: 480f / 856f,
-                            if (review.loading) "Chargement de l’image enregistrée…" else review.preview.error ?: "Image indisponible")
+                            if (review.loading) "Chargement de l’image enregistrée…" else review.preview.error ?: "Image indisponible",
+                            "Image enregistrée ${safeIndex + 1} sur ${gallery.frames.size}")
+                    }
+                }
+                OutlinedCard {
+                    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { showCaptureHelp = !showCaptureHelp },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics {
+                                stateDescription = if (showCaptureHelp) "Informations affichées" else "Informations masquées"
+                            }) { Text(if (showCaptureHelp) "Masquer les informations" else "À propos des captures") }
+                        if (showCaptureHelp) {
+                            OriaSectionTitle("À propos des captures")
+                            Text("L’enregistrement commence uniquement avec le bouton d’enregistrement. Il contient la vidéo, les images exactes analysées et la télémétrie, sans piste microphone.")
+                            Text("Une nouvelle capture redémarre le flux pour conserver ses en-têtes vidéo. Le retour sur cet écran ne déclenche rien.")
+                            Text("Le ZIP contient les fichiers de la session. Choisissez son emplacement avec le sélecteur Android ; aucun serveur n’est utilisé par Oria Lab.")
+                            Text("La relecture conserve les positions et les diagnostics des données d’origine. Une image absente ne sera pas remplacée par une autre image.")
+                        }
                     }
                 }
             }
@@ -325,8 +373,9 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                         catch (e: Exception) { renameError = e.message ?: "Nom invalide" }
                         finally { managing = false }
                     }
-                }, enabled = canManage && renameText.isNotBlank()) { Text("Enregistrer") } },
-                dismissButton = { TextButton(onClick = { renameId = null }, enabled = !managing) { Text("Annuler") } })
+                }, enabled = canManage && renameText.isNotBlank(), modifier = Modifier.heightIn(min = 56.dp)) { Text("Enregistrer") } },
+                dismissButton = { TextButton(onClick = { renameId = null }, enabled = !managing,
+                    modifier = Modifier.heightIn(min = 56.dp)) { Text("Annuler") } })
         }
         archiveId?.let { id ->
             val session = recording.savedSessions.firstOrNull { it.id == id }
@@ -337,18 +386,22 @@ fun OriaLabScreen(controller: OriaController, onRecord: () -> Unit, onOpenHtcDia
                     archiveId = null
                     selectedSessionId = selectedSessionId.takeUnless { it == id }
                     mutate("Capture conservée dans la corbeille locale.") { controller.archiveOriaLab(id) }
-                }, enabled = canManage) { Text("Mettre à la corbeille") } },
-                dismissButton = { TextButton(onClick = { archiveId = null }) { Text("Annuler") } })
+                }, enabled = canManage, modifier = Modifier.heightIn(min = 56.dp)) { Text("Mettre à la corbeille") } },
+                dismissButton = { TextButton(onClick = { archiveId = null },
+                    modifier = Modifier.heightIn(min = 56.dp)) { Text("Annuler") } })
         }
     }
 }
 
+private fun Modifier.captureAction(action: String, captureName: String): Modifier =
+    fillMaxWidth().heightIn(min = 56.dp).semantics { contentDescription = "$action : $captureName" }
+
 @Composable
-private fun ReviewImage(bitmap: Bitmap?, detections: List<Detection>, aspect: Float, placeholder: String) {
+private fun ReviewImage(bitmap: Bitmap?, detections: List<Detection>, aspect: Float, placeholder: String, imageDescription: String) {
     Box(Modifier.fillMaxWidth().aspectRatio(aspect).background(TestInk), contentAlignment = Alignment.Center) {
         if (bitmap == null) Text(placeholder, color = Color.White, modifier = Modifier.padding(20.dp))
         else {
-            Image(bitmap.asImageBitmap(), "Image de la caméra", Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
+            Image(bitmap.asImageBitmap(), imageDescription, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
             Canvas(Modifier.fillMaxSize()) {
                 detections.forEach { detection ->
                     val box = detection.box
