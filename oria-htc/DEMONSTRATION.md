@@ -1,6 +1,6 @@
 # Démonstration Oria — nouveau HTC CN46V3M00284
 
-> Le 27 septembre, Oria 1.3-night a été installé sans désinstallation sur **CN46V3M00284**. Voir [le bilan de nuit](validation/NIGHT_WORK_20260927.md). Les essais de téléphone sont nouveaux ; les confirmations vidéo/voix ci-dessous restent historiques. Vérifier le numéro ADB avant chaque installation.
+> Version actuelle : Oria 1.4-night/code 5 sur **CN46V3M00284**. Vidéo réelle et tests vocaux 70/30 confirmés le 27 septembre dans la [recette de 1.4](validation/LIVE_20260927_V14.md). Le mode poche écran verrouillé reste non validé. Voir le [bilan de nuit](validation/NIGHT_WORK_20260927.md) pour l’incident de désinstallation du runner et la restauration vérifiée. Vérifier le numéro ADB avant chaque installation.
 
 L’application livrée s’appelle **Oria**, s’ouvre directement sur Oria et conserve le package HTC autorisé. Deux onglets donnent accès à **Oria** pour l’assistance en direct et **Oria Lab** pour enregistrer une scène explicitement. **Diagnostic HTC** donne accès aux outils du starter. Les commandes de démarrage/arrêt restent visibles en bas, même lorsque l’aperçu portrait remplit le contenu.
 
@@ -10,7 +10,7 @@ L’installation sur ce nouveau HTC U24 pro Android 14 a été autorisée après
 
 **Preuves audio et endurance antérieures :** les annonces automatiques **Bluetooth VIVE en stéréo gauche / droite / centre pendant la vidéo** ont été entendues sur `412eec7f…`, avec réponse utilisateur « Oui, les côtés sont corrects » ([registre humain](validation/new-device-CN46V3M00284/human-confirmations.json)). Le build `40175fb4…` à 333 ms a ensuite passé dix minutes instrumentées : **2,631 décisions fraîches/s, âge p95 406 ms**, garde 500 ms inchangée. L’enregistrement OriaLab ajoute une charge distincte. Le build froid `aef0571a` avait une voix manuelle audible mais des annonces automatiques expirées ; `b682e0ce` échouait à préparer la route ; `a56bfa58` annonçait en mono. Le [README](README.md) distingue ces preuves. La voix HTC propriétaire a aussi été entendue **vidéo arrêtée** ; pendant le streaming, le SDK la refuse avec `ERROR_RESOURCE_CONFLICT`.
 
-Le mélange 70/30 demandé remplace maintenant la séparation 100/0. Les tests PCM passent ; une nouvelle écoute humaine doit confirmer le confort et les directions de ce mélange.
+Le mélange 70/30 demandé remplace maintenant la séparation 100/0. Les tests PCM passent ; le 27 septembre, l’utilisateur a confirmé les trois positions gauche/centre/droite pendant la vidéo sur 1.4-night. Le confort en usage prolongé reste distinct de ce test court.
 
 ## Parcours jury à vérifier
 

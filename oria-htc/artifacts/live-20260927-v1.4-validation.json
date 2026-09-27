@@ -1,0 +1,46 @@
+{
+  "device": "CN46V3M00284",
+  "version": "1.4-night",
+  "package": "com.htc.vive.eagle.hackathon.starter",
+  "apk_sha256": "aaec205c5f0916d2789c082e707eecf0ab810fd51038959b74d9e7beaca8b8dc",
+  "source": "htc_live",
+  "duration_s": 131.118,
+  "inferences": 363,
+  "accepted": 362,
+  "accepted_hz_including_startup": 2.76087188639241,
+  "age_ms_p95": 285,
+  "inference_ms_p95": 161.161041,
+  "pipeline_errors": 0,
+  "speech_submitted": [
+    {
+      "pan": "LEFT",
+      "backend": "BLUETOOTH"
+    },
+    {
+      "pan": "CENTER",
+      "backend": "BLUETOOTH"
+    },
+    {
+      "pan": "RIGHT",
+      "backend": "BLUETOOTH"
+    }
+  ],
+  "speech_completed": 3,
+  "speech_failed": 0,
+  "automatic_announcements_enabled": false,
+  "pocket_mode": false,
+  "stop": {
+    "reason": "Session arrêtée"
+  },
+  "human_audio_confirmation": "USER_CONFIRMED_LEFT_CENTER_RIGHT_70_30",
+  "human_orientation_confirmation": "USER_CONFIRMED_UPRIGHT_AND_NO_MIRROR",
+  "orientation_confirmation_applied_after_session": true,
+  "pocket_validation": {
+    "status": "NOT_VALIDATED",
+    "first_attempt": "Test watchdog interrupted before the locked measurement; 0 locked inferences is not an application failure result",
+    "retry": "Reconnection not established; lock screen observed; explicit force-stop issued before USB disappearance",
+    "usb_unavailable_at_end": true,
+    "unattended_capture_left_running": false
+  },
+  "scope": "Short physical session; no endurance claim and no automatic object announcement claim"
+}

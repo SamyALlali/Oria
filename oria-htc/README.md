@@ -16,7 +16,7 @@ Sur Mac, **67 tests Python et les interactions JavaScript passent**. Les positio
 
 L’export ZIP reste préparé sur disque avec téléchargement natif, indépendant des renommages ultérieurs ; archive réelle de 91 739 169 octets téléchargée lors de la livraison précédente, CRC valides et 169 fichiers identiques à la sauvegarde du téléphone.
 
-Les 10 instruments capture/modèle/replay de **1.2-night** restent des preuves de cette version : six fixtures XNNPACK et replay de 60 s à 3,73 décisions fraîches/s, âge p95 294 ms, voix factice. Les lunettes restent déconnectées : écran verrouillé avec flux réel et écoute 70/30 restent à valider. Les résultats vidéo/voix historiques ci-dessous gardent leurs APK d’origine.
+Les 10 instruments capture/modèle/replay de **1.2-night** restent des preuves de cette version : six fixtures XNNPACK et replay de 60 s à 3,73 décisions fraîches/s, âge p95 294 ms, voix factice. Une nouvelle [recette réelle sur 1.4-night](validation/LIVE_20260927_V14.md) valide 131 s de vidéo, 362 analyses fraîches et les tests vocaux gauche/centre/droite pendant le flux, avec écoute 70/30 et repère confirmés par l’utilisateur. Le fonctionnement écran verrouillé reste à valider. Les résultats vidéo/voix historiques ci-dessous gardent leurs APK d’origine.
 
 ## État et preuves historiques
 
@@ -43,7 +43,7 @@ Les essais précédents restent distincts :
 
 Résultats du nouveau téléphone : [modèle XNNPACK](validation/new-device-CN46V3M00284/files/ml_validation/onnx_xnnpack.json), [décodage vidéo](validation/new-device-CN46V3M00284/files/video-decoder-report.json), [replay combiné](validation/new-device-CN46V3M00284/files/combined-pipeline-report.json). Ces tests ne prouvent pas une phrase audible pendant la caméra réelle.
 
-**Stéréo actuelle :** demande utilisateur du 26 septembre : amplitude gauche/droite 70/30 pour avant-gauche, 30/70 pour avant-droite ; devant reste identique dans les deux canaux au volume précédent. La confirmation acoustique historique 100/0 ne valide pas encore ce nouveau mélange. Modèle, cœur déterministe et règles de fraîcheur restent inchangés.
+**Stéréo actuelle :** demande utilisateur du 26 septembre : amplitude gauche/droite 70/30 pour avant-gauche, 30/70 pour avant-droite ; devant reste identique dans les deux canaux au volume précédent. L’utilisateur a confirmé les trois positions pendant la vidéo sur 1.4-night le 27 septembre ; voir la [recette réelle](validation/LIVE_20260927_V14.md). La confirmation historique 100/0 reste distincte. Modèle, cœur déterministe et règles de fraîcheur restent inchangés.
 
 [Audit de la dernière scène utilisateur de 60 s](validation/user-scene-0548b68a/AUDIT.md) : 164 décisions reproduites exactement, 164 images examinées, et limites de perception/suivi illustrées. Cette capture précède le nouveau mélange 70/30.
 
@@ -114,7 +114,7 @@ Les traces privées `oria-trace-*.jsonl` contiennent des événements et métriq
 
 ## Cadence soutenue sur ce téléphone
 
-Après la preuve stéréo `412eec…`, une session réelle de plus de dix minutes a révélé un débit chaud insuffisant : 1,297 décision fraîche/s sur la fenêtre instrumentée, malgré une continuité sans interruption. Le build `40175fb4…` a ensuite validé la sélection **après décodage** à 333 ms : 620,346 s de session réelle, dont 600,053 s de collecte instrumentée, 1 632 décisions fraîches à 2,631 Hz et p95 406 ms. Le build Oria actuel conserve cette cadence. Les paquets H.264 sont tous consommés ; modèle et garde 500 ms sont inchangés. Les gains stéréo actuels sont 70/30, avec écoute restant à confirmer. Les replays historiques du harness à 250 ms et l’enregistrement OriaLab restent des charges distinctes. La cible initiale de 4 Hz n’est pas prétendue atteinte.
+Après la preuve stéréo `412eec…`, une session réelle de plus de dix minutes a révélé un débit chaud insuffisant : 1,297 décision fraîche/s sur la fenêtre instrumentée, malgré une continuité sans interruption. Le build `40175fb4…` a ensuite validé la sélection **après décodage** à 333 ms : 620,346 s de session réelle, dont 600,053 s de collecte instrumentée, 1 632 décisions fraîches à 2,631 Hz et p95 406 ms. Le build Oria actuel conserve cette cadence. Les paquets H.264 sont tous consommés ; modèle et garde 500 ms sont inchangés. Les gains stéréo actuels sont 70/30, avec écoute gauche/centre/droite confirmée sur 1.4-night le 27 septembre. Les replays historiques du harness à 250 ms et l’enregistrement OriaLab restent des charges distinctes. La cible initiale de 4 Hz n’est pas prétendue atteinte.
 
 
 ## Noms Oria / Oria Lab
