@@ -10,21 +10,37 @@
   "capture_duration_limit_ms": null,
   "capture_size_limit_bytes": null,
   "capture_reserved_free_bytes": 536870912,
-  "android_unit_tests": {"passed": 83, "failed": 0},
-  "android_lint": {"fatal": 0, "errors": 0, "warnings": 100, "hints": 2},
+  "android_unit_tests": {
+    "passed": 83,
+    "failed": 0
+  },
+  "android_lint": {
+    "fatal": 0,
+    "errors": 0,
+    "warnings": 100,
+    "hints": 2
+  },
   "android_instrumentation": {
     "reported": 26,
     "passed": 22,
     "failed": 2,
     "skipped": 2,
-    "gallery_tests_passed": 13,
+    "gallery_tests_passed": 12,
     "known_failures": [
       "ExampleInstrumentedTest.useAppContext: stale expectation was corrected and compiled, not rerun on device",
       "OnnxObjectDetectorInstrumentedTest.cpuParityAndShortBenchmark: failure retained; model and thresholds unchanged"
-    ]
+    ],
+    "gallery_tests_skipped": 1
   },
-  "mac_python_tests": {"passed": 67, "failed": 0},
-  "gallery_fixtures": {"scenes": 11, "positions": 33, "inferences": 15},
+  "mac_python_tests": {
+    "passed": 67,
+    "failed": 0
+  },
+  "gallery_fixtures": {
+    "scenes": 11,
+    "positions": 33,
+    "inferences": 15
+  },
   "private_data_restore": {
     "verified": true,
     "files": 521,
