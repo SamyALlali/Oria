@@ -315,6 +315,51 @@ class SurfaceObstaclePolicy(SurfaceWallPolicy):
     proposal_kind = "descriptive_obstacle_candidate"
     phrases = {"LEFT": "Obstacle possible à gauche", "CENTER": "Obstacle possible devant", "RIGHT": "Obstacle possible à droite"}
 
+    @staticmethod
+    def _quality_header(value: Any) -> tuple[dict | None, str | None]:
+        """Validate decision metadata without treating signal metrics as truth."""
+        if not isinstance(value, dict):
+            return None, "invalid_quality_type"
+        if value.get("version") != "rgb-quality-v1":
+            return None, "unknown_quality_version"
+        status, reasons = value.get("status"), value.get("reasons")
+        if type(status) is not str or status not in ("usable", "limited"):
+            return None, "unknown_quality_status"
+        if (not isinstance(reasons, list)
+                or any(type(reason) is not str or reason not in ("low_light", "low_texture") for reason in reasons)
+                or len(set(reasons)) != len(reasons)):
+            return None, "invalid_quality_reasons"
+        if (status == "limited") != bool(reasons):
+            return None, "inconsistent_quality_status"
+        return {"version": "rgb-quality-v1", "status": status, "reasons": list(reasons)}, None
+
+    def process(self, session_id: str | int, frame_index: int, observed_at_ms: int,
+                zones: Any, image_quality: Any = None) -> dict:
+        """A limited signal is unknown, never a zero-obstacle observation.
+
+        Omitting quality (or passing None) preserves historical replay results
+        byte-for-byte when serialized the same way. New jobs pass the diagnostic
+        for the exact PNG; no image category or distance is inferred from it.
+        """
+        if image_quality is None:
+            return super().process(session_id, frame_index, observed_at_ms, zones)
+        quality, error = self._quality_header(image_quality)
+        limited = quality is not None and quality["status"] == "limited"
+        output = super().process(session_id, frame_index, observed_at_ms,
+                                 None if error or limited else zones)
+        output["imageQuality"] = quality if quality is not None else {
+            "version": None, "status": "invalid", "reasons": []}
+        output["qualityReasons"] = list(quality["reasons"]) if quality is not None else []
+        if error:
+            output["qualityError"] = error
+        # Do not conceal an identity/clock rejection behind a quality warning.
+        if (error or limited) and output["status"] not in ("invalid", "rejected"):
+            if output["resetReason"] is not None:
+                output["observationResetReason"] = output["resetReason"]
+            reason = "invalid_image_quality" if error else "image_quality_limited"
+            output.update(status="invalid" if error else "uncertain", reason=reason, resetReason=reason)
+        return output
+
     @classmethod
     def _zones(cls, values: Any) -> tuple[dict | None, str | None, str | None]:
         normalized, status, reason = super()._zones(values)

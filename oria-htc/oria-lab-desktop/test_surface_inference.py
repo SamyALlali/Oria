@@ -145,6 +145,9 @@ class ModelIntegrityTests(unittest.TestCase):
             self.assertEqual(output['height'], 30)
             self.assertFalse(output['relativeDepth']['available'])
             self.assertFalse(output['relativeDepth']['metric'])
+            self.assertEqual(output['imageQuality']['version'], 'rgb-quality-v1')
+            self.assertEqual(output['imageQuality']['status'], 'limited')
+            self.assertIn('low_light', output['imageQuality']['reasons'])
             self.assertEqual(runtime.InferenceSession.call_args.kwargs['providers'], ['CPUExecutionProvider'])
             session.get_outputs.return_value[0].shape = [1, 3, 128, 128]
             with self.assertRaises(ValueError):

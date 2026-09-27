@@ -83,6 +83,46 @@ class SurfaceJobTests(unittest.TestCase):
         self.assertEqual(self.session.busy, 0)
         self.assertFalse(self.jobs.jobs)
 
+    def test_quality_diagnostic_reaches_policy_without_changing_raw_evidence(self):
+        from image_quality import inspect_image_quality
+        from surface_policy import SurfaceObstaclePolicy
+        from PIL import Image
+
+        source = capture(self.root / 'uniform-source')
+        for path in (source / 'frames').glob('*.png'):
+            Image.new('RGB', (419, 237), (180, 160, 20)).save(path)
+        session = self.store.import_folder(source)
+
+        class QualityDetector(FakeDetector):
+            def infer(self, image):
+                result = super().infer(image)
+                result['imageQuality'] = inspect_image_quality(image)
+                return result
+
+        def strong_evidence(inference, detections):
+            return {'status': 'ok', 'zones': [
+                {'zone': name, 'obstructionFraction': 1., 'unrecognizedFraction': 1.,
+                 'depthRelativeSupport': 1.} for name in ('LEFT', 'CENTER', 'RIGHT')],
+                'candidatePixels': 6, 'candidateMask': [[1]*3]*2}
+
+        jobs = SurfaceJobs(self.store, QualityDetector, SurfaceObstaclePolicy,
+                           lambda: {'installed': True}, strong_evidence)
+        self.addCleanup(jobs.close)
+        original_jobs, self.jobs = self.jobs, jobs
+        try:
+            identifier = jobs.create(session)
+            self.assertEqual(self.done(identifier)['state'], 'complete')
+            for index in range(3):
+                row = jobs.get(identifier, index)
+                self.assertEqual(row['segmentation']['imageQuality']['status'], 'limited')
+                self.assertEqual(row['obstacles']['candidatePixels'], 6)
+                self.assertEqual(row['policy']['status'], 'uncertain')
+                self.assertEqual(row['policy']['reason'], 'image_quality_limited')
+                self.assertIsNone(row['policy']['proposal'])
+                self.assertFalse(row['policy']['audioEmitted'])
+        finally:
+            self.jobs = original_jobs
+
     def test_missing_png_and_invalid_identity_refused(self):
         for mutation in ['image', 'identity']:
             folder = capture(self.root / mutation)

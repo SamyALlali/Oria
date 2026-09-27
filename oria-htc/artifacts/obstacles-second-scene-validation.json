@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "scope": "Mac replay plus original HTC telemetry; no new live glasses/audio test",
+  "durationMs": 35690,
+  "originalFilesUnchanged": 97,
+  "baseline": {
+    "frames": 92,
+    "macBatchSeconds": 67.657,
+    "onnxExecutionOnly": {
+      "combined": {
+        "p50Ms": 696.114,
+        "p95Ms": 710.407,
+        "maxMs": 742.921
+      },
+      "segmentation": {
+        "p50Ms": 107.218,
+        "p95Ms": 110.373,
+        "maxMs": 126.141
+      },
+      "relativeDepth": {
+        "p50Ms": 588.651,
+        "p95Ms": 597.996,
+        "maxMs": 636.972
+      }
+    },
+    "framesWithCandidatePixels": 78
+  },
+  "yoloReplay": {
+    "recordedDecisions": 91,
+    "sameDecisions": 91,
+    "audioEvents": 0,
+    "orientationVerified": false
+  },
+  "qualityComparison": {
+    "new": {
+      "frames": 92,
+      "pngHashesVerified": 92,
+      "limitedFrames": [
+        0,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52
+      ],
+      "policyStates": {
+        "uncertain": 9,
+        "observing": 10,
+        "proposal": 7,
+        "cooldown": 51,
+        "no_candidate": 14,
+        "missing": 1
+      },
+      "proposalsUnchanged": true,
+      "proposals": 7
+    },
+    "previous": {
+      "frames": 164,
+      "pngHashesVerified": 164,
+      "limitedFrames": [
+        0
+      ],
+      "policyStates": {
+        "uncertain": 1,
+        "no_candidate": 154,
+        "observing": 7,
+        "proposal": 2
+      },
+      "proposalsUnchanged": true,
+      "proposals": 2
+    }
+  },
+  "tests": {
+    "pythonPassed": 144,
+    "javascriptPassed": true
+  },
+  "limitations": [
+    "Uniform yellow partition falsely segmented as sky; diagnostic does not repair segmentation",
+    "False sky at zero-based frame53 remains unflagged",
+    "No metric distance, collision or free-passage validation",
+    "Low furniture and step detection unproven",
+    "Two descriptive proposals 450ms apart remain",
+    "Heuristics inspected on two scenes, no independent calibration"
+  ],
+  "finalExecutedReplay": {
+    "allPoliciesMatchCachedComparison": 92,
+    "segmentationMasksUnchanged": 92,
+    "rawObstacleEvidenceUnchanged": 92,
+    "browserExportBytes": 34858528,
+    "browserExportSha256": "54749cd7de02f93beafc933d8ab824f32613431d367f6c3661c3acef1ab00cf0",
+    "macBatchSeconds": 67.427
+  }
+}

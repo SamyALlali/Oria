@@ -8,6 +8,7 @@ import time
 
 import numpy as np
 from PIL import Image
+from image_quality import inspect_image_quality
 
 ROOT = Path(__file__).resolve().parents[1] / 'surface-ml'
 DEFAULT_MANIFEST = ROOT / 'model-manifest.json'
@@ -159,6 +160,9 @@ class SurfaceDetector:
             'available': False, 'values': None, 'reason': self._depth_missing_reason, 'metric': False}
         result['depthAvailable'] = result['relativeDepth']['available']
         result['totalInferenceMs'] = elapsed + result['relativeDepth'].get('inferenceMs', 0.0)
+        # Diagnostic on these exact source pixels, independent of model labels.
+        # It does not turn weak evidence into an obstacle or a clear passage.
+        result['imageQuality'] = inspect_image_quality(image)
         return result
 
 

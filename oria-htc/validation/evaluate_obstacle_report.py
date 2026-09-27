@@ -54,7 +54,8 @@ def evaluate(report, capture, annotations=None):
                 original['frameId'], original['videoSessionId'], original['receivedAtMs'])
             digest = source_hashes[original['imagePath']]
             assert row['sourcePngSha256'] == digest
-            expected = policy.process(row['videoSessionId'], done, row['observedAtMs'], row['obstacles']['zones'])
+            quality = {'image_quality': row['segmentation']['imageQuality']} if 'imageQuality' in row['segmentation'] else {}
+            expected = policy.process(row['videoSessionId'], done, row['observedAtMs'], row['obstacles']['zones'], **quality)
             assert expected == row['policy'], f'Policy replay mismatch at {done}'
             states[row['obstacles']['status']] += 1
             nonempty += int(row['obstacles'].get('candidatePixels', 0) > 0)

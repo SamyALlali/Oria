@@ -13,3 +13,5 @@
 .surfaceTransport{margin-top:12px}.surfaceTransport span{font-variant-numeric:tabular-nums;font-size:13px}.surfaceTransport button{min-height:44px}
 
 .surfaceZones span{white-space:pre-line}
+
+.imageQuality{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:12px;background:#f4f7fa;color:#152638}.imageQuality h3{font-size:14px;margin:0 0 6px}.imageQuality p{font-size:14px;margin:0;white-space:pre-line}.imageQuality.limited{background:#fff5de;border-color:#c69a47;color:#593900}

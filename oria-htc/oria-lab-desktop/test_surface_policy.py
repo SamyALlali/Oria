@@ -213,6 +213,88 @@ class SurfacePolicyTests(unittest.TestCase):
         self.assertEqual("proposal", result["status"])
         self.assertEqual(result, json.loads(json.dumps(result, allow_nan=False)))
 
+    def test_omitted_quality_preserves_legacy_output_exactly(self):
+        a, b = SurfaceObstaclePolicy(), SurfaceObstaclePolicy()
+        for index, zones in enumerate((obstacle("CENTER"), obstacle("CENTER"), obstacle("CENTER"), None, obstacle())):
+            expected = a.process(7, index, index * 300, zones)
+            actual = b.process(7, index, index * 300, zones, image_quality=None)
+            self.assertEqual(json.dumps(expected), json.dumps(actual))
+            self.assertNotIn("imageQuality", actual)
+
+    def test_usable_quality_keeps_decision_and_does_not_mutate_input(self):
+        policy, old = SurfaceObstaclePolicy(), SurfaceObstaclePolicy()
+        quality = {"version": "rgb-quality-v1", "status": "usable", "reasons": [], "metrics": {"meanGradient": 3}}
+        before = copy.deepcopy(quality)
+        for index in range(3):
+            expected = old.process(7, index, index * 300, obstacle("CENTER"))
+            actual = policy.process(7, index, index * 300, obstacle("CENTER"), quality)
+            self.assertEqual([], actual.pop("qualityReasons"))
+            self.assertEqual("usable", actual.pop("imageQuality")["status"])
+            self.assertEqual(expected, actual)
+        self.assertEqual(before, quality)
+
+    def test_limited_quality_breaks_confirmation_without_inventing_empty_scene(self):
+        for reason in ("low_light", "low_texture"):
+            with self.subTest(reason=reason):
+                policy = SurfaceObstaclePolicy()
+                for index in range(2):
+                    policy.process(7, index, index * 300, obstacle("CENTER"))
+                quality = {"version": "rgb-quality-v1", "status": "limited", "reasons": [reason]}
+                result = policy.process(7, 2, 600, obstacle("CENTER"), quality)
+                self.assertEqual("uncertain", result["status"])
+                self.assertEqual("image_quality_limited", result["reason"])
+                self.assertEqual("image_quality_limited", result["resetReason"])
+                self.assertEqual([reason], result["qualityReasons"])
+                self.assertIsNone(result["proposal"])
+                self.assertEqual([], result["evidence"])
+                next_frame = policy.process(7, 3, 900, obstacle("CENTER"))
+                self.assertEqual(1, next_frame["evidence"][1]["consecutive"])
+                self.assertIsNone(next_frame["proposal"])
+
+    def test_limited_quality_retains_repeat_interval(self):
+        policy = SurfaceObstaclePolicy()
+        for index in range(3):
+            policy.process(7, index, index * 300, obstacle("CENTER"))
+        quality = {"version": "rgb-quality-v1", "status": "limited", "reasons": ["low_texture"]}
+        policy.process(7, 3, 900, obstacle("CENTER"), quality)
+        for index in range(4, 7):
+            result = policy.process(7, index, index * 300, obstacle("CENTER"))
+        self.assertEqual("cooldown", result["status"])
+        self.assertEqual(6800, result["evidence"][1]["cooldownRemainingMs"])
+
+    def test_quality_gate_preserves_identity_and_gap_diagnostics(self):
+        policy = SurfaceObstaclePolicy()
+        quality = {"version": "rgb-quality-v1", "status": "limited", "reasons": ["low_texture"]}
+        policy.process(7, 0, 0, obstacle("CENTER"))
+        duplicate = policy.process(7, 0, 500, obstacle("CENTER"), quality)
+        self.assertEqual("rejected", duplicate["status"])
+        self.assertEqual("duplicate_frame", duplicate["reason"])
+        gap = policy.process(7, 1, 2000, obstacle("CENTER"), quality)
+        self.assertTrue(gap["resetGap"])
+        self.assertEqual("observation_gap", gap["observationResetReason"])
+        self.assertEqual("uncertain", gap["status"])
+        bad_id = policy.process(True, 2, 2300, obstacle("CENTER"), quality)
+        self.assertEqual("invalid_identity", bad_id["reason"])
+
+    def test_unknown_or_inconsistent_quality_fails_closed(self):
+        base = {"version": "rgb-quality-v1", "status": "usable", "reasons": []}
+        cases = [False, [], {}, {**base, "version": "rgb-quality-v2"}, {**base, "status": "good"},
+                 {**base, "status": []}, {**base, "reasons": None}, {**base, "reasons": [True]},
+                 {**base, "reasons": ["unknown"]}, {**base, "reasons": ["low_light"]},
+                 {**base, "status": "limited"},
+                 {**base, "status": "limited", "reasons": ["low_light", "low_light"]}]
+        for invalid in cases:
+            with self.subTest(value=invalid):
+                policy = SurfaceObstaclePolicy()
+                policy.process(7, 0, 0, obstacle("CENTER"))
+                policy.process(7, 1, 300, obstacle("CENTER"))
+                result = policy.process(7, 2, 600, obstacle("CENTER"), invalid)
+                self.assertEqual("invalid", result["status"])
+                self.assertEqual("invalid_image_quality", result["reason"])
+                self.assertIsNone(result["proposal"])
+                following = policy.process(7, 3, 900, obstacle("CENTER"))
+                self.assertEqual(1, following["evidence"][1]["consecutive"])
+
     def test_shared_synthetic_fixtures(self):
         fixture = Path(__file__).resolve().parents[1] / "fixtures" / "surfaces" / "policy_sequences.json"
         data = json.loads(fixture.read_text())

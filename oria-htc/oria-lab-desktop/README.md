@@ -8,6 +8,8 @@ Préparer explicitement les deux modèles selon [surface-ml/README.md](../surfac
 
 [Recette réelle, mesures et limites](../validation/OBSTACLES_LAB_20260927.md) : 164 images traitées, 128 tests Python réussis. Ce résultat de laboratoire ne valide ni proximité, ni collision, ni fonctionnement temps réel sur HTC.
 
+[Deuxième capture et correction de qualité](../validation/SCENE_REVIEW_4BB1B9DD_20260927.md) : 92 nouvelles images inspectées, 144 tests Python réussis. Un diagnostic RGB signale les images très sombres ou peu structurées ; elles suspendent la confirmation expérimentale sans modifier les masques bruts ni inventer un obstacle. Une image qui ne déclenche pas ces heuristiques peut néanmoins être mal interprétée. Les anciens rapports restent lisibles avec qualité non évaluée.
+
 ## Lancer le lecteur
 
 Double-cliquer **Lancer Oria Lab.command**, puis importer le ZIP de capture v1 ou saisir le chemin du dossier qui contient `manifest.json`. Le lanceur utilise l’environnement existant `ml/.venv`, choisit un port disponible et ouvre le navigateur. Garder son terminal ouvert ; Ctrl+C ferme le serveur. Rien n’est téléchargé à l’ouverture.

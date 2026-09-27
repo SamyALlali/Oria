@@ -331,8 +331,26 @@ function refreshSurfaceLegend(){
   $('surfaceModeLegend').textContent=mode==='depth'?'Bleu : score relatif faible ; jaune : score relatif élevé. Normalisation propre à chaque image ; aucune distance ni comparaison temporelle directe.':mode==='candidate'?'Rouge : régions candidates non-sol, appuyées par le relief relatif et non couvertes par les boîtes YOLO enregistrées. Aucune distance ni certitude d’un obstacle.':'';
   $('surfaceCanvas').ariaLabel=mode==='depth'?'Carte de relief relatif expérimental sur la PNG sélectionnée, sans distance':mode==='candidate'?'Régions candidates expérimentales hors boîtes YOLO sur la PNG sélectionnée':'Masque sémantique expérimental sur la PNG sélectionnée';
 }
+function renderSurfaceProposal(policy){
+  $('surfaceProposal').textContent=policy?.status==='uncertain'?'Interprétation suspendue : qualité d’image insuffisante. Aucun son émis.':policy?.proposal?`Proposition indicative : « ${policy.proposal.text} ». Aucun son émis.`:'Aucune proposition indicative sur cette image. Cela ne signifie pas que le passage est libre.';
+}
+function renderSurfaceImageQuality(quality){
+  const block=$('surfaceImageQuality'),text=$('surfaceImageQualityText');
+  block.hidden=false;block.className='imageQuality';
+  if(!quality||quality.version!=='rgb-quality-v1'||!['limited','usable'].includes(quality.status)||!Array.isArray(quality.reasons)){
+    text.textContent='Qualité de l’image non évaluée dans ce rapport.';return;
+  }
+  const messages=[];
+  if(quality.reasons.includes('low_texture'))messages.push('Image peu structurée : analyse incertaine. Un obstacle peut occuper le champ sans être reconnu.');
+  if(quality.reasons.includes('low_light'))messages.push('Image très sombre : analyse incertaine.');
+  if(quality.status==='limited'||messages.length){
+    block.className='imageQuality limited';
+    text.textContent=messages.length?messages.join('\n'):'Analyse incertaine : diagnostic de qualité limité sans motif reconnu dans ce rapport.';
+  }else text.textContent='Aucun défaut de luminosité ou de texture signalé ; exactitude non garantie.';
+}
 function clearSurfaceFrame(message='Résultat surfaces en attente pour cette image.'){
   $('surfaceCanvas').hidden=true;$('surfaceFrameStatus').textContent=message;
+  $('surfaceImageQuality').hidden=true;$('surfaceImageQualityText').textContent='';
   $('surfaceZones').replaceChildren();$('surfaceEvidenceStatus').textContent='';$('surfaceProposal').textContent='Aucune proposition indicative.';$('surfaceJson').textContent='';
 }
 function resetSurfaces(){
@@ -396,18 +414,19 @@ async function showSurfaceFrame(index){
     if(value.sessionId!==session.id||value.frameIndex!==index)throw Error('Identité surfaces incompatible avec la sélection.');
     if(value.pending){$('surfaceFrameStatus').textContent=['failed','cancelled'].includes(value.state)?'Cette position n’a pas été analysée : résultat partiel.':'Cette image attend son analyse surfaces.';return;}
     const result=value.segmentation,policy=value.policy;
+    renderSurfaceImageQuality(result.imageQuality);
     const evidence=value.obstacles||{};
     $('surfaceEvidenceStatus').textContent=evidence.status==='ok'?'Candidats non-sol + relief relatif, hors boîtes YOLO enregistrées. Non couvert par YOLO ne signifie pas objet inconnu avec certitude.':'Fusion indisponible : '+(evidence.reason||'preuves insuffisantes')+'. La segmentation reste inspectable.';
     const image=new Image();image.onload=()=>{
       if(version!==state.surfaceDrawVersion||job!==state.surfaceJob||session.id!==state.session?.id)return;
-      try{drawSurfaceMask(image,result,value.obstacles);$('surfaceCanvas').hidden=false;}catch(e){clearSurfaceFrame(e.message);}
+      try{drawSurfaceMask(image,result,value.obstacles);$('surfaceCanvas').hidden=false;}catch(e){clearSurfaceFrame(e.message);renderSurfaceImageQuality(result.imageQuality);renderSurfaceProposal(policy);}
     };
     image.onerror=()=>{if(version===state.surfaceDrawVersion)clearSurfaceFrame('PNG absente ou illisible ; aucun masque affiché.');};
     image.src=`/api/session/${session.id}/image/${index}`;
     $('surfaceFrameStatus').textContent=`Image ${index+1} · calcul Mac ${fmt(result.totalInferenceMs??result.inferenceMs)} ms (surfaces ${fmt(result.inferenceMs)} ms, relief ${fmt(result.relativeDepth?.inferenceMs)} ms) · ${value.partial?'résultat partiel':'analyse complète'}.`;
     renderSurfaceZones(result,evidence);
-    $('surfaceProposal').textContent=policy.proposal?`Proposition indicative : « ${policy.proposal.text} ». Aucun son émis.`:'Aucune proposition indicative sur cette image. Cela ne signifie pas que le passage est libre.';
-    textJson('surfaceJson',{frameIndex:value.frameIndex,videoSessionId:value.videoSessionId,observedAtMs:value.observedAtMs,sourcePngSha256:value.sourcePngSha256,policy,zones:result.zones,obstacles:{...evidence,candidateMask:undefined},recordedDetections:value.recordedDetections,totalInferenceMs:result.totalInferenceMs,segmentationMs:result.inferenceMs,relativeDepthMs:result.relativeDepth?.inferenceMs});
+    renderSurfaceProposal(policy);
+    textJson('surfaceJson',{frameIndex:value.frameIndex,videoSessionId:value.videoSessionId,observedAtMs:value.observedAtMs,sourcePngSha256:value.sourcePngSha256,imageQuality:result.imageQuality??null,policy,zones:result.zones,obstacles:{...evidence,candidateMask:undefined},recordedDetections:value.recordedDetections,totalInferenceMs:result.totalInferenceMs,segmentationMs:result.inferenceMs,relativeDepthMs:result.relativeDepth?.inferenceMs});
   }catch(e){if(e.name!=='AbortError'&&version===state.surfaceDrawVersion)clearSurfaceFrame('Résultat surfaces indisponible : '+e.message);}
 }
 async function runSurfaceJob(){

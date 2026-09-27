@@ -222,7 +222,8 @@ class SurfaceJobs:
                 evidence = self.evidence(result, detections)
                 if job['_cancel'].is_set():
                     break
-                decision = policy.process(source_id, index, observed, evidence.get('zones'))
+                quality = {'image_quality': result['imageQuality']} if 'imageQuality' in result else {}
+                decision = policy.process(source_id, index, observed, evidence.get('zones'), **quality)
                 if job['_cancel'].is_set():
                     break
                 row = {'type': 'frame', 'frameIndex': index, 'frameId': frame['frameId'],
