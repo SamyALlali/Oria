@@ -66,11 +66,14 @@ object OriaLabPrivacy {
     private fun scalarNumber(value: Any?) = value is Byte || value is Short || value is Int || value is Long ||
         value is Float && value.isFinite() || value is Double && value.isFinite()
 
+    private enum class ManifestContext { NONE, MODEL, OUTPUT_CONTRACT }
+
     private class Projection {
         private var nodes = 0
         private fun visit(depth: Int) { require(depth <= MAX_DEPTH && ++nodes <= MAX_NODES) { "privacy_structure_limit" } }
 
-        fun map(source: Map<*, *>, depth: Int, inheritedSensitive: Boolean, metadata: Boolean = false): Map<String, Any?> {
+        fun map(source: Map<*, *>, depth: Int, inheritedSensitive: Boolean, metadata: Boolean = false,
+                manifest: ManifestContext = ManifestContext.NONE): Map<String, Any?> {
             visit(depth)
             val guarded = inheritedSensitive || sensitive(source["type"])
             val out = linkedMapOf<String, Any?>()
@@ -82,6 +85,10 @@ object OriaLabPrivacy {
                 val norm = normalized(key)
                 when {
                     metadata && key !in metadataFields -> omitted = true
+                    // Exact technical vocabulary at the reviewed manifest path only. This must
+                    // never grant a general exemption to location coordinates or event payloads.
+                    !guarded && manifest == ManifestContext.OUTPUT_CONTRACT && key == "coordinates" &&
+                        value == "letterboxed input pixels" -> out[key] = value
                     norm in privateKeys -> omitted = true
                     key == "type" && guarded -> {
                         out[key] = if (value is String && value in sensitiveTypes) value else "sensitive_event"
@@ -98,7 +105,11 @@ object OriaLabPrivacy {
                         else -> omitted = true
                     }
                     else -> out[key] = when (value) {
-                        is Map<*, *> -> map(value, depth + 1, false)
+                        is Map<*, *> -> map(value, depth + 1, false, manifest = when {
+                            metadata && key == "modelManifest" -> ManifestContext.MODEL
+                            manifest == ManifestContext.MODEL && key == "output_contract" -> ManifestContext.OUTPUT_CONTRACT
+                            else -> ManifestContext.NONE
+                        })
                         else -> copy(value, depth + 1)
                     }
                 }
