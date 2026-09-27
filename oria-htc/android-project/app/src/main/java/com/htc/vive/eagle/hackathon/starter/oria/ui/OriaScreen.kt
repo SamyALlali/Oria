@@ -12,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.htc.vive.eagle.hackathon.starter.oria.navigation.NavigationMode
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -31,9 +33,13 @@ import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabPhase
 import java.util.Locale
 
 @Composable
-fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnostics: () -> Unit) {
+fun OriaScreen(controller: OriaController, onStart: () -> Unit,
+               onDictateQuery: () -> Unit = {}, onVoiceCommand: () -> Unit = {},
+               onLocationPermission: () -> Unit = {}, onOpenHtcDiagnostics: () -> Unit) {
     val state by controller.state.collectAsStateWithLifecycle()
     val capture by controller.oriaLabState.collectAsStateWithLifecycle()
+    val navigation by controller.navigation.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var diagnostics by rememberSaveable { mutableStateOf(false) }
     var previewExpanded by rememberSaveable { mutableStateOf(false) }
     var simulatorChoice by rememberSaveable { mutableStateOf(false) }
@@ -150,6 +156,35 @@ fun OriaScreen(controller: OriaController, onStart: () -> Unit, onOpenHtcDiagnos
                     if (state.pocketPreparing || state.pocketActive || state.running) {
                         Text(state.pocketStatus, style = MaterialTheme.typography.bodyMedium)
                     }
+                }
+
+                OriaNavigationPanel(navigation, OriaNavigationActions(
+                    updateQuery = controller.navigation::updateQuery,
+                    search = { query, simulated -> controller.navigation.search(query,
+                        if (simulated) NavigationMode.SIMULATED else NavigationMode.REAL) },
+                    select = controller.navigation::select,
+                    confirm = { id ->
+                        if (navigation.mode == NavigationMode.REAL && !controller.navigation.hasLocationPermission(context))
+                            onLocationPermission()
+                        else controller.navigation.confirmSelected(id)
+                    },
+                    pause = controller.navigation::pause, resume = controller.navigation::resume,
+                    stop = { controller.navigation.stop() }, advanceSimulation = controller.navigation::advanceSimulation,
+                    networkConsent = controller.navigation::setNetworkConsent, dictateQuery = onDictateQuery,
+                    save = { name, address, id -> controller.navigation.saveDestination(name, address, id) },
+                    delete = { controller.navigation.deleteDestination(it) },
+                    startSaved = { destination, simulated -> controller.navigation.startSaved(destination,
+                        if (simulated) NavigationMode.SIMULATED else NavigationMode.REAL) },
+                ))
+                OriaHomeSection {
+                    OriaSectionTitle("Commande vocale")
+                    Text("Dites « pause navigation », « reprends la navigation » ou « guide-moi vers… ». La dictée utilise le téléphone et peut nécessiter Internet.",
+                        style = MaterialTheme.typography.bodyMedium)
+                    OutlinedButton(onClick = onVoiceCommand, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                        Text("Dicter une commande avec le téléphone")
+                    }
+                    Text("Bouton IA des lunettes : un appui annonce l’état d’Oria ; deux appuis ouvrent la dictée quand l’application est visible.",
+                        style = MaterialTheme.typography.bodyMedium)
                 }
 
                 if (capture.phase == OriaLabPhase.RECORDING || capture.phase == OriaLabPhase.FINALIZING) {

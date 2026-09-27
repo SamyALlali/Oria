@@ -106,6 +106,39 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+    // External recognition returns one correlated ActivityResult. No anonymous SDK callback.
+    private var voiceInputIsCommand: Boolean? = null
+    private val voiceInputLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val command = voiceInputIsCommand ?: return@registerForActivityResult
+        voiceInputIsCommand = null
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        val text = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            ?.take(240) ?: return@registerForActivityResult
+        if (command) oriaController?.acceptVoiceCommand(text)
+        else oriaController?.navigation?.updateQuery(text)
+    }
+
+    fun requestVoiceInput(command: Boolean = false) {
+        if (voiceInputIsCommand != null || !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return
+        voiceInputIsCommand = command
+        try {
+            voiceInputLauncher.launch(Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "fr-FR")
+                .putExtra(android.speech.RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                .putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, if (command) "Commande Oria" else "Destination"))
+        } catch (_: android.content.ActivityNotFoundException) {
+            voiceInputIsCommand = null
+            Toast.makeText(this, "Dictée indisponible sur ce téléphone", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private val locationPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        // Permission never starts a route automatically. The destination remains explicitly confirmed.
+    }
+    fun requestNavigationPermission() = locationPermissionLauncher.launch(arrayOf(
+        Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) startOria()
@@ -181,6 +214,7 @@ class MainActivity : AppCompatActivity() {
     }
     override fun onStart() {
         super.onStart()
+        oriaController?.setForeground(true)
 
         registerReceiver(
             bluetoothStateReceiver,
@@ -189,8 +223,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        oriaController?.setForeground(false)
         if (oriaController?.canContinueInBackground() != true) {
-            oriaController?.stop("Application en arrière-plan · session arrêtée")
+            oriaController?.stop("Application en arrière-plan · session arrêtée", stopNavigation = false)
             viveClientManager?.stopMediaForBackground()
         }
         super.onStop()
@@ -251,7 +286,7 @@ class MainActivity : AppCompatActivity() {
 fun SampleApp(
     viveClientManager: ViveGlassKitManager,
     simulator: ViveGlassSimulator,
-    context: Context,
+    context: MainActivity,
     oriaController: OriaController,
     onStartOria: () -> Unit,
     onStartOriaLab: () -> Unit,
@@ -334,10 +369,8 @@ fun SampleApp(
 
     LaunchedEffect(viveClientManager, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            viveClientManager.keyEvent.collect { event ->
-                if (event == KeyEvent.AIBUTTON) {
-                    Toast.makeText(context, "KeyEvent received: $event", Toast.LENGTH_SHORT).show()
-                }
+            oriaController.voiceCommandRequests.collect {
+                context.requestVoiceInput(command = true)
             }
         }
     }
@@ -404,7 +437,10 @@ fun SampleApp(
         ) {
             setSimulator(simulator)
             composable(AppDestination.Oria.route) {
-                OriaScreen(oriaController, onStartOria) {
+                OriaScreen(oriaController, onStartOria,
+                    onDictateQuery = { context.requestVoiceInput() },
+                    onVoiceCommand = { context.requestVoiceInput(command = true) },
+                    onLocationPermission = context::requestNavigationPermission) {
                     openDiagnostic(AppDestination.Glasses)
                 }
             }

@@ -21,7 +21,14 @@ import org.json.JSONObject
 import org.json.JSONArray
 import com.htc.vive.eagle.hackathon.starter.oria.audio.BluetoothSpeechBackend
 import com.htc.vive.eagle.hackathon.starter.oria.audio.SpeechDelivery
+import com.htc.vive.eagle.hackathon.starter.oria.navigation.*
+import com.htc.vive.eagle.hackathon.starter.oria.interaction.*
+import com.htc.vive.eagle.hackathon.starter.oria.audio.OriaAudioScheduler
+import com.htc.vive.eagle.hackathon.starter.oria.audio.OriaAudioKind
+import com.htc.vive.eagle.hackathon.starter.oria.audio.OriaAudioPlan
+import com.htc.vive.eagle.hackathon.starter.oria.audio.OriaInstruction
 import com.htc.vive.eagle.hackathon.starter.oria.audio.SpeechPan
+import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabPrivacyJson
 import com.htc.vive.eagle.hackathon.starter.oria.recording.OriaLabPhase
 import com.htc.vive.eagle.hackathon.starter.oria.lifecycle.PocketSessionPolicy
 import com.htc.vive.eagle.hackathon.starter.oria.lifecycle.PocketSessionService
@@ -84,6 +91,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     private val depthWorker = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
     private var engine = RgbAlertEngine()
     private val depthPolicy = DepthObstaclePolicy()
+    private val dangerDiagnostics = DangerResolutionEngine()
     private var depthObservationIndex = 0L
     private val voiceArbiter = FusionVoiceArbiter()
     private var latestObjectAlert: VoiceAlert? = null
@@ -120,12 +128,28 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         val preprocessMs: Double, val inferenceMs: Double, val diagnosticOutput: JSONObject?)
     private data class PendingSpeech(val ticket: VoiceTicket?, val epoch: Long, val submittedAt: Long,
         val text: String, val id: String, val backend: OriaVoiceBackend, val sessionGeneration: Long,
-        val pan: SpeechPan, val depthTicket: DepthVoiceTicket? = null)
+        val pan: SpeechPan, val depthTicket: DepthVoiceTicket? = null,
+        val instruction: OriaInstruction? = null, val navigationSpeech: NavigationSpeech? = null,
+        val cancelled: AtomicBoolean = AtomicBoolean(false))
     @Volatile private var pendingSpeech: PendingSpeech? = null
     @Volatile private var playableDepthTicketId: Long? = null
     private val localSpeech = BluetoothSpeechBackend(appContext, ::onLocalSpeechResult)
 
+    private val audioScheduler = OriaAudioScheduler()
+    private var queuedNavigationSpeech: NavigationSpeech? = null
+    val navigation = OriaNavigationCoordinator(appContext, scope,
+        onSpeech = ::offerNavigationSpeech,
+        onInstructionsInvalidated = { invalidateNavigationAudio() },
+        onTrace = { type, fields -> trace(type, *fields.toList().toTypedArray()) })
+    @Volatile private var foreground = true
+    private val _voiceCommandRequests = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val voiceCommandRequests = _voiceCommandRequests.asSharedFlow()
+    private val eagleButton = EagleButtonSequencer()
+
     init {
+        scope.launch { manager.keyEvent.collect { event ->
+            if (event == com.htc.viveglass.sdk.KeyEvent.AIBUTTON) onEagleButton()
+        } }
         scope.launch { localSpeech.state.collect { voice ->
             _state.update { it.copy(localVoiceReady = voice.ready, localVoiceStatus = voice.detail) }
         } }
@@ -166,6 +190,8 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
                         return@collect
                     }
                     pendingSpeech = null
+                    audioScheduler.finished(pending.id)
+                    pending.navigationSpeech?.let { navigation.onSpeechResult(it, true) }
                     nextAutomaticVoiceAt = now() + engine.config.globalAnnouncementGapMs
                     persistUncertainDelivery(false)
                     _state.update { it.copy(audioBusy = false, audioAutomaticPaused = false, audio = "Retour SDK reçu · audibilité à vérifier") }
@@ -179,6 +205,8 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
                         return@collect
                     }
                     pendingSpeech = null
+                    audioScheduler.finished(pending.id)
+                    pending.navigationSpeech?.let { navigation.onSpeechResult(it, false) }
                     persistUncertainDelivery(false)
                     _state.update { it.copy(audioBusy = false, audioAutomaticPaused = true, audio = "Voix refusée : ${event.event}") }
                     trace("speech_failed", "event" to event.event, "requestId" to pending.id,
@@ -234,6 +262,12 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
                         staleFrame()
                         continue
                     }
+                    val resolution = dangerDiagnostics.resolve(OriaDangerAdapter.input(
+                        evaluation, emptyMap(), null, evaluatedAtMs, approachEnabled = false))
+                    trace("danger_diagnostic", "diagnosticOnly" to true,
+                        "inputStatus" to resolution.inputStatus.name, "reason" to resolution.reason.name,
+                        "candidates" to resolution.inputs.size, "accepted" to resolution.accepted.size,
+                        "freshSelected" to (resolution.freshSelected?.id ?: "none"))
                     lastAcceptedObservationAt = sourceTime
                     trace("decision", "frame" to frame.frameId, "observedAtMs" to sourceTime,
                         "selectedTrack" to (evaluation.selected?.trackId ?: -1L),
@@ -401,13 +435,40 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
 
     /** Both policies retain separate evidence; only this owner may reserve the shared speaker. */
     private fun dispatchAutomaticVoice() {
-        if (closed || !_state.value.running) return
+        if (closed) return
         val at = now()
         latestObjectAlert = latestObjectAlert?.takeIf { it.sessionId == generation && at - it.observedAtMs in 0..MAX_AGE_MS }
         latestDepthAlert = latestDepthAlert?.takeIf { it.sessionId == generation && at - it.observedAtMs in 0..DEPTH_MAX_AGE_MS }
-        val available = pendingSpeech == null && !_state.value.audioUnknown && !_state.value.audioAutomaticPaused &&
-            voiceBackendReady() && at >= nextAutomaticVoiceAt
-        val selected = voiceArbiter.choose(latestObjectAlert != null, latestDepthAlert != null, available) ?: return
+        val canSpeak = !_state.value.audioUnknown &&
+            voiceBackendReady() && _state.value.connected
+        if (!canSpeak) return
+        val dangerReady = _state.value.running && !_state.value.audioAutomaticPaused && at >= nextAutomaticVoiceAt &&
+            (latestObjectAlert != null || latestDepthAlert != null)
+        val backendIdle = pendingSpeech == null && localSpeech.isIdle() && at >= nextAutomaticVoiceAt
+        when (val plan = audioScheduler.plan(at, dangerReady, backendIdle, automaticAllowed = !_state.value.audioAutomaticPaused)) {
+            is OriaAudioPlan.CancelInstruction -> {
+                pendingSpeech?.takeIf { it.id == plan.id && it.backend == OriaVoiceBackend.BLUETOOTH }?.let {
+                    it.cancelled.set(true)
+                    if (it.navigationSpeech != null) navigation.onDangerPreemptedNavigation()
+                    localSpeech.interrupt()
+                    trace("audio_instruction_preempted", "requestId" to it.id)
+                }
+                return
+            }
+            is OriaAudioPlan.Instruction -> {
+                val request = plan.value
+                val nav = queuedNavigationSpeech?.takeIf { it.id == request.id }
+                if (request.kind == OriaAudioKind.NAVIGATION && (nav == null || !navigation.canSpeak(nav))) {
+                    audioScheduler.finished(request.id)
+                    return
+                }
+                sendSpeech(request.text, null, pan = request.pan, instruction = request, navigationSpeech = nav)
+                return
+            }
+            OriaAudioPlan.Wait -> return
+            OriaAudioPlan.Danger -> Unit
+        }
+        val selected = voiceArbiter.choose(latestObjectAlert != null, latestDepthAlert != null, true) ?: return
         when (selected) {
             FusionVoiceSource.YOLO -> {
                 val alert = latestObjectAlert ?: return
@@ -584,10 +645,15 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     fun start() {
         if (closed || _state.value.running || !manager.isConnected() || !activeModelReady() || oriaLabState.value.storageBusy) return
         val id = ++generation
+        audioScheduler.reset(id)
+        queuedNavigationSpeech = null
+        // Navigation owns its route generation independently. Refresh its audio evidence only.
+        navigation.onDangerPreemptedNavigation()
         startedAt = now(); streamStartedAt = 0L; lastFrameAt = 0L; lastAcceptedObservationAt = 0L
         latencies.clear(); allInferenceLatencies.clear()
         playableDepthTicketId = null
         engine.start(id, startedAt)
+        dangerDiagnostics.reset(id)
         depthPolicy.start(id, startedAt); depthObservationIndex = 0L
         latestObjectAlert = null; latestDepthAlert = null; nextAutomaticVoiceAt = 0L
         voiceArbiter.reset(); lastDepthObservationAt = 0L; depthOfferCount = 0L
@@ -628,17 +694,22 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         }
     }
 
-    fun stop(reason: String = "Session arrêtée") {
+    fun stop(reason: String = "Session arrêtée", stopNavigation: Boolean = true) {
         PocketSessionService.release(this, appContext)
         _state.update { it.copy(pocketPreparing = false, pocketActive = false,
             pocketStatus = "Assistance arrêtée") }
         val stoppedSession = generation
         ++generation
+        if (stopNavigation) navigation.stop("Session Oria arrêtée")
+        queuedNavigationSpeech = null
+        audioScheduler.reset(generation)
+        eagleButton.reset()
         startJob?.cancel(); startJob = null
         if (pendingSpeech?.backend == OriaVoiceBackend.BLUETOOTH) cancelLocalSpeech("Lecture locale arrêtée")
         else if (pendingSpeech != null) uncertainAudio("Arrêt demandé · parole déjà soumise possiblement en cours")
         localSpeech.setSessionActive(false)
         engine.stop()
+        dangerDiagnostics.stop()
         depthPolicy.stop(); playableDepthTicketId = null
         latestObjectAlert = null; latestDepthAlert = null; voiceArbiter.reset()
         // The recorder filters by the old pipeline ID and must see this before the manager closes it.
@@ -657,13 +728,74 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     fun speakManual(text: String) = speakManualWithPan(text, SpeechPan.CENTER)
 
     private fun speakManualWithPan(text: String, pan: SpeechPan) {
-        if (closed || text.isBlank()) return
-        if (!manager.isConnected() || pendingSpeech != null || _state.value.audioUnknown) return
-        if (!voiceBackendReady()) {
-            _state.update { it.copy(audio = it.localVoiceStatus) }
-            return
+        if (closed || text.isBlank() || text.length > 240 || !manager.isConnected()) return
+        val at = now()
+        audioScheduler.offer(OriaInstruction(UUID.randomUUID().toString(), generation,
+            OriaAudioKind.COMMAND_RESPONSE, text, at, at + 5_000, pan), at)
+        dispatchAutomaticVoice()
+    }
+
+    private fun offerNavigationSpeech(speech: NavigationSpeech) {
+        if (closed || !navigation.canSpeak(speech)) return
+        queuedNavigationSpeech = speech
+        val accepted = audioScheduler.offer(OriaInstruction(speech.id, generation,
+            OriaAudioKind.NAVIGATION, speech.text.take(240), speech.observedAtMs, speech.expiresAtMs), now())
+        if (accepted) dispatchAutomaticVoice()
+    }
+
+    private fun invalidateNavigationAudio() {
+        queuedNavigationSpeech = null
+        val id = audioScheduler.invalidate(OriaAudioKind.NAVIGATION)
+        pendingSpeech?.takeIf { it.id == id && it.backend == OriaVoiceBackend.BLUETOOTH }?.let {
+            it.cancelled.set(true)
+            localSpeech.interrupt()
         }
-        sendSpeech(text, null, pan = pan)
+    }
+
+    fun setForeground(visible: Boolean) {
+        foreground = visible
+        navigation.setForeground(visible)
+        if (!visible) eagleButton.reset()
+    }
+
+    private fun onEagleButton() {
+        if (!_state.value.connected || closed) return
+        val (action, token) = eagleButton.press(now())
+        when (action) {
+            EagleButtonAction.START_VOICE_COMMAND -> {
+                if (foreground) _voiceCommandRequests.tryEmit(Unit)
+                else speakManual("Ouvrez Oria sur le téléphone pour dicter une commande.")
+            }
+            EagleButtonAction.WAIT_FOR_SECOND_PRESS -> scope.launch {
+                delay(560)
+                if (eagleButton.timeout(token, now()) == EagleButtonAction.RUN_SINGLE_PRESS) {
+                    speakManual(if (_state.value.running) "Oria est en marche." else "Oria est arrêtée.")
+                }
+            }
+            else -> Unit
+        }
+    }
+
+    /** Only correlated Android activity results reach this method; never anonymous HTC callbacks. */
+    fun acceptVoiceCommand(transcript: String) {
+        if (!foreground || closed) return
+        when (val intent = OriaVoiceIntentParser.parse(transcript).intent) {
+            is OriaVoiceIntent.GuideTo -> navigation.search(intent.destination, NavigationMode.REAL)
+            OriaVoiceIntent.PauseNavigation -> navigation.pause()
+            OriaVoiceIntent.ResumeNavigation -> navigation.resume()
+            OriaVoiceIntent.StopNavigation -> navigation.stop()
+            OriaVoiceIntent.ConfirmDestination -> navigation.confirmSelected()
+            is OriaVoiceIntent.SelectDestination -> navigation.state.value.suggestions.getOrNull(intent.index)?.let(navigation::select)
+            OriaVoiceIntent.StopPerception -> stop()
+            OriaVoiceIntent.Cancel -> navigation.stop()
+            OriaVoiceIntent.StartPerception -> speakManual("Utilisez Démarrer Oria sur le téléphone.")
+            OriaVoiceIntent.RepeatActive -> if (!navigation.repeatFreshInstruction())
+                speakManual("Aucune instruction récente à répéter.")
+            OriaVoiceIntent.DescribeAhead -> speakManual("Les objets et obstacles sont annoncés automatiquement avec des images fraîches.")
+            is OriaVoiceIntent.Ambiguous -> speakManual(intent.response)
+            is OriaVoiceIntent.Unknown -> speakManual(intent.response)
+            else -> speakManual("Cette commande n’est pas disponible.")
+        }
     }
 
     private fun voiceBackendReady(): Boolean = _state.value.voiceBackend == OriaVoiceBackend.HTC ||
@@ -677,17 +809,21 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     }
 
     private fun sendSpeech(text: String, ticket: VoiceTicket?, observedAtMs: Long? = null,
-                           pan: SpeechPan = SpeechPan.CENTER, depthTicket: DepthVoiceTicket? = null) {
+                           pan: SpeechPan = SpeechPan.CENTER, depthTicket: DepthVoiceTicket? = null,
+                           instruction: OriaInstruction? = null, navigationSpeech: NavigationSpeech? = null) {
         val automatic = ticket != null || depthTicket != null
         val maximumAge = if (depthTicket != null) DEPTH_MAX_AGE_MS else MAX_AGE_MS
         // Persist before dispatch so an activity/process restart cannot invent a clean transport.
         if (!persistUncertainDelivery(true)) {
+            instruction?.let { audioScheduler.finished(it.id) }
             if (!releaseLocalSpeech(ticket, depthTicket)) return
             _state.update { it.copy(audio = "Impossible de journaliser la demande vocale") }
             return
         }
         val pending = PendingSpeech(ticket, manager.synthesisTransportEpoch, now(), text,
-            UUID.randomUUID().toString(), _state.value.voiceBackend, generation, pan, depthTicket)
+            instruction?.id ?: UUID.randomUUID().toString(), _state.value.voiceBackend, generation, pan, depthTicket,
+            instruction, navigationSpeech)
+        if (automatic) audioScheduler.dangerStarted(pending.id)
         pendingSpeech = pending
         playableDepthTicketId = depthTicket?.takeIf { depthPolicy.canPlay(it, now()) }?.id
         _state.update { it.copy(audioBusy = true,
@@ -698,9 +834,11 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
             // No blocking work is allowed between this last observation check and SDK dispatch.
             if (automatic && (observedAtMs == null || now() - observedAtMs > maximumAge ||
                     observedAtMs > now() || !_state.value.running ||
-                    (ticket?.sessionId ?: depthTicket?.sessionId) != generation)) {
+                    (ticket?.sessionId ?: depthTicket?.sessionId) != generation) || !instructionCurrent(pending)) {
                 if (!releaseLocalSpeech(ticket, depthTicket)) return
                 pendingSpeech = null
+                audioScheduler.finished(pending.id)
+                pending.navigationSpeech?.let { navigation.onSpeechResult(it, false) }
                 persistUncertainDelivery(false)
                 _state.update { it.copy(audioBusy = false, audio = "Annonce expirée avant envoi") }
                 trace("speech_expired_before_dispatch")
@@ -710,14 +848,14 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
             val accepted = if (pending.backend == OriaVoiceBackend.HTC) manager.speakOriaText(text)
             else localSpeech.submit(pending.id, text, pan = pending.pan,
                 canStart = {
-                    val allowed = localRequestCurrent(pending) &&
+                    val allowed = localRequestCurrent(pending) && instructionCurrent(pending) &&
                         (depthTicket == null || playableDepthTicketId == depthTicket.id) && (!automatic ||
                         (observedAtMs != null && observedAtMs <= now() && now() - observedAtMs <= maximumAge))
                     if (startGuardRecorded.compareAndSet(false, true)) trace("speech_pcm_start_guard",
                         "requestId" to pending.id, "allowed" to allowed, "videoSessionId" to pending.sessionGeneration,
                         "observationAgeMs" to (observedAtMs?.let { now() - it } ?: -1L))
                     // Trace bookkeeping must not weaken the final freshness boundary.
-                    allowed && localRequestCurrent(pending) &&
+                    allowed && localRequestCurrent(pending) && instructionCurrent(pending) &&
                         (depthTicket == null || playableDepthTicketId == depthTicket.id) && (!automatic ||
                         (observedAtMs != null && observedAtMs <= now() && now() - observedAtMs <= maximumAge))
                 },
@@ -725,6 +863,8 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
             if (!accepted) {
                 if (!releaseLocalSpeech(ticket, depthTicket)) return
                 pendingSpeech = null
+                audioScheduler.finished(pending.id)
+                pending.navigationSpeech?.let { navigation.onSpeechResult(it, false) }
                 persistUncertainDelivery(false)
                 _state.update { it.copy(audioBusy = false, audioAutomaticPaused = true, audio = "Soumission vocale refusée") }
                 trace("speech_rejected")
@@ -739,9 +879,14 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
 
     /** Worker-readable validation; freshness is checked separately only before the first PCM. */
     private fun localRequestCurrent(pending: PendingSpeech): Boolean =
-        !closed && pendingSpeech?.id == pending.id && generation == pending.sessionGeneration &&
+        !closed && !pending.cancelled.get() && pendingSpeech?.id == pending.id && generation == pending.sessionGeneration &&
             !_state.value.audioUnknown && _state.value.connected &&
             ((pending.ticket == null && pending.depthTicket == null) || _state.value.running)
+
+    private fun instructionCurrent(pending: PendingSpeech): Boolean = pending.instruction?.let {
+        now() in it.observedAtMs..it.expiresAtMs &&
+            (pending.navigationSpeech?.let(navigation::canSpeak) ?: true)
+    } ?: true
 
     /** Android delivery has a real request ID; unrelated and late results are ignored. */
     private fun onLocalSpeechResult(id: String, result: SpeechDelivery, detail: String) {
@@ -751,9 +896,12 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         val accepted = applySpeechResult(pending, if (result == SpeechDelivery.COMPLETED) "confirmed" else "failed")
         if (!accepted) { uncertainAudio("Retour local refusé par le moteur"); return }
         pendingSpeech = null
-        nextAutomaticVoiceAt = now() + engine.config.globalAnnouncementGapMs
+        audioScheduler.finished(id)
+        pending.navigationSpeech?.let { navigation.onSpeechResult(it, result == SpeechDelivery.COMPLETED && !pending.cancelled.get()) }
+        val expectedCancellation = pending.instruction != null && pending.cancelled.get()
+        nextAutomaticVoiceAt = if (expectedCancellation) now() else now() + engine.config.globalAnnouncementGapMs
         persistUncertainDelivery(false)
-        _state.update { it.copy(audioBusy = false, audioAutomaticPaused = result != SpeechDelivery.COMPLETED && result != SpeechDelivery.EXPIRED,
+        _state.update { it.copy(audioBusy = false, audioAutomaticPaused = !expectedCancellation && result != SpeechDelivery.COMPLETED && result != SpeechDelivery.EXPIRED,
             audio = when (result) {
                 SpeechDelivery.COMPLETED -> "Annonce terminée"
                 SpeechDelivery.EXPIRED -> "Annonce expirée avant lecture · attente d’une observation fraîche"
@@ -769,6 +917,8 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
     private fun cancelLocalSpeech(reason: String) {
         val pending = pendingSpeech ?: return
         if (pending.backend != OriaVoiceBackend.BLUETOOTH) return
+        audioScheduler.finished(pending.id)
+        pending.navigationSpeech?.let { navigation.onSpeechResult(it, false) }
         pendingSpeech = null // The worker's canContinue becomes false before stopping the player.
         localSpeech.stop()
         if (!releaseLocalSpeech(pending.ticket, pending.depthTicket)) return
@@ -795,6 +945,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         val pending = pendingSpeech
         pending?.let { applySpeechResult(it, "ambiguous") }
         pendingSpeech = null
+        audioScheduler.reset(generation)
         _state.update { it.copy(audioUnknown = true, audioBusy = false, audio = reason) }
         trace("audio_uncertain", "reason" to reason, "requestId" to (pending?.id ?: "none"),
             "videoSessionId" to (pending?.sessionGeneration ?: generation))
@@ -844,10 +995,13 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
             .put("source", if (_state.value.simulator) "htc_simulator" else "htc_live")
         fields.forEach { (key, value) -> json.put(key, value) }
         if (json.has("frame")) json.put("frameId", json.get("frame"))
-        traces.trySend(json.toString())
-        Log.i("Oria", json.toString())
+        val safe = runCatching { OriaLabPrivacyJson.sanitizeEvent(json) }.getOrElse {
+            JSONObject().put("type", "privacy_redaction_failed").put("atMs", now())
+        }
+        traces.trySend(safe.toString())
+        Log.i("Oria", safe.toString())
         // These two events have richer, explicitly labelled recordings below; avoid duplicates.
-        if (type != "inference" && type != "decision") manager.oriaLabRecorder.recordEvent(json)
+        if (type != "inference" && type != "decision") manager.oriaLabRecorder.recordEvent(safe)
     }
 
     private fun recordingMetadata(videoSessionId: Long): JSONObject {
@@ -999,6 +1153,7 @@ class OriaController(context: Context, private val manager: ViveGlassKitManager)
         // Closing is serialized behind any ongoing inference, never on the UI thread.
         CoroutineScope(worker).launch { detector?.close(); worker.close() }
         CoroutineScope(depthWorker).launch { depthDetector?.close(); depthWorker.close() }
+        navigation.close()
         localSpeech.close()
         scope.cancel()
     }
