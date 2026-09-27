@@ -151,6 +151,15 @@ class BluetoothSpeechBackend(context: Context,
         }
     }
 
+    /** True only after the real worker terminal has released the reservation. */
+    fun isIdle(): Boolean = synchronized(lock) { active == null }
+
+    /** Preemption must recreate the warm route after the interrupted worker has drained. */
+    fun interrupt() {
+        stop()
+        scheduleWarmup()
+    }
+
     fun stop() {
         val cancelSynthesis = synchronized(lock) { active?.also { it.cancelled.set(true) } != null }
         player.stop()
