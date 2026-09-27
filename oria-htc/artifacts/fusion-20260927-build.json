@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "branch": "fusion",
+  "sourceCommit": "9010e955f4365e878acf6dfaf4f1a88f60870b2e",
+  "baseMain": "b650dad8e96ef7a9b3ca8bd26c8f04471dedf2db",
+  "rayanReference": "96d524a41986f3b6799c1743055a7a7e4f18fec9",
+  "package": "com.htc.vive.eagle.hackathon.starter",
+  "versionName": "1.8-fusion-preview",
+  "versionCode": 9,
+  "apkFile": "oria-silmo-fusion.apk",
+  "apkSha256": "777e0716342f491870fc4e86e4180271f82b9a54cb4cb534bd537bfcb673a660",
+  "apkBytes": 251764549,
+  "signerSha256": "60372c0d29a3e6a0ea7af9af3bf16cbaff79fd95f75912c1692a9e12a9dfbeb7",
+  "device": {
+    "serial": "CN46V3M00284",
+    "model": "HTC U24 pro",
+    "installedApkMatches": true,
+    "installation": "adb install -r; no uninstall or data clear"
+  },
+  "validation": {
+    "jvm": {
+      "tests": 200,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "python": {
+      "tests": 176,
+      "failures": 0
+    },
+    "androidInstrumented": {
+      "tests": 17,
+      "failures": 0,
+      "scope": "synthetic recordings; offline navigation lifecycle; SDK prerecorded simulator with both models; audio recovery UI"
+    },
+    "swiftPureFunctions": {
+      "fixtures": 10,
+      "passed": 10
+    },
+    "rgbBaselineParity": {
+      "frames": 1800,
+      "commands": 2352,
+      "historicalFieldsIdentical": true
+    },
+    "lint": {
+      "Warning": 102,
+      "Hint": 2
+    },
+    "controllerSimulator": {
+      "scope": "HTC SDK prerecorded simulator, two bounded 4 s Controller sessions; no physical camera, listening or background validation",
+      "status": "PASS",
+      "sessions": [
+        {
+          "sessionId": 1,
+          "yoloFrames": 11,
+          "depthFrames": 6
+        },
+        {
+          "sessionId": 3,
+          "yoloFrames": 11,
+          "depthFrames": 5
+        }
+      ],
+      "trace": "oria-trace-1790517895212.jsonl"
+    },
+    "publicFootRoutingProbe": {
+      "client": "Mac",
+      "privateCoordinates": false,
+      "distanceMeters": 89.1,
+      "maneuvers": 5,
+      "mode": "walking"
+    }
+  },
+  "notValidated": [
+    "new live audio priority and audibility",
+    "actual IA button and recognition service",
+    "walking GPS navigation and rerouting on HTC",
+    "long locked-screen glasses session on fusion",
+    "general obstacle protection"
+  ],
+  "preserved": [
+    "HTC package and SDK manager",
+    "YOLO and DepthAnything model hashes and preprocessing",
+    "parallel video pipelines",
+    "70/30 audio pan",
+    "automatic pocket service",
+    "experimental obstacle alerts",
+    "original private captures"
+  ]
+}

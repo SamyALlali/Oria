@@ -1,0 +1,475 @@
+path,main_blob,rayan_blob,comparison,decision,reason
+.gitignore,feb34469970c285b71c9db8708afb547383e321c,feb34469970c285b71c9db8708afb547383e321c,identical,keep_main,Identical bytes
+AUDIT_PACKAGE_HTC.md,3885049253eabf7b2f21702e1977edb2e305ae6b,3885049253eabf7b2f21702e1977edb2e305ae6b,identical,keep_main,Identical bytes
+CAHIER_DES_CHARGES_ORIA_SILMO.md,a11e5556a52fb04f079a39dc6f9d133672aae677,a11e5556a52fb04f079a39dc6f9d133672aae677,identical,keep_main,Identical bytes
+DECISIONS_ARCHITECTURE_ORIA_SILMO.md,d2ccbbadba302649fcb763dff25bcbb63bfe45cc,0cbe276e0a778fc0cbdefd923deae750840d0912,different,keep_main,Preserve stable implementation; see feature review
+ORIA_MODEL_METADATA.json,22d9863ce9c02a632d4b554e7c31634481874a4d,22d9863ce9c02a632d4b554e7c31634481874a4d,identical,keep_main,Identical bytes
+PORTAGE_ORIA_SWIFT_ANDROID.md,9b43c184f7f55de3261c8db1c7a9525434fbeafa,9b43c184f7f55de3261c8db1c7a9525434fbeafa,identical,keep_main,Identical bytes
+PROMPT_ORIA_SILMO_MULTI_AGENTS.md,3ce5254fe3fc9863163559217709765c9435f558,3ce5254fe3fc9863163559217709765c9435f558,identical,keep_main,Identical bytes
+PROMPT_REPRISE_ORIA_HTC.md,99c481600b7ae6dff2c992c6229b51c339930c3b,99c481600b7ae6dff2c992c6229b51c339930c3b,identical,keep_main,Identical bytes
+PUBLICATION.md,242df20814f24f6f68b4abda40b688b98b921eb5,242df20814f24f6f68b4abda40b688b98b921eb5,identical,keep_main,Identical bytes
+README.md,1cffdab75988d7518a2ac2bbfabe122f63a3c641,1cffdab75988d7518a2ac2bbfabe122f63a3c641,identical,keep_main,Identical bytes
+debat/TOUR1_HTC.md,115e42c5f8c575c6b449bc4a4a15fc887f1e1695,115e42c5f8c575c6b449bc4a4a15fc887f1e1695,identical,keep_main,Identical bytes
+debat/TOUR1_ML.md,83d73067dcb1351e466071a66618722afb634df1,83d73067dcb1351e466071a66618722afb634df1,identical,keep_main,Identical bytes
+debat/TOUR1_PORTAGE.md,f38e91bbc270e07a3fdcb657e50a9186c73558ab,f38e91bbc270e07a3fdcb657e50a9186c73558ab,identical,keep_main,Identical bytes
+debat/TOUR2_HTC.md,40eeaa56026c2dc6d453d4f5b405bca77c34bd61,40eeaa56026c2dc6d453d4f5b405bca77c34bd61,identical,keep_main,Identical bytes
+debat/TOUR2_ML.md,2a5659a87ad444280f6dabd2f203dbc3ba6b04bc,2a5659a87ad444280f6dabd2f203dbc3ba6b04bc,identical,keep_main,Identical bytes
+debat/TOUR2_PORTAGE.md,131ffadbbbf62609ad366fdb7c7e9057d051fa93,131ffadbbbf62609ad366fdb7c7e9057d051fa93,identical,keep_main,Identical bytes
+oria-htc/DEMONSTRATION.md,6cf06c8c5c8f5a0d4e84336275a1323053c97902,b78c3f89fdb399120d8b8624f2eafe639dc511db,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/IMPLEMENTATION_COORDINATION.md,32866d8f64f7f5e8d9250f52208895cb1d613210,32866d8f64f7f5e8d9250f52208895cb1d613210,identical,keep_main,Identical bytes
+oria-htc/README.md,4ffb8e9b3bfb6f5ac7d4e397d2eefcf4b916fc56,2afd09a028087445bed5abcf9ab674605ccad87a,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/.gitignore,643d213c6227a6be02cda46721d7c5fdae639053,643d213c6227a6be02cda46721d7c5fdae639053,identical,keep_main,Identical bytes
+oria-htc/android-project/app/.gitignore,42afabfd2abebf31384ca7797186a27a4b7dbee8,42afabfd2abebf31384ca7797186a27a4b7dbee8,identical,keep_main,Identical bytes
+oria-htc/android-project/app/build.gradle.kts,8980c7399d5b0213027bf75fb82574e7e0052bf9,af3d46168424752fd2eb20ae51102efc2eb8cbbf,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/libs/ViveGlassSimulator-release.aar,904bcaac80b32f4b921699841b157cd147f82ee6,904bcaac80b32f4b921699841b157cd147f82ee6,identical,keep_main,Identical bytes
+oria-htc/android-project/app/proguard-rules.pro,64b4a059a2d5777f903b96984a78d9ddb56c4717,64b4a059a2d5777f903b96984a78d9ddb56c4717,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/depth/fixtures.json,58712b964902bd81b4aa919468e0542a57969269,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/depth/generate_fixtures.py,c68ee8f06fdc4ace717dfde6bd43646f77a43fa3,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/depth/synthetic_landscape.compact.f32,cbcb4348cbf208dd5adac9237611eb98b728440c,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/depth/synthetic_landscape.input.png,7fb523f44655980478642980ebe751dfd177c88f,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/depth/synthetic_landscape.normalized.f32,b7d295bf4d50e1412b0d079683f62165bbec8df5,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/depth/synthetic_landscape.png,0240f2072e385b7ac89a4c6aaa63c283240a7157,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/depth/synthetic_landscape.raw.f32,c11096293e06fdbe44953d14064fe926d12deba0,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/depth/synthetic_portrait.compact.f32,0683c2330cb565708ccf5dccac0cb13eb9aa9274,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/depth/synthetic_portrait.input.png,8ae33ddbef7faf35e20a3bff0bdc7657e1ea2181,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/depth/synthetic_portrait.normalized.f32,3f08628e34aaf71fc6fda30d88db474e84ef3f86,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/depth/synthetic_portrait.png,3b51d985259970f877f47831c91e2a341ea7e6dc,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/depth/synthetic_portrait.raw.f32,87d3bf564db178c9a7a90720190b3f1edf102ba3,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/assets/ml/fixtures.json,7627edce78002faeff0630a92750c75cbc8f7365,7627edce78002faeff0630a92750c75cbc8f7365,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/geometry_rgb_odd.f32,90ae53db709976dafef516e0a7c58fabf5ce29f4,90ae53db709976dafef516e0a7c58fabf5ce29f4,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/geometry_rgb_odd.output.f32,61a433503fd147cbb5d1de02a67fc31b7275a04b,61a433503fd147cbb5d1de02a67fc31b7275a04b,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/geometry_rgb_odd.png,834a35c85bca5fc3b33df16bdaa469df9e5aaeb3,834a35c85bca5fc3b33df16bdaa469df9e5aaeb3,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/sdk_sample_0.f32,3d5467bc0588a1fa631696fcb0e61e0dbb8ea3b4,3d5467bc0588a1fa631696fcb0e61e0dbb8ea3b4,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/sdk_sample_0.output.f32,62ce1f25faf44692c5ed4e18f6950338ba75ac09,62ce1f25faf44692c5ed4e18f6950338ba75ac09,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/sdk_sample_0.png,7ca16b91cf058c0d9ad1dd2225c56d6f02acd031,7ca16b91cf058c0d9ad1dd2225c56d6f02acd031,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/sdk_sample_1.f32,2e1b90a1c61d2a0cb00a1aa1566365ec37c974cd,2e1b90a1c61d2a0cb00a1aa1566365ec37c974cd,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/sdk_sample_1.output.f32,cc56340f867c0d5c345e517f0befb74e17c56b94,cc56340f867c0d5c345e517f0befb74e17c56b94,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/sdk_sample_1.png,5191ee6fe6cd25d4026385bf3369fa412dcafa2c,5191ee6fe6cd25d4026385bf3369fa412dcafa2c,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/sdk_sample_2.f32,e8abbd81a07ee57ce4177aa125c9a241982e0980,e8abbd81a07ee57ce4177aa125c9a241982e0980,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/sdk_sample_2.output.f32,b581eed4b5f07d14a590ff0a401be5270618e270,b581eed4b5f07d14a590ff0a401be5270618e270,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/sdk_sample_2.png,7945cd2856868a86f5ebfac2ac8bf9954125dbea,7945cd2856868a86f5ebfac2ac8bf9954125dbea,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/ultralytics_bus.f32,c148b99645f21b62926145b9866674e8ddd4f522,c148b99645f21b62926145b9866674e8ddd4f522,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/ultralytics_bus.output.f32,7968b463ab2808f2d6372115924f8d009bcb4aca,7968b463ab2808f2d6372115924f8d009bcb4aca,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/ultralytics_bus.png,b783b414e7b255d5749e30be44daf70143208da2,b783b414e7b255d5749e30be44daf70143208da2,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/ultralytics_zidane.f32,ee79e6b6260ca11bf3c7ccf2125b65ce09c92486,ee79e6b6260ca11bf3c7ccf2125b65ce09c92486,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/ultralytics_zidane.output.f32,4a6cb1b3a7996dcae7092fbf077bc5a2926eec9f,4a6cb1b3a7996dcae7092fbf077bc5a2926eec9f,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/assets/ml/ultralytics_zidane.png,dd02b9638d708f7120dddeaa982fb527addfd483,dd02b9638d708f7120dddeaa982fb527addfd483,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/ExampleInstrumentedTest.kt,75b42e845b67d3f9b4810c58eecdda1961f61d43,75b42e845b67d3f9b4810c58eecdda1961f61d43,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/UnifiedControllerInstrumentedTest.kt,e7f003b9a4a619407be2ee2056ac3bdb1802ca99,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/ml/OnnxDepthDetectorInstrumentedTest.kt,832b4a1fc54e1102a32f79f5bd78d436515bd303,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/ml/OnnxObjectDetectorInstrumentedTest.kt,16d23df465cd60479bf9aa2e0da9b6b4a9ece41a,16d23df465cd60479bf9aa2e0da9b6b4a9ece41a,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/ml/UnifiedModelTimingInstrumentedTest.kt,8fa7e184fb02c93e06164f37a65cab58e3ea4de2,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaLabGalleryInstrumentedTest.kt,b39a170dd0e8a081a1a28b77bab628863dcafc39,b39a170dd0e8a081a1a28b77bab628863dcafc39,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaLabPrivacyInstrumentedTest.kt,,ccde3c545a784f45853d012b85c341e4aab07c9a,rayan_only,adapt,Contextual redaction; retain technical replay evidence and closed hazard vocabulary
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaLabRecorderInstrumentedTest.kt,34669abfcd3c29cffd3a91bac3501c82fca978aa,20d62baed96fb6f022f163076c70307a84345fda,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/ui/OriaAudioRecoveryTest.kt,919167e4b1329c08f571a88f21cda37e62f4d6af,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/video/CombinedPipelineInstrumentedTest.kt,9ce446b296c3774bec16aad040a38cb0d04d8f2c,9ce446b296c3774bec16aad040a38cb0d04d8f2c,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/video/DepthPipelineLatencyInstrumentedTest.kt,94adcd063541bfdc51b17e5e76ed053a80eb3e02,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/androidTest/java/com/htc/vive/eagle/hackathon/starter/oria/video/VideoDecoderInstrumentedTest.kt,87dc455f1c07586113d9784fc15a0f17fdc16bfb,87dc455f1c07586113d9784fc15a0f17fdc16bfb,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/AndroidManifest.xml,575757d076f6792df500b77b5593e3ba1c1c84ef,389dd709f26c0656b5a96cbfb389c0e7040508cd,different,main_plus_targeted_hooks,Do not replace stable HTC integration/background/audio/accessibility/depth
+oria-htc/android-project/app/src/main/assets/oria/depth/.gitignore,e1a699ac37f449b6c2b99d720554c9122433b2de,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/assets/oria/depth/LICENSE-DepthAnythingV2.txt,261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/assets/oria/depth/LICENSE_MIDAS.txt,,277b5c11be103f028a8d10985139f1da10c2f08e,rayan_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/assets/oria/depth/README.md,793098a35f50731f0691f40f622401b68409027a,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/assets/oria/depth/midas_v21_small_256.onnx,,9fb7546dd483b4b0e08ff57eab9f51139d86ec4e,rayan_only,reject,Keep current parallel DepthAnything worker and validated model contract; depth remains experimental
+oria-htc/android-project/app/src/main/assets/oria/depth/model_manifest.json,25795cf1b89817e0ce702b3d532d5c773bdc1ad3,9bf3d7d563d497bd80eb2def9db396f03f53a9b1,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/assets/oria/model_manifest.json,57fd843a70888d32a536a67dbb8d76d6972f3036,57fd843a70888d32a536a67dbb8d76d6972f3036,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/assets/oria/oria_silmo_fp32.onnx,1fca0c1195a26f7372920d792225e2dbdacf1dcb,1fca0c1195a26f7372920d792225e2dbdacf1dcb,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/ic_launcher-playstore.png,b4f52a1d823a033f1455860e4994537b30456dbd,b4f52a1d823a033f1455860e4994537b30456dbd,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/MainActivity.kt,122166c794589952be4575010e4ddac2cbe9f761,678d22c9a89a0ec79a87814bd2692425162c216e,different,main_plus_targeted_hooks,Do not replace stable HTC integration/background/audio/accessibility/depth
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ViveGlassKitManager.kt,b2bfad575b5540b02357df26edf80afe79579300,07bcd59a03c89eb0a6c7b81cab914877a98d878c,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/OriaController.kt,456602ae96dec63d2461179821904e712974b015,83a16b1512acf90f942ac44f986e7f0aebfa61d0,different,main_plus_targeted_hooks,Do not replace stable HTC integration/background/audio/accessibility/depth
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/audio/BluetoothPcmPlayer.kt,2aa8b6acbd21cf5df46ce2426ec742838537aedc,bc4d09a8531034d0da1ecd5ac94c61195001724e,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/audio/BluetoothSpeechBackend.kt,0760ea632b350375e383fb31801cf5b606dded66,7796e8242bd244693d5de12454be4aeaad4c081d,different,main_plus_targeted_hooks,Do not replace stable HTC integration/background/audio/accessibility/depth
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/audio/LocalFrenchSynthesizer.kt,0594bc5b9e8b97a47f9701622223598fffbe8c9d,0594bc5b9e8b97a47f9701622223598fffbe8c9d,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/audio/OriaAudioScheduler.kt,,7c018940d52064d7e27b4c0db3d9395fb1485ef9,rayan_only,adapt,Priority lane with asynchronous cancellation barrier; preserve live hazard arbitration
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/audio/SpeechPan.kt,2b01fce223b17c045a7bdf7672277bfe614b48df,2b01fce223b17c045a7bdf7672277bfe614b48df,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/core/Contracts.kt,5f87bb5e07ed330f12014430b928fed27eda52ec,d28aea54d26162be95e200ec78863bb7a9dcb8b6,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/core/DangerResolution.kt,,443fc159972a9264fb1b932970532a18e9c58c33,rayan_only,partial_diagnostic,No live policy promotion; session/freshness guards and reference function fixtures
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/core/DepthEvidence.kt,,b1a723d776526a0c465353503ad18732b1831471,rayan_only,partial_diagnostic,No live policy promotion; session/freshness guards and reference function fixtures
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/core/DepthObstacleGeometry.kt,bc11421db83ddb935232d503ee6c979ab29ff90a,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/core/DepthObstaclePolicy.kt,6e52f58b1d54fd6e7ab169ee9c7478b611757c77,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/core/FusionVoiceArbiter.kt,a64a26c2b487a7db518e7f4b34c7041d1ecb2270,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/core/RgbAlertEngine.kt,26acf7ff1fcfc40c2a2d9b80381c7936274df285,b467417eef3ae5d887f28210ca82c281e508baa6,different,partial_diagnostic,No live policy promotion; session/freshness guards and reference function fixtures
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/core/RgbAlertPolicy.kt,11d3ea448dcd2af443d9f32c46204b3544257780,11d3ea448dcd2af443d9f32c46204b3544257780,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/core/StableRgbAssociation.kt,e752258db9fb6761a84cafc2688566ee51ac8112,e752258db9fb6761a84cafc2688566ee51ac8112,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/dashboard/OriaDashboard.kt,,326fe1f1c92417e89484d369ee6ce99b80a2097d,rayan_only,keep_main,Avoid parallel owners/circuit breakers changing stable sessions; partial ideas only
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/interaction/OriaVoiceInteraction.kt,,b9f81d09ae04fc6c0c1556e132ab35e846d213a2,rayan_only,adapt,"New feature; fix lifecycle, GPS, request rate, voice correlation and privacy"
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/lifecycle/OriaRuntimeState.kt,,3559a2a0a0a8b45e062fcec415817571af4bc97c,rayan_only,keep_main,Avoid parallel owners/circuit breakers changing stable sessions; partial ideas only
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/lifecycle/PocketSessionPolicy.kt,961851d142d504031ebf7d5e5bf161b3f5e48bd0,daf36d4dcdd81ec90429810bc977216034e0d5a4,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/lifecycle/PocketSessionService.kt,8c21ab0d863407fa7530bf015f996b4f34386945,bc516e09f122c88d40ea84fea93b76cd5cd0953b,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/ml/DepthImageProcessing.kt,016cb39f15ba64f3138324b4128e03b229d5bf70,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/ml/LetterboxPreprocessor.kt,f6ea016a33e95d24b2ad19242851ecff308fe6d1,f6ea016a33e95d24b2ad19242851ecff308fe6d1,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/ml/MidasV21DepthEstimator.kt,,9a12fc91df4c3f4e632c5f46e466b006033682a1,rayan_only,reject,Keep current parallel DepthAnything worker and validated model contract; depth remains experimental
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/ml/OnnxDepthDetector.kt,e52e22336d2c1fcb1599dae5f43b9a36eba67e14,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/ml/OnnxObjectDetector.kt,70bb8827d9900b1f677ca0f43f97af96fe79cbe2,70bb8827d9900b1f677ca0f43f97af96fe79cbe2,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/ml/YoloTensorContract.kt,c16e02d79d9d8dc96c8019362ada814b20faea2c,c16e02d79d9d8dc96c8019362ada814b20faea2c,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/navigation/AndroidNavigationAdapters.kt,,4f9802e97d8f455f44334ce971b409b959664277,rayan_only,adapt,"New feature; fix lifecycle, GPS, request rate, voice correlation and privacy"
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/navigation/NavigationContracts.kt,,6d053321d114c983820dde6fe67ba65e5ee7a491,rayan_only,adapt,"New feature; fix lifecycle, GPS, request rate, voice correlation and privacy"
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/navigation/NavigationEngine.kt,,c7df317fca03838535fd072c5b374ba6699bd53d,rayan_only,adapt,"New feature; fix lifecycle, GPS, request rate, voice correlation and privacy"
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/navigation/OriaNavigationCoordinator.kt,,0aee677bba1d2cf5244ae5a96b6195887a50b7ed,rayan_only,adapt,"New feature; fix lifecycle, GPS, request rate, voice correlation and privacy"
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/navigation/SimulatedNavigation.kt,,804ea3b9cb91ded8faf048b6d7f62b73329a61bb,rayan_only,adapt,"New feature; fix lifecycle, GPS, request rate, voice correlation and privacy"
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaFullSystemReplay.kt,,aa53145b39d4e2bac21a61e54c9bc991f86b0439,rayan_only,reject,Rewrites capture clock; no real policy ticket confirmations; not wired into Mac
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaLabDiskBudget.kt,e3a6f3f589b545fe8f886c20b5f1402bc59c3ca5,e3a6f3f589b545fe8f886c20b5f1402bc59c3ca5,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaLabGallery.kt,bc6925d4ff62f5264f9aaf05815af438bbb84da6,bc6925d4ff62f5264f9aaf05815af438bbb84da6,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaLabPrivacy.kt,,3847981061bbb82fdc859010896ade9713012da3,rayan_only,adapt,Contextual redaction; retain technical replay evidence and closed hazard vocabulary
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaLabRecorder.kt,0375fcf64a231ed9c2a48fc9b82867c4f5ab288b,12fa707fff288e61f6a38c6f11b265d9f75123f2,different,adapt,Contextual redaction; retain technical replay evidence and closed hazard vocabulary
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaLabStorage.kt,aafd68ad7f045f01e01f7e750463b0bfa3015f03,aafd68ad7f045f01e01f7e750463b0bfa3015f03,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/robustness/OriaFailurePolicy.kt,,04bf2850a28cf4bad5d681d8cbe42b4d8a173c46,rayan_only,keep_main,Avoid parallel owners/circuit breakers changing stable sessions; partial ideas only
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/robustness/OriaPerformance.kt,,c032322fd9aa8017bd4fa564bd67e8feb8c6b4bf,rayan_only,keep_main,Avoid parallel owners/circuit breakers changing stable sessions; partial ideas only
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/ui/OriaDashboardCards.kt,,1ecdbaddee44958cdc8544eae42c04403656614a,rayan_only,keep_main,Avoid parallel owners/circuit breakers changing stable sessions; partial ideas only
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/ui/OriaLabScreen.kt,adb9d32463a387c1460d9387a8badc5cda1566f2,617f7c5a3b124fa612866aa67ab873e8b4ba880f,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/ui/OriaNavigation.kt,ebed3f55576e9e1764c98f8c985ce6c41e51f2ef,ebed3f55576e9e1764c98f8c985ce6c41e51f2ef,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/ui/OriaScreen.kt,2aa81fdd73b18cea6363e9f83c59bfcf5d3f034d,f1943782ed956b2ff88aff54ab67e76c2a9a5bef,different,main_plus_targeted_hooks,Do not replace stable HTC integration/background/audio/accessibility/depth
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/ui/OriaUiTheme.kt,48700a6d00b2dbb39e7b03e41c791a594f201440,48700a6d00b2dbb39e7b03e41c791a594f201440,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/video/H264Parameters.kt,13744d50d190e9ac0558666a5e3e952e24c4cc13,13744d50d190e9ac0558666a5e3e952e24c4cc13,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/video/OriaVideoDecoder.kt,2d654ccb11f85446a1c43abe6edb0075b52c8d75,42ee7cf85c4d35aaac14f5075613c86be0ff5844,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/video/VideoContracts.kt,ff0175bd6df11b2b5a96899c7cf532cfcf402d3e,ec380966ee129a5e06c2b7dd3e32ce74dcead6f6,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/oria/video/YuvPixels.kt,aa1ed188684db1c2e27c9c7e22dd5991c1166769,aa1ed188684db1c2e27c9c7e22dd5991c1166769,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/components/CustomBox.kt,86f6b34e1bf23db2c9c0e269effcf0555fa0decc,86f6b34e1bf23db2c9c0e269effcf0555fa0decc,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/components/CustomButton.kt,6cf9c38b55a8bbb4b2d6e1330e966357456a8734,6cf9c38b55a8bbb4b2d6e1330e966357456a8734,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/components/CustomHorizontalDivider.kt,ef23005ed22016859ddf21d5287b91635fa938ee,ef23005ed22016859ddf21d5287b91635fa938ee,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/components/CustomText.kt,139afcabfcc6f8613e814721c759fd60b6609ff2,139afcabfcc6f8613e814721c759fd60b6609ff2,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/components/CustomTextField.kt,98538506ba6e3920cdaa0d6e8229c58663afee02,98538506ba6e3920cdaa0d6e8229c58663afee02,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/components/CustomTitleWithIcon.kt,1de308c8edfb708d7611802a2b60a537fa7e6082,1de308c8edfb708d7611802a2b60a537fa7e6082,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/components/ViveHeaderSurface.kt,f0740714f20157cc3c2e58265258276b0e142ab1,f0740714f20157cc3c2e58265258276b0e142ab1,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/tab/AppDestination.kt,dfaed864f6306e1655fc2bf809d10d27de7fd1d3,dfaed864f6306e1655fc2bf809d10d27de7fd1d3,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/tab/AudioTab.kt,a7273cd0a3017469c5464be04eaa63424f221e0d,a7273cd0a3017469c5464be04eaa63424f221e0d,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/tab/AudioTabModel.kt,51b9a783d916a8ae0ea27a8de1053d98e372bf94,51b9a783d916a8ae0ea27a8de1053d98e372bf94,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/tab/CameraTab.kt,79e974f898f986d145160813e3e77b0c2c678e54,79e974f898f986d145160813e3e77b0c2c678e54,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/tab/CameraTabModel.kt,0f874c41620270a3f005a243bc8bfb8271244034,0f874c41620270a3f005a243bc8bfb8271244034,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/tab/ChatTab.kt,b70c9e873b68c0e6b9db212d7694ca1a34943759,b70c9e873b68c0e6b9db212d7694ca1a34943759,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/tab/ChatTabModel.kt,2cb3ec0dedf83f1ccda235d1e58ab4a0711f498c,2cb3ec0dedf83f1ccda235d1e58ab4a0711f498c,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/tab/GlassTab.kt,eae4d9a717dd220a9f6d810f506350a57c498e04,eae4d9a717dd220a9f6d810f506350a57c498e04,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/tab/GlassTabModel.kt,123b9b8879d3e44090aaa8fb5c0f66a79bc0cc32,123b9b8879d3e44090aaa8fb5c0f66a79bc0cc32,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/tab/Screens.kt,305a93c6786415f71ddb2f9a3918762906a6c67b,305a93c6786415f71ddb2f9a3918762906a6c67b,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/theme/Color.kt,1e853400fd786ea98a044fa079846acdc433d804,1e853400fd786ea98a044fa079846acdc433d804,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/theme/Theme.kt,2ad018f7c7ade94e0ea0a7f01574e23a92de4fec,2ad018f7c7ade94e0ea0a7f01574e23a92de4fec,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/ui/theme/Type.kt,4b7ed5205d825aee2581347e272c34b3f094c348,4b7ed5205d825aee2581347e272c34b3f094c348,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/util/AudioDecoder.kt,8e8084b39234dabed7e04b9fac897b0ad28f71d5,8e8084b39234dabed7e04b9fac897b0ad28f71d5,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/util/H264Decoder.kt,fe486329fd6eaee818e6926926876c40a671a785,fe486329fd6eaee818e6926926876c40a671a785,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/util/Logger.kt,4ef026d9c3b59cf1ca6dddd0bd8608ca2da9c605,4ef026d9c3b59cf1ca6dddd0bd8608ca2da9c605,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/java/com/htc/vive/eagle/hackathon/starter/util/StreamingPlayer.kt,7112426f3a0b333797ae8a839f0395216de17359,7112426f3a0b333797ae8a839f0395216de17359,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/audio_tab.png,b91b70ba8255d83494b707ca537ac2be4dfce6e2,b91b70ba8255d83494b707ca537ac2be4dfce6e2,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/audio_tab_audiocontrol.png,b91b70ba8255d83494b707ca537ac2be4dfce6e2,b91b70ba8255d83494b707ca537ac2be4dfce6e2,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/battery_full_solid_full.xml,beb581cfa70efaf2bb945037eb4dc4c5103771a6,beb581cfa70efaf2bb945037eb4dc4c5103771a6,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/camera_solid_full.xml,93602b90c24de6293e8f6ca2c02c17265d78773c,93602b90c24de6293e8f6ca2c02c17265d78773c,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/chat_tab.png,702d299bdd69892d38eba2255d5baaaec6320819,702d299bdd69892d38eba2255d5baaaec6320819,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/chat_tab_communication_control.png,702d299bdd69892d38eba2255d5baaaec6320819,702d299bdd69892d38eba2255d5baaaec6320819,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/chat_tab_microphone.png,b91b70ba8255d83494b707ca537ac2be4dfce6e2,b91b70ba8255d83494b707ca537ac2be4dfce6e2,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/chat_tab_send.png,3cb2dbbbd1dca259bbcdf9df87333c2f18d9eb19,3cb2dbbbd1dca259bbcdf9df87333c2f18d9eb19,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/circle_solid_full.xml,402e3c1ab3ca9b669365bfd9cdb89ca659618b5c,402e3c1ab3ca9b669365bfd9cdb89ca659618b5c,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/comment_dots_solid_full.xml,54152b847b7678489ceb5c1b17b5b70615c4fe58,54152b847b7678489ceb5c1b17b5b70615c4fe58,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/desktop_solid_full.xml,fc6bd0fc314fc09f04a17e3c7fcc3821fcad501f,fc6bd0fc314fc09f04a17e3c7fcc3821fcad501f,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/glasses_solid_full.xml,f41b6acf9d277699beb2298ab5ba9bad6f68a990,f41b6acf9d277699beb2298ab5ba9bad6f68a990,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/glasses_tab.png,b92cfe733922d868b5b04ea314dc1ff3d97ed3b9,b92cfe733922d868b5b04ea314dc1ff3d97ed3b9,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/glasses_tab_battery.png,107bf577422b4a655ba84389b018f905dc7058e0,107bf577422b4a655ba84389b018f905dc7058e0,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/glasses_tab_glasses_status.png,b92cfe733922d868b5b04ea314dc1ff3d97ed3b9,b92cfe733922d868b5b04ea314dc1ff3d97ed3b9,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/headphones_solid_full.xml,b5168863e25f2acaca91cddd91a14e85ccfbc135,b5168863e25f2acaca91cddd91a14e85ccfbc135,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/ic_launcher_background.xml,953ca56e070a05c2247d9b415a41598cef385cf7,953ca56e070a05c2247d9b415a41598cef385cf7,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/ic_launcher_foreground.xml,cc14f035a6bf8dd33583d7454da257d060a7ab0e,cc14f035a6bf8dd33583d7454da257d060a7ab0e,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/microphone_solid_full.xml,2fc31f30b378b39bcea9963af50567e4292d6b0a,2fc31f30b378b39bcea9963af50567e4292d6b0a,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/paper_plane_solid_full.xml,3451193e87d7ea97f490b8ed8eadd95585f0cb3f,3451193e87d7ea97f490b8ed8eadd95585f0cb3f,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/photo_tab.png,27b6c5f8b96480aab5c453f07bf822d43be56c69,27b6c5f8b96480aab5c453f07bf822d43be56c69,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/photo_tab_camera.png,3e6dad88e70c8407548f50532dded2de8b6430b7,3e6dad88e70c8407548f50532dded2de8b6430b7,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/photo_tab_preview.png,f5d182f77dcb5876f85a54850a19741bcdbc923c,f5d182f77dcb5876f85a54850a19741bcdbc923c,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/power_off_solid_full.xml,25cdcde2fba957263d81578919a5c06bd9a97711,25cdcde2fba957263d81578919a5c06bd9a97711,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/simulator_camera_button.png,3e6dad88e70c8407548f50532dded2de8b6430b7,3e6dad88e70c8407548f50532dded2de8b6430b7,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/simulator_glasses.png,7bd234a3f52ca67e75d8deec97b6cbead2378698,7bd234a3f52ca67e75d8deec97b6cbead2378698,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/simulator_power.png,03943e5e1bfdefe3f8efa8fc7abe2ee12af35cb8,03943e5e1bfdefe3f8efa8fc7abe2ee12af35cb8,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/video_solid_full.xml,ea4eda976b8fdc8d3f255bac912a4cef0d2c36b8,ea4eda976b8fdc8d3f255bac912a4cef0d2c36b8,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/drawable/xmark_solid_full.xml,09751c82de65d2ac9a70794c92764670379882d1,09751c82de65d2ac9a70794c92764670379882d1,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml,fdd632e4b318b31eb10f10fb55564857a5143023,fdd632e4b318b31eb10f10fb55564857a5143023,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml,fdd632e4b318b31eb10f10fb55564857a5143023,fdd632e4b318b31eb10f10fb55564857a5143023,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-hdpi/ic_launcher.webp,f3badad7cad7c34915510532e94155ff8d2bd5eb,f3badad7cad7c34915510532e94155ff8d2bd5eb,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.webp,bc91d777f1244b7d3bde423d1ab0766e62e40be2,bc91d777f1244b7d3bde423d1ab0766e62e40be2,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-hdpi/ic_launcher_round.webp,82f7fd7e3fe14d252a9280ef3d4bc47e29c14333,82f7fd7e3fe14d252a9280ef3d4bc47e29c14333,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-mdpi/ic_launcher.webp,66c505a4ab491c49d1b45da4dddbc9fcb86f0123,66c505a4ab491c49d1b45da4dddbc9fcb86f0123,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.webp,524eebe840434b1dcf8bd098517952d6a8ed7b9e,524eebe840434b1dcf8bd098517952d6a8ed7b9e,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-mdpi/ic_launcher_round.webp,a4a2361246682d85f7458a5cba6636edd76a3003,a4a2361246682d85f7458a5cba6636edd76a3003,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-xhdpi/ic_launcher.webp,730febe39822d90e03fea844cfb856b63b862f5f,730febe39822d90e03fea844cfb856b63b862f5f,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.webp,546c94f8a09b022e2e8541105cb9f2473a04be90,546c94f8a09b022e2e8541105cb9f2473a04be90,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp,a3cf50b84377e3a1ffc2a265eb06a45ec5d84284,a3cf50b84377e3a1ffc2a265eb06a45ec5d84284,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-xxhdpi/ic_launcher.webp,ab6d70cf11c689a68b9a6aa5cdf12b03f9ee9773,ab6d70cf11c689a68b9a6aa5cdf12b03f9ee9773,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.webp,2b4abbbc3c1786a64168532bb41a274d64938d27,2b4abbbc3c1786a64168532bb41a274d64938d27,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp,2964aee9ef14e40c1c7ea473c3bbc7943549982c,2964aee9ef14e40c1c7ea473c3bbc7943549982c,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp,bd1fdd76960e3bb215c545c0a14f5b960f285aef,bd1fdd76960e3bb215c545c0a14f5b960f285aef,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.webp,d851faf2d6d63ff91baac054a5d808b4402974dc,d851faf2d6d63ff91baac054a5d808b4402974dc,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp,263180d178e4aa43c8731767a7efc8bf993e8b71,263180d178e4aa43c8731767a7efc8bf993e8b71,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/raw/default_audio_256kbps.aac,4d891a45a115d4ac71de5fab33452941e3c8166b,4d891a45a115d4ac71de5fab33452941e3c8166b,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/values/colors.xml,823492c9ceef725155ea89a9fcd15538ceecb286,823492c9ceef725155ea89a9fcd15538ceecb286,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/values/strings.xml,1d070bd644cba1d410dfc337acdb91404bc39aab,1d070bd644cba1d410dfc337acdb91404bc39aab,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/values/themes.xml,d18d87f1685380ac3b1a2386e5937dcdbe5816d6,d18d87f1685380ac3b1a2386e5937dcdbe5816d6,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/xml/backup_rules.xml,433048d107ca266deddac793227db42b29f3c9f9,433048d107ca266deddac793227db42b29f3c9f9,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/main/res/xml/data_extraction_rules.xml,0ee2a789fe0584d6f25332e246a4d3b56210ac88,0ee2a789fe0584d6f25332e246a4d3b56210ac88,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/ExampleUnitTest.kt,9d4b5f11368c5697e4c0da9c934cfec14c511473,9d4b5f11368c5697e4c0da9c934cfec14c511473,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/audio/OriaAudioSchedulerTest.kt,,ece092c5f73ec6425bee81548ecff429db4c3995,rayan_only,adapt,Priority lane with asynchronous cancellation barrier; preserve live hazard arbitration
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/audio/SpeechPcmTransformsTest.kt,92b1f6dd1cab64b162f5e1a55885ade76c1b95ef,92b1f6dd1cab64b162f5e1a55885ade76c1b95ef,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/core/DangerResolutionEngineTest.kt,,81c8b7f54edc50748d557399bfc336ab0387631c,rayan_only,partial_diagnostic,No live policy promotion; session/freshness guards and reference function fixtures
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/core/DangerResolutionSwiftFixturesTest.kt,,a30337213329a69aab56a7bfbb62d8e99c683d11,rayan_only,partial_diagnostic,No live policy promotion; session/freshness guards and reference function fixtures
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/core/DepthObstacleGeometryTest.kt,1890b77898e2e4ce85fef655e94f67730dc3d779,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/core/DepthObstaclePolicyTest.kt,3ae8f863ba72c5faf2fa2c55b897318d22fbca41,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/core/FusionVoiceArbiterTest.kt,f3c09a43fea0fa7337d058d27d6d1a0fbdc5c1e1,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/core/RelativeDepthEvidenceAdapterTest.kt,,b8a893cc020df04e812d0a370ce68e32c58cd1d0,rayan_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/core/RgbAlertEngineTest.kt,ee7b2b5d14a64ed5dced3d17305e8698fc4cb27e,6b88597743771f1fe348356d4730a3b9ca55a29d,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/core/RgbLongSessionTest.kt,d26378d7c92a7f48075ec66f43b113a153803935,d26378d7c92a7f48075ec66f43b113a153803935,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/core/RgbSwiftFixturesTest.kt,b2304ca4bfaf0e54c128b010ce3f4c8e80a44dd7,b2304ca4bfaf0e54c128b010ce3f4c8e80a44dd7,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/core/StableRgbAssociationTest.kt,598d8090185625b7ff7fcc6b1179402134c98141,b69f77504f43417a699e1d415800103e4311dbda,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/dashboard/OriaDashboardTest.kt,,113b8071cd4487a18de6b7496a64510aa791c9de,rayan_only,keep_main,Avoid parallel owners/circuit breakers changing stable sessions; partial ideas only
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/interaction/OriaVoiceInteractionTest.kt,,3b0c35c7e04b994e67c369d527cd8bad640bf16d,rayan_only,adapt,"New feature; fix lifecycle, GPS, request rate, voice correlation and privacy"
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/lifecycle/OriaRuntimeStateTest.kt,,ad288544db033038e39a9b532a44e1de02a228bd,rayan_only,keep_main,Avoid parallel owners/circuit breakers changing stable sessions; partial ideas only
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/lifecycle/PocketSessionPolicyTest.kt,77fcf1cd063b7bf70fa164ad6154eba1f7773713,7456c3265855c130e9529d685e30326d35e4e2d2,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/ml/DepthImageProcessingTest.kt,d3e6c2645c944c126155f43f6bff242308eb502c,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/ml/MidasV21ContractTest.kt,,ffa719352f2e78ce5c83b3bfd5acc097166d6cbe,rayan_only,reject,Keep current parallel DepthAnything worker and validated model contract; depth remains experimental
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/ml/YoloTensorContractTest.kt,f1d110bde62ee23f3beb2e58568e809d7bc2d852,f1d110bde62ee23f3beb2e58568e809d7bc2d852,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/navigation/NavigationEngineTest.kt,,de2278eb2a7893e2bcc56eb6ebe95a75c2ecf2c1,rayan_only,adapt,"New feature; fix lifecycle, GPS, request rate, voice correlation and privacy"
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/navigation/OriaNavigationCoordinatorTest.kt,,68bef7ea7ca2304ea10e0f982e065623bf3475f0,rayan_only,adapt,"New feature; fix lifecycle, GPS, request rate, voice correlation and privacy"
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaFullSystemReplayTest.kt,,07500697696e1ae30a6252f4e6908bca42d72ee0,rayan_only,reject,Rewrites capture clock; no real policy ticket confirmations; not wired into Mac
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaLabDiskBudgetTest.kt,6ca6fb664f201bb78a41ccaffcd011656e748f91,6ca6fb664f201bb78a41ccaffcd011656e748f91,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaLabPrivacyContractTest.kt,,bf694aaeaacf86a533e28a578faae87cb2c8cbcf,rayan_only,adapt,Contextual redaction; retain technical replay evidence and closed hazard vocabulary
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/recording/OriaLabStorageTest.kt,eab9257a17a18d13e1c21d0f2948136ec65d5a4a,eab9257a17a18d13e1c21d0f2948136ec65d5a4a,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/release/OriaJuryScenarioTest.kt,,21ed98424fb27248141b52a5a31164393135a484,rayan_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/robustness/OriaFailurePolicyTest.kt,,c89cfe77a87c695f334b62d12383aed1a0a6563b,rayan_only,keep_main,Avoid parallel owners/circuit breakers changing stable sessions; partial ideas only
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/robustness/OriaPerformanceTest.kt,,1508825b353abf82a495fba923606af4552022d9,rayan_only,keep_main,Avoid parallel owners/circuit breakers changing stable sessions; partial ideas only
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/oria/video/VideoPrimitivesTest.kt,6f09e69ec8165228fa7cbebe32a22df76de0252e,6f09e69ec8165228fa7cbebe32a22df76de0252e,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/test/java/com/htc/vive/eagle/hackathon/starter/ui/tab/AppDestinationInitializationTest.kt,1015733dbf098c61ade979ac290f8229106c1d59,1015733dbf098c61ade979ac290f8229106c1d59,identical,keep_main,Identical bytes
+oria-htc/android-project/app/src/test/resources/depth/fixtures.json,58712b964902bd81b4aa919468e0542a57969269,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/resources/depth/synthetic_landscape.argb32,a4fb28a0ac361126db1ff30b6a57123f5beb2d68,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/resources/depth/synthetic_landscape.compact.f32,cbcb4348cbf208dd5adac9237611eb98b728440c,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/resources/depth/synthetic_landscape.input.argb32,0ae13fa1d5c7ce75584013fa5ef2bb8f1e35e104,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/resources/depth/synthetic_landscape.normalized.f32,b7d295bf4d50e1412b0d079683f62165bbec8df5,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/resources/depth/synthetic_landscape.raw.f32,c11096293e06fdbe44953d14064fe926d12deba0,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/resources/depth/synthetic_portrait.argb32,f51f8efd0d3482f129aea949e0477b17a89b55c6,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/resources/depth/synthetic_portrait.compact.f32,0683c2330cb565708ccf5dccac0cb13eb9aa9274,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/resources/depth/synthetic_portrait.input.argb32,2bd205a3047a0be4c27a7a51146677ef243a53d5,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/resources/depth/synthetic_portrait.normalized.f32,3f08628e34aaf71fc6fda30d88db474e84ef3f86,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/app/src/test/resources/depth/synthetic_portrait.raw.f32,87d3bf564db178c9a7a90720190b3f1edf102ba3,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/android-project/build.gradle.kts,6acf8a3a8aac5d27c0d6de3eac2b5d6763fb882b,6acf8a3a8aac5d27c0d6de3eac2b5d6763fb882b,identical,keep_main,Identical bytes
+oria-htc/android-project/gradle.properties,258d1872650bc2181302bcfcb7b922c8f36e18bd,258d1872650bc2181302bcfcb7b922c8f36e18bd,identical,keep_main,Identical bytes
+oria-htc/android-project/gradle/libs.versions.toml,913c81e4463ed1e214a63b84ff514ca8a1d12d91,913c81e4463ed1e214a63b84ff514ca8a1d12d91,identical,keep_main,Identical bytes
+oria-htc/android-project/gradle/wrapper/gradle-wrapper.jar,8bdaf60c75ab801e22807dde59e12a8735a34077,8bdaf60c75ab801e22807dde59e12a8735a34077,identical,keep_main,Identical bytes
+oria-htc/android-project/gradle/wrapper/gradle-wrapper.properties,c8af129da4e4178240450fb1c2656bd35d7c2693,c8af129da4e4178240450fb1c2656bd35d7c2693,identical,keep_main,Identical bytes
+oria-htc/android-project/gradlew,ef07e0162b183eb9d19a2c9ba7035c283af9f8dd,ef07e0162b183eb9d19a2c9ba7035c283af9f8dd,identical,keep_main,Identical bytes
+oria-htc/android-project/gradlew.bat,5eed7ee8452842305a18a4eb967442683808226a,5eed7ee8452842305a18a4eb967442683808226a,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.aar,d91adc6eb8e00fa3db264fd7641b7ca9cc7039bb,d91adc6eb8e00fa3db264fd7641b7ca9cc7039bb,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.aar.md5,6a24a59f430922ef7bce8d9959808787803589c8,6a24a59f430922ef7bce8d9959808787803589c8,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.aar.sha1,dddc8dfc4717ab5f7ea256f12a38147757e66bd4,dddc8dfc4717ab5f7ea256f12a38147757e66bd4,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.aar.sha256,b073e49be3d26a4bbd138b414333262693a27bf4,b073e49be3d26a4bbd138b414333262693a27bf4,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.aar.sha512,067cba5349bf58cb771c424af4424eeccee20eb3,067cba5349bf58cb771c424af4424eeccee20eb3,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.module,9232ea6e607b56fc4212f330676345d243a85411,9232ea6e607b56fc4212f330676345d243a85411,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.module.md5,04b1110576dca632d4fd416b4d3a1c790097c6ff,04b1110576dca632d4fd416b4d3a1c790097c6ff,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.module.sha1,ad5d749df5cab136cfe81ee26e32878b285c3911,ad5d749df5cab136cfe81ee26e32878b285c3911,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.module.sha256,bda1b924f181b68254459c6de2ac56e4fb06aa6d,bda1b924f181b68254459c6de2ac56e4fb06aa6d,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.module.sha512,1f0866159b9f5e62ab30ded089225161ca4b20da,1f0866159b9f5e62ab30ded089225161ca4b20da,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.pom,1c0a7076868e67fc716cc44c29733114488ff1e4,1c0a7076868e67fc716cc44c29733114488ff1e4,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.pom.md5,271d27ebb888b71f38a70dd90c460b3a1881124c,271d27ebb888b71f38a70dd90c460b3a1881124c,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.pom.sha1,bde0c57a462df72cb9e1f7f23426f2cdc11bac87,bde0c57a462df72cb9e1f7f23426f2cdc11bac87,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.pom.sha256,e8bfe79344928c3e621ce6fbf33bda24bfbf129d,e8bfe79344928c3e621ce6fbf33bda24bfbf129d,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/0.6.0/viveglass_client-0.6.0.pom.sha512,891cfd74981ac868ec3f6a952c4900e281e7368e,891cfd74981ac868ec3f6a952c4900e281e7368e,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/maven-metadata.xml,6e5ef3b641fa5ef3a6c9eb7d0d1d063c0051c1c2,6e5ef3b641fa5ef3a6c9eb7d0d1d063c0051c1c2,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/maven-metadata.xml.md5,e381cca4fe2543060958933144285655453bc10d,e381cca4fe2543060958933144285655453bc10d,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/maven-metadata.xml.sha1,4df81f904036e5aa60c1135b20504c98cc0ea0f3,4df81f904036e5aa60c1135b20504c98cc0ea0f3,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/maven-metadata.xml.sha256,30047fcfabf41436cbc482cc35a90b79a46d809d,30047fcfabf41436cbc482cc35a90b79a46d809d,identical,keep_main,Identical bytes
+oria-htc/android-project/repository/com/htc/viveglass/sdk/viveglass_client/maven-metadata.xml.sha512,3153aacfa04b858af65b151b1549f4d56673503b,3153aacfa04b858af65b151b1549f4d56673503b,identical,keep_main,Identical bytes
+oria-htc/android-project/settings.gradle.kts,396812339ac98c084f56288d2b69956c52554781,396812339ac98c084f56288d2b69956c52554781,identical,keep_main,Identical bytes
+oria-htc/artifacts/delivery_manifest.json,6d3e9f4e60938108c8244b1a5c63e59e5bfe080e,6d3e9f4e60938108c8244b1a5c63e59e5bfe080e,identical,keep_main,Identical bytes
+oria-htc/artifacts/depth-android-build.json,6e0eef20b5b78ed1f3a9db4799d40f9395864824,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/artifacts/depth-obstacles-validation.json,faff4131342cd9cedd7e7eff81b794d02866f8e5,faff4131342cd9cedd7e7eff81b794d02866f8e5,identical,keep_main,Identical bytes
+oria-htc/artifacts/live-20260927-v1.4-validation.json,7df5e6486ccea87859a1f38eed42e98ff8b97d35,f018f90aa08e227846b541b789f24529fbd571b2,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/artifacts/night-20260927-mac-integrity-validation.json,3c6268cac2e4c501bf48ad1ee0880d4fec1d0168,3c6268cac2e4c501bf48ad1ee0880d4fec1d0168,identical,keep_main,Identical bytes
+oria-htc/artifacts/night-20260927-v1.2-validation.json,b598364209d48569d70b76afad2ffe25eb3514fd,b598364209d48569d70b76afad2ffe25eb3514fd,identical,keep_main,Identical bytes
+oria-htc/artifacts/night-20260927-v1.3-validation.json,1caeb533915f980582b2a19674bf0996a7b427c3,1caeb533915f980582b2a19674bf0996a7b427c3,identical,keep_main,Identical bytes
+oria-htc/artifacts/night-20260927-v1.4-validation.json,a69c4baaefa7f7a25b86b6ed38578987f83b5bb2,a69c4baaefa7f7a25b86b6ed38578987f83b5bb2,identical,keep_main,Identical bytes
+oria-htc/artifacts/obstacles-lab-validation.json,36e36e118e7573bb006ace5a53d41c16b721c184,36e36e118e7573bb006ace5a53d41c16b721c184,identical,keep_main,Identical bytes
+oria-htc/artifacts/obstacles-second-scene-validation.json,b783e4c2ab410e252f04a9049b60cbcecd0b809f,b783e4c2ab410e252f04a9049b60cbcecd0b809f,identical,keep_main,Identical bytes
+oria-htc/artifacts/offline_candidate_manifest.json,f4ba1a2bff7018f6fd31042e145ebb776f045168,f570b91921171ef5b50fd1eb558f2ba715f73f8d,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/artifacts/r11-release-manifest.json,,9142f045841757dd39284557f1799d744b1c5ed2,rayan_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/artifacts/unified-20260927-build.json,11b31f233f575a0763ad79f65e8a91a3e583603e,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/docs/organizer-prep-report.md,aebbb2a0112b05fdd1244e5abc723204bef7323c,aebbb2a0112b05fdd1244e5abc723204bef7323c,identical,keep_main,Identical bytes
+oria-htc/docs/setup-guide.md,688cc336ec19f736a830b3d822a618eda07242ad,688cc336ec19f736a830b3d822a618eda07242ad,identical,keep_main,Identical bytes
+oria-htc/docs/troubleshooting.md,d2472b2469d6ceafd1744de23bf2c86f43be7898,d2472b2469d6ceafd1744de23bf2c86f43be7898,identical,keep_main,Identical bytes
+oria-htc/fixtures/GeneratedSwiftDangerResolutionReference.swift,,88caf95bb5ce799ec4d081b7c1dd0ce95cc76539,rayan_only,partial_diagnostic,No live policy promotion; session/freshness guards and reference function fixtures
+oria-htc/fixtures/GeneratedSwiftPolicyReference.swift,2abe25488efe8c13845ea3900d24cc8942d8b3d1,2abe25488efe8c13845ea3900d24cc8942d8b3d1,identical,keep_main,Identical bytes
+oria-htc/fixtures/README.md,18da7cf2ef8eb1e72f73e003fd26afd13c2c25f0,9b9b00f8f5527dfabe3a770d744540917cd51693,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/fixtures/capture-integrity/README.md,02e995b9fbbc18cd37cf194c74fdff70ec1de6ac,02e995b9fbbc18cd37cf194c74fdff70ec1de6ac,identical,keep_main,Identical bytes
+oria-htc/fixtures/capture-integrity/cases.json,ea5f9f0460f4165625db0af5712ca51f36fda7c2,ea5f9f0460f4165625db0af5712ca51f36fda7c2,identical,keep_main,Identical bytes
+oria-htc/fixtures/capture-integrity/materialize.py,e89b1f67852556a7635cf8135ce55797f027a48b,e89b1f67852556a7635cf8135ce55797f027a48b,identical,keep_main,Identical bytes
+oria-htc/fixtures/capture-integrity/test_materialize.py,d859fd467c02123930877968b1d3599efa4b68f7,d859fd467c02123930877968b1d3599efa4b68f7,identical,keep_main,Identical bytes
+oria-htc/fixtures/danger_resolution_cases.jsonl,,81c36252009fb973fc8393379f5abbf0bd7c80af,rayan_only,partial_diagnostic,No live policy promotion; session/freshness guards and reference function fixtures
+oria-htc/fixtures/danger_resolution_parity_report.json,,aaafe3bd29f74840018cc95c97805740711bca6f,rayan_only,partial_diagnostic,No live policy promotion; session/freshness guards and reference function fixtures
+oria-htc/fixtures/danger_resolution_results_kotlin.jsonl,,14ad22a99c0e7af99b36a26aebe13b57e12d036c,rayan_only,partial_diagnostic,No live policy promotion; session/freshness guards and reference function fixtures
+oria-htc/fixtures/danger_resolution_results_swift.jsonl,,14ad22a99c0e7af99b36a26aebe13b57e12d036c,rayan_only,partial_diagnostic,No live policy promotion; session/freshness guards and reference function fixtures
+oria-htc/fixtures/depth_portability/README.md,903cb95f34267dc2968c48b9188eb4623fee0ae5,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/fixtures/depth_portability/geometry_cases.tsv,969682c5525e8641d9a23758a0d476ce537dff48,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/fixtures/depth_portability/verify_geometry_fixtures.py,54d7b7a530f9292997a54db6a438be261a77413e,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/fixtures/policy_cases.jsonl,a6dc08beac452b7016699b207ad0c3a16ce73349,a6dc08beac452b7016699b207ad0c3a16ce73349,identical,keep_main,Identical bytes
+oria-htc/fixtures/policy_parity_report.json,62f352af4872aa982037ef822ff974fa0732e7f3,73fc03b53ea6b8327cfa6880c08972ba16c83ea2,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/fixtures/results_kotlin.jsonl,bba13bbd1b26ddced75661f9139e767a5001d485,bba13bbd1b26ddced75661f9139e767a5001d485,identical,keep_main,Identical bytes
+oria-htc/fixtures/results_swift.jsonl,bba13bbd1b26ddced75661f9139e767a5001d485,bba13bbd1b26ddced75661f9139e767a5001d485,identical,keep_main,Identical bytes
+oria-htc/fixtures/run_danger_resolution_reference.py,,fd565ffd961c1db54f4148a6b0378c465ebce00e,rayan_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/fixtures/run_swift_reference.py,3f60c2bfdf8139def89eb34cfac7be657c7c5744,ed73b0301132584509f2ad4d46489b24aed8be4d,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/fixtures/surfaces/README.md,0e2564d367e250a5d329dc4abcf88cafed43ff0e,0e2564d367e250a5d329dc4abcf88cafed43ff0e,identical,keep_main,Identical bytes
+oria-htc/fixtures/surfaces/policy_sequences.json,80354f28d067b744e0f295e618c334c83efc3d6b,80354f28d067b744e0f295e618c334c83efc3d6b,identical,keep_main,Identical bytes
+oria-htc/ml/.gitignore,277e30f415373101e4095d2090b942a2f3d236eb,277e30f415373101e4095d2090b942a2f3d236eb,identical,keep_main,Identical bytes
+oria-htc/ml/README.md,5865d31f1c05db67904e2074b00889a2cbd51445,5865d31f1c05db67904e2074b00889a2cbd51445,identical,keep_main,Identical bytes
+oria-htc/ml/export_and_validate.py,3266aef2b582ee38e860ccd332212caaf5b3379d,3266aef2b582ee38e860ccd332212caaf5b3379d,identical,keep_main,Identical bytes
+oria-htc/ml/exports/model_manifest.json,57fd843a70888d32a536a67dbb8d76d6972f3036,57fd843a70888d32a536a67dbb8d76d6972f3036,identical,keep_main,Identical bytes
+oria-htc/ml/exports/oria_silmo_fp32.onnx,1fca0c1195a26f7372920d792225e2dbdacf1dcb,1fca0c1195a26f7372920d792225e2dbdacf1dcb,identical,keep_main,Identical bytes
+oria-htc/ml/exports/oria_silmo_fp32.pt,1a85a7e02b3c47b0007bbbc28534a05d32473400,1a85a7e02b3c47b0007bbbc28534a05d32473400,identical,keep_main,Identical bytes
+oria-htc/ml/fixtures/geometry_rgb_odd.pytorch.output.f32,be957ba4d991f9d8e8d83b7b725098d00e8e87b9,be957ba4d991f9d8e8d83b7b725098d00e8e87b9,identical,keep_main,Identical bytes
+oria-htc/ml/fixtures/sdk_sample_0.pytorch.output.f32,b5ad1fddfcb9d14afc630425346428ee5ad3b9a3,b5ad1fddfcb9d14afc630425346428ee5ad3b9a3,identical,keep_main,Identical bytes
+oria-htc/ml/fixtures/sdk_sample_1.pytorch.output.f32,9474791a2983556c014339e6446f5c0765f695de,9474791a2983556c014339e6446f5c0765f695de,identical,keep_main,Identical bytes
+oria-htc/ml/fixtures/sdk_sample_2.pytorch.output.f32,8a73a5b50e37c81f6a86d8e1994144fec8693d42,8a73a5b50e37c81f6a86d8e1994144fec8693d42,identical,keep_main,Identical bytes
+oria-htc/ml/fixtures/ultralytics_bus.pytorch.output.f32,3904216448b4b0e467bf95cd6e985de350e3f5fd,3904216448b4b0e467bf95cd6e985de350e3f5fd,identical,keep_main,Identical bytes
+oria-htc/ml/fixtures/ultralytics_zidane.pytorch.output.f32,e0996ca12b4a5575653408ec9e6b55a545f76547,e0996ca12b4a5575653408ec9e6b55a545f76547,identical,keep_main,Identical bytes
+oria-htc/ml/parity_protocol.json,2f80f52e17eb864173c1791099571c03d4fc79a2,2f80f52e17eb864173c1791099571c03d4fc79a2,identical,keep_main,Identical bytes
+oria-htc/ml/parity_results.json,d58b69afc01e83befce86370424562c852e2f5d3,d58b69afc01e83befce86370424562c852e2f5d3,identical,keep_main,Identical bytes
+oria-htc/ml/requirements.lock.txt,8a462f8c7d2dd703675e9dc7845c8f7e6c66dfb1,8a462f8c7d2dd703675e9dc7845c8f7e6c66dfb1,identical,keep_main,Identical bytes
+oria-htc/ml/requirements.txt,40d5d4c7ce5ea53dc45966ae73e34b077d196538,40d5d4c7ce5ea53dc45966ae73e34b077d196538,identical,keep_main,Identical bytes
+oria-htc/ml/verify_integrity.py,ed8140145e1bb7d119c0de698dd16303682c0507,ed8140145e1bb7d119c0de698dd16303682c0507,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/.gitignore,6603dc30776b5d9faeab47170517a8f7c5a5a04d,6603dc30776b5d9faeab47170517a8f7c5a5a04d,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/Lancer Oria Lab.command,4f5316b05d195e42c23dded8ce6c4d593fbdf94d,4f5316b05d195e42c23dded8ce6c4d593fbdf94d,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/README.md,17c8d19f25146e0661e8a0027f6d18661a4754aa,17c8d19f25146e0661e8a0027f6d18661a4754aa,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/audio_preview.py,1efa0b5f7409f64f282282ee62b5b10900c42196,1efa0b5f7409f64f282282ee62b5b10900c42196,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/depth_obstacles.py,fec706aa7f6c175496cba6d77fd166349bb70a15,fec706aa7f6c175496cba6d77fd166349bb70a15,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/depth_policy.py,77f13184c023cad53ed0c2df604dbf94055de7bd,77f13184c023cad53ed0c2df604dbf94055de7bd,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/export_jobs.py,9c2c9d1118904f37c184498d41ce564a06ebf92c,9c2c9d1118904f37c184498d41ce564a06ebf92c,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/image_quality.py,a05c6e99da225c97e5c787b9f12087d51781d285,a05c6e99da225c97e5c787b9f12087d51781d285,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/launch.py,79c22c58e6b2d32e3bf8084fe3075647265d4d80,79c22c58e6b2d32e3bf8084fe3075647265d4d80,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/replay.py,6851a2df54597e3ddc843b8fb4ecc960e2f8dc8f,a8da19b1b9fc35008c0a654b882fcba0085a71a1,different,partial,Strict v1/v2 reader plus immutable import; preserve depth and long-session code
+oria-htc/oria-lab-desktop/server.py,833ca66c1f964e24e29cac1558fe391d1b27db55,833ca66c1f964e24e29cac1558fe391d1b27db55,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/static/app.js,87141309ae509119c404f41f5e32dc061e304157,87141309ae509119c404f41f5e32dc061e304157,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/static/index.html,d7fc369182abb0fcf9848016c2edfc2aa4e8ecda,d7fc369182abb0fcf9848016c2edfc2aa4e8ecda,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/static/style.css,5151eac570f9a5fab312d4f16dd028684da7b4c9,5151eac570f9a5fab312d4f16dd028684da7b4c9,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/surface_inference.py,c859e9c1f3675f5872011852b941478469dcdc61,c859e9c1f3675f5872011852b941478469dcdc61,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/surface_jobs.py,021c94ddcfb346706546df999dd4b557574f7c98,021c94ddcfb346706546df999dd4b557574f7c98,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/surface_obstacles.py,c8a2d181e4ad3a2a56ceac402e634b4404edd890,c8a2d181e4ad3a2a56ceac402e634b4404edd890,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/surface_policy.py,53d5ca75629cbc1dbdc6e4709f580a1026d8e8f0,53d5ca75629cbc1dbdc6e4709f580a1026d8e8f0,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_capture_integrity.py,a79f984e994b7f83b1759068a86a2aca9bed8510,a79f984e994b7f83b1759068a86a2aca9bed8510,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_capture_integrity_http.py,2e6b493363e15e848fb8fa7a04152de53a387a3e,2e6b493363e15e848fb8fa7a04152de53a387a3e,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_depth_obstacles.py,4d3cff2f16b4680bd6977a323c9364fcec7f9c0c,4d3cff2f16b4680bd6977a323c9364fcec7f9c0c,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_depth_policy.py,46be37b2fb35e8a45faf4d710de171dd07443e4f,46be37b2fb35e8a45faf4d710de171dd07443e4f,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_exports.py,f7123b94fa4328a2f10672560fdee39d8478f2d6,f7123b94fa4328a2f10672560fdee39d8478f2d6,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_image_quality.py,4d45d25c9d95c4344a150aa2d3d92ab68b1428cd,4d45d25c9d95c4344a150aa2d3d92ab68b1428cd,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_import_snapshot.py,1d317d2075682dbb061ff18a35017644883c4739,1d317d2075682dbb061ff18a35017644883c4739,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_library.py,348f7dafda591c5852d7ed75346a524b4c35fed8,348f7dafda591c5852d7ed75346a524b4c35fed8,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_long_sessions.py,640343ba87c6bbf6418b635ac56c83f85e30dff3,640343ba87c6bbf6418b635ac56c83f85e30dff3,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_replay.py,045df239ee7da76b8ffa3990688de8aaa5e5663d,9abb837fe96ac3ec993fde9f4946869d4d4ec1b7,different,partial,Strict v1/v2 reader plus immutable import; preserve depth and long-session code
+oria-htc/oria-lab-desktop/test_surface_http.py,654cefbb8e05458e0c23f800a5890e0186468e41,654cefbb8e05458e0c23f800a5890e0186468e41,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_surface_inference.py,13134d953b2db1c0e6a873a31b16c62224f2f848,13134d953b2db1c0e6a873a31b16c62224f2f848,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_surface_jobs.py,09201c5cb94f92243498c65ca54517250a8cad92,09201c5cb94f92243498c65ca54517250a8cad92,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_surface_obstacles.py,8e46a3b24dc430be50c1999af6e0992a915f57c6,8e46a3b24dc430be50c1999af6e0992a915f57c6,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_surface_policy.py,f7c20b23b24802cf1447733ed007551b847ac9e2,f7c20b23b24802cf1447733ed007551b847ac9e2,identical,keep_main,Identical bytes
+oria-htc/oria-lab-desktop/test_ui.js,8fd8c1b36cdb2aa72d0ecd61540aff01724008ef,8fd8c1b36cdb2aa72d0ecd61540aff01724008ef,identical,keep_main,Identical bytes
+oria-htc/oria-lab-policy/.gitignore,4ea31d47b295e16ab3d3450f7d5094a97b478343,4ea31d47b295e16ab3d3450f7d5094a97b478343,identical,keep_main,Identical bytes
+oria-htc/oria-lab-policy/PolicyReplay.kt,5698ca521ab008e894d1e6f7a5128180eadec192,5698ca521ab008e894d1e6f7a5128180eadec192,identical,keep_main,Identical bytes
+oria-htc/oria-lab-policy/README.md,efce731b739aeaf6d04e2d05809e9798bf059338,efce731b739aeaf6d04e2d05809e9798bf059338,identical,keep_main,Identical bytes
+oria-htc/oria-lab-policy/run_core_tests.py,c0948938eeb73f644c2efb431ebae3cd1f9f2278,c0948938eeb73f644c2efb431ebae3cd1f9f2278,identical,keep_main,Identical bytes
+oria-htc/oria-lab-policy/run_policy.py,9beef7926938533778c8041e6d02dee620bfff0c,9beef7926938533778c8041e6d02dee620bfff0c,identical,keep_main,Identical bytes
+oria-htc/oria-lab-policy/test_policy.py,612402eaa37f3a3ee561866902229854bc3bc79c,612402eaa37f3a3ee561866902229854bc3bc79c,identical,keep_main,Identical bytes
+oria-htc/oria-lab-transfer/README.md,c8265873ff3a7870d733ed88da9eda046cdee4eb,c8265873ff3a7870d733ed88da9eda046cdee4eb,identical,keep_main,Identical bytes
+oria-htc/oria-lab-transfer/Récupérer depuis HTC.command,1fd54235dc06146d7de9a0db5e8311e72d348652,1fd54235dc06146d7de9a0db5e8311e72d348652,identical,keep_main,Identical bytes
+oria-htc/oria-lab-transfer/pull_capture.py,5b3aa76c3ec4ec5596edf911a7e486da0bcf1b69,5b3aa76c3ec4ec5596edf911a7e486da0bcf1b69,identical,keep_main,Identical bytes
+oria-htc/oria-lab-transfer/test_pull_capture.py,941b55ed5f10ad72d44657ee603eabf0cea2ba45,941b55ed5f10ad72d44657ee603eabf0cea2ba45,identical,keep_main,Identical bytes
+oria-htc/scripts/build_debug.bat,a6fabc4f0fe4318cb4ec15a51bbe8a1c2dd35e62,a6fabc4f0fe4318cb4ec15a51bbe8a1c2dd35e62,identical,keep_main,Identical bytes
+oria-htc/scripts/check_package_name.bat,473362f5a3a72c80aff8b0901c4a9e572442a2f4,473362f5a3a72c80aff8b0901c4a9e572442a2f4,identical,keep_main,Identical bytes
+oria-htc/scripts/check_package_name.ps1,4276895a0815831891c1a3f8a44b232805306b26,4276895a0815831891c1a3f8a44b232805306b26,identical,keep_main,Identical bytes
+oria-htc/scripts/install_all_devices.bat,013f7322ada235593f5fa2a9f4593835f5bcea03,013f7322ada235593f5fa2a9f4593835f5bcea03,identical,keep_main,Identical bytes
+oria-htc/scripts/prepare_gradle.py,46a5bb201f578051b54dc75147004f16a557d64d,46a5bb201f578051b54dc75147004f16a557d64d,identical,keep_main,Identical bytes
+oria-htc/scripts/uninstall_all_devices.bat,65598bfa4b264706bddb12cb09e0d96d4db21a24,65598bfa4b264706bddb12cb09e0d96d4db21a24,identical,keep_main,Identical bytes
+oria-htc/surface-ml/.gitignore,6b262de69a720b7fe78a5aaf3c884c494e467366,6b262de69a720b7fe78a5aaf3c884c494e467366,identical,keep_main,Identical bytes
+oria-htc/surface-ml/LICENSE-DepthAnythingV2.txt,261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64,261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64,identical,keep_main,Identical bytes
+oria-htc/surface-ml/LICENSE-SegFormer.txt,c14f578420e1f6ff6f60ca714839d0ed329a1051,c14f578420e1f6ff6f60ca714839d0ed329a1051,identical,keep_main,Identical bytes
+oria-htc/surface-ml/README.md,1582f29d2ad612aca76db1017df2a6ec35170ca5,1582f29d2ad612aca76db1017df2a6ec35170ca5,identical,keep_main,Identical bytes
+oria-htc/surface-ml/depth-android-252-model-manifest.json,0ecfe83294a2e6df6c074322b3319005ce6ebc39,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/surface-ml/depth-model-manifest.json,ada4206f018344b90934d9a15f0f726ca0040d4a,ada4206f018344b90934d9a15f0f726ca0040d4a,identical,keep_main,Identical bytes
+oria-htc/surface-ml/depth-source-lock.json,88a4c05251231e3f0528e793bd6d0534c8d7aa03,88a4c05251231e3f0528e793bd6d0534c8d7aa03,identical,keep_main,Identical bytes
+oria-htc/surface-ml/depth_android_variant.py,78db778acaa20ed10d5450a7846812114b23b475,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/surface-ml/export_depth_android_model.py,73a80c2993d4e0924de63544cf1c2efb96d068a1,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/surface-ml/export_depth_model.py,78ee75d5ed0bd0d4ccfb251b2b7057e6c619a6c8,78ee75d5ed0bd0d4ccfb251b2b7057e6c619a6c8,identical,keep_main,Identical bytes
+oria-htc/surface-ml/export_model.py,a927edd4114486054c76ac8ee2b5fb690ed9b802,a927edd4114486054c76ac8ee2b5fb690ed9b802,identical,keep_main,Identical bytes
+oria-htc/surface-ml/model-manifest.json,4e4a4804a43cba6db99a44f93c64c3180f4697c8,4e4a4804a43cba6db99a44f93c64c3180f4697c8,identical,keep_main,Identical bytes
+oria-htc/surface-ml/prepare_depth_android.py,aeb3e6f7f52913b78023d14e33c76a131709ec81,,main_only,keep_main,Preserve stable implementation; see feature review
+oria-htc/surface-ml/requirements.lock.txt,6a260230bffc7bc95ef438d9970f74db53e178d2,6a260230bffc7bc95ef438d9970f74db53e178d2,identical,keep_main,Identical bytes
+oria-htc/surface-ml/requirements.txt,8feefe54361ec86e47dc559f36b3341673aa97be,8feefe54361ec86e47dc559f36b3341673aa97be,identical,keep_main,Identical bytes
+oria-htc/surface-ml/source-lock.json,a59d090f990c1fc92e7a65295b480f2ffed705db,a59d090f990c1fc92e7a65295b480f2ffed705db,identical,keep_main,Identical bytes
+oria-htc/validation-project/app/build.gradle.kts,37da21388089795ef5d244c45011e1e1926fc25d,e869c7a6bfefc6e1d925167cd078a488116df674,different,keep_main,Preserve stable implementation; see feature review
+oria-htc/validation-project/app/src/main/AndroidManifest.xml,a35ed63c2d9a6aa2b04a4110dc9d05bbc8770cf6,a35ed63c2d9a6aa2b04a4110dc9d05bbc8770cf6,identical,main_plus_targeted_hooks,Do not replace stable HTC integration/background/audio/accessibility/depth
+oria-htc/validation-project/app/src/main/res/raw/video_sample.mp4,73559aa554a8b307d6130fda0721204ee4722ded,73559aa554a8b307d6130fda0721204ee4722ded,identical,keep_main,Identical bytes
+oria-htc/validation-project/build.gradle.kts,6acf8a3a8aac5d27c0d6de3eac2b5d6763fb882b,6acf8a3a8aac5d27c0d6de3eac2b5d6763fb882b,identical,keep_main,Identical bytes
+oria-htc/validation-project/gradle.properties,258d1872650bc2181302bcfcb7b922c8f36e18bd,258d1872650bc2181302bcfcb7b922c8f36e18bd,identical,keep_main,Identical bytes
+oria-htc/validation-project/gradle/libs.versions.toml,913c81e4463ed1e214a63b84ff514ca8a1d12d91,913c81e4463ed1e214a63b84ff514ca8a1d12d91,identical,keep_main,Identical bytes
+oria-htc/validation-project/gradle/wrapper/gradle-wrapper.jar,8bdaf60c75ab801e22807dde59e12a8735a34077,8bdaf60c75ab801e22807dde59e12a8735a34077,identical,keep_main,Identical bytes
+oria-htc/validation-project/gradle/wrapper/gradle-wrapper.properties,c8af129da4e4178240450fb1c2656bd35d7c2693,c8af129da4e4178240450fb1c2656bd35d7c2693,identical,keep_main,Identical bytes
+oria-htc/validation-project/gradlew,ef07e0162b183eb9d19a2c9ba7035c283af9f8dd,ef07e0162b183eb9d19a2c9ba7035c283af9f8dd,identical,keep_main,Identical bytes
+oria-htc/validation-project/gradlew.bat,5eed7ee8452842305a18a4eb967442683808226a,5eed7ee8452842305a18a4eb967442683808226a,identical,keep_main,Identical bytes
+oria-htc/validation-project/settings.gradle.kts,e7918822ac5a9f38190a29a29dee09d89296458d,e7918822ac5a9f38190a29a29dee09d89296458d,identical,keep_main,Identical bytes
+oria-htc/validation/ACCESSIBILITY_DELIVERY_20260927.md,4104dc0ef017154080f4ede9259a97f462a4dd79,4104dc0ef017154080f4ede9259a97f462a4dd79,identical,keep_main,Identical bytes
+oria-htc/validation/ACCESSIBILITY_REVIEW_20260927.md,a107b241c188475ecb039938cb367c560bf150e8,a107b241c188475ecb039938cb367c560bf150e8,identical,keep_main,Identical bytes
+oria-htc/validation/ANDROID_OBSTACLES_20260927.md,a0e52451baef0f3772bcc29b7f1e802fdf928ab0,,main_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/CAPTURE_INTEGRITY_FIXTURES.md,c1725d90f085f78ca2543dbcd13d6c11348ef8d3,c1725d90f085f78ca2543dbcd13d6c11348ef8d3,identical,keep_main,Identical bytes
+oria-htc/validation/COMPLETION_GAP_REGISTER.md,,280942b41ec81554dc6642913d62a3d157302fcf,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/CPU_XNNPACK_DIAGNOSTIC.md,234ece0ac7b1140ab3031123c30f279fe06a8adb,234ece0ac7b1140ab3031123c30f279fe06a8adb,identical,keep_main,Identical bytes
+oria-htc/validation/DEPTH_OBSTACLES_20260927.md,5eb0cbf1b8d551360e43771e472206bfe19b3369,5eb0cbf1b8d551360e43771e472206bfe19b3369,identical,keep_main,Identical bytes
+oria-htc/validation/FINAL_INDEPENDENT_REVIEW.md,,ed37df13ccd794a43a20a5d9f9e00369cb979fdc,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/GALLERY_LONG_SESSIONS.md,7a7559800d53498aea729fa8467dea5fb06e782c,7a7559800d53498aea729fa8467dea5fb06e782c,identical,keep_main,Identical bytes
+oria-htc/validation/HTC_IMPLEMENTATION.md,d51a809ca2d99b91f023074cbb74d26662d6c5af,d51a809ca2d99b91f023074cbb74d26662d6c5af,identical,keep_main,Identical bytes
+oria-htc/validation/LETTERBOX_GEOMETRY_REVIEW.md,6be33164830ecda93a99d7316319e4bb003b5cf5,6be33164830ecda93a99d7316319e4bb003b5cf5,identical,keep_main,Identical bytes
+oria-htc/validation/LIVE_20260927_V14.md,913ade71d2d0e17ef37c86e2a54cd73c894fc59b,913ade71d2d0e17ef37c86e2a54cd73c894fc59b,identical,keep_main,Identical bytes
+oria-htc/validation/LONG_CAPTURE_FOLLOWUP.md,15faf0a29bb7a90100439c59a481d373c9935c1c,15faf0a29bb7a90100439c59a481d373c9935c1c,identical,keep_main,Identical bytes
+oria-htc/validation/ML_ENDURANCE.md,a761937731e7515da02bdd1385241c378c178ccb,a761937731e7515da02bdd1385241c378c178ccb,identical,keep_main,Identical bytes
+oria-htc/validation/ML_IMPLEMENTATION.md,2f2518e8b3443b1d387c6dd168f2e057563bd1fc,2f2518e8b3443b1d387c6dd168f2e057563bd1fc,identical,keep_main,Identical bytes
+oria-htc/validation/ML_NEW_DEVICE_PREPARATION.md,1c56fd6397b8bdc79e5f6107172ba17fc776f24c,1c56fd6397b8bdc79e5f6107172ba17fc776f24c,identical,keep_main,Identical bytes
+oria-htc/validation/NIGHT_WORK_20260927.md,0d00f5380cf5ced7df89ff4aec42b9251a1a730d,0d00f5380cf5ced7df89ff4aec42b9251a1a730d,identical,keep_main,Identical bytes
+oria-htc/validation/OBSTACLES_LAB_20260927.md,410a983ad855c134b294bc7e39bd217b33d00614,410a983ad855c134b294bc7e39bd217b33d00614,identical,keep_main,Identical bytes
+oria-htc/validation/OFFLINE_PROGRESS.md,8e89e5d0a04f1d62a726073677a563e99130ab38,8e89e5d0a04f1d62a726073677a563e99130ab38,identical,keep_main,Identical bytes
+oria-htc/validation/ORIA_COMPLETION_PARITY_REPORT.md,,4f56b93a7c9e53f53584328d1f2e43a6957da0db,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/ORIA_LAB_SESSION_FORMAT.md,be35624f71b3a38f134582b145f9a6b2bbd33a6a,be35624f71b3a38f134582b145f9a6b2bbd33a6a,identical,keep_main,Identical bytes
+oria-htc/validation/ORIA_RENAMING.md,38a5e9c7023a846c3cc6ed0efa90a8076bdb882c,38a5e9c7023a846c3cc6ed0efa90a8076bdb882c,identical,keep_main,Identical bytes
+oria-htc/validation/PORTAGE_IMPLEMENTATION.md,f65f66c94c6569e5801b0e707ce8b05865f880fc,c7d66face4a3d2ef91148ba8f36e35a93eab847d,different,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/R01_RUNTIME_SESSION_VALIDATION.md,,e211a81d55d2a70de77aa0df1ca0e59e8428d270,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/R02_TRACKING_QUALIFICATION.md,,08f90d55a0f4dba2aaae46e294f39d38f77bfbbd,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/R03_MONOCULAR_DEPTH.md,,203a68129c4d53ede144065c029d8b39767b521a,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/R04_DANGER_RESOLUTION.md,,5e2d7a3a8bcc5aab4fe268d8a1ac56f974c3e11a,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/R05_AUDIO_PRIORITY_VALIDATION.md,,22d3375f858e2d85ecde9f2219ac76e15f8b8e49,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/R06_GUIDED_NAVIGATION.md,,2b78be09d61c1a670e2587dcd08aa7cdf9294c45,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/R07_VOICE_BUTTON_VALIDATION.md,,4400b30f7164788e124bdfcf52aebba757474801,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/R08_DASHBOARD_VALIDATION.md,,0a864ea464a27465aab0c6a363b4e0134e60be18,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/R10_LIVE_HARDENING_REPORT.md,,7339b2b20063c68a3f2e0e54a81e25b7cb4b0f01,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/R11_JURY_FREEZE_REPORT.md,,f0d9fdf34114c339a08717b8fe1ff5e600ac06a9,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/R11_OPERATOR_CHECKLIST.md,,c3d3328b1008aa4b6f89889feb5eda8778a74a20,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/RAYAN_WORK_MERGE.md,,c8029052189b7323c880c88763cbc852ec109fab,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/RECETTE.md,9599e69ba2489322f5d7932bea8db544bf8f0cfc,9599e69ba2489322f5d7932bea8db544bf8f0cfc,identical,keep_main,Identical bytes
+oria-htc/validation/REVIEW_NIGHT_WAVE2.md,9c8411533f3054850df3489a8ce2235ae7b5ebce,9c8411533f3054850df3489a8ce2235ae7b5ebce,identical,keep_main,Identical bytes
+oria-htc/validation/REVIEW_NIGHT_WAVE3.md,4a1f71ed00ff08ec3dcfcecf97ae00f1287cc9ac,4a1f71ed00ff08ec3dcfcecf97ae00f1287cc9ac,identical,keep_main,Identical bytes
+oria-htc/validation/SCENE_REVIEW_4BB1B9DD_20260927.md,bd4bcf53f332aad29516b62c8f01de64f751595c,bd4bcf53f332aad29516b62c8f01de64f751595c,identical,keep_main,Identical bytes
+oria-htc/validation/SDK_VIDEO_VOICE_CONFLICT.md,220eb90c4d134697a421ad7c88ccb32cbce26ed7,220eb90c4d134697a421ad7c88ccb32cbce26ed7,identical,keep_main,Identical bytes
+oria-htc/validation/SURFACES_REVIEW_20260927.md,fbdbdd8c6815f7dc256ad8064b875bbb3cfbc26b,fbdbdd8c6815f7dc256ad8064b875bbb3cfbc26b,identical,keep_main,Identical bytes
+oria-htc/validation/TEAMMATE_SYNC_20260927.md,,1cdc101cd125f9b1a7200dfb0acf54399c63f67d,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/TRACKING_V2.md,9e38a2fa0458dcdd10b29d9c209c22f203ca38b4,c900db86a432feb6ba325d7b2d02c14d5b47992d,different,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/UNIFIED_ASSISTANCE_20260927.md,d6317891d40c131de58de70d7697211bb72cb6fc,,main_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/build_current.py,7bddc985cb560284a665ac8e8e748a32422f25d9,7bddc985cb560284a665ac8e8e748a32422f25d9,identical,keep_main,Identical bytes
+oria-htc/validation/build_offline.py,c3701b19190b41f20f499f2c64d711a829e4b5f0,c3701b19190b41f20f499f2c64d711a829e4b5f0,identical,keep_main,Identical bytes
+oria-htc/validation/evaluate_image_quality.py,22b6e4e1b154de6554a21a813dd789d1bf318dd6,22b6e4e1b154de6554a21a813dd789d1bf318dd6,identical,keep_main,Identical bytes
+oria-htc/validation/evaluate_obstacle_report.py,6085d1c2d9544cf054ad41fb4be3f1fec0ded916,6085d1c2d9544cf054ad41fb4be3f1fec0ded916,identical,keep_main,Identical bytes
+oria-htc/validation/measure_live_device.py,0f77bd4b829370aa806b64047b1251e0c9799337,0f77bd4b829370aa806b64047b1251e0c9799337,identical,keep_main,Identical bytes
+oria-htc/validation/r02_tracking_qualification.py,,a1bf0e718ce35d6f87740ad7f8e073690f192390,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/summarize_endurance.py,d11ce345b71824cbdfed8b6d039b2a4a8b908fbd,d11ce345b71824cbdfed8b6d039b2a4a8b908fbd,identical,keep_main,Identical bytes
+oria-htc/validation/summarize_live.py,7f0752f6e1c4060fa79a80cf8c721ce62e12cfd2,7f0752f6e1c4060fa79a80cf8c721ce62e12cfd2,identical,keep_main,Identical bytes
+oria-htc/validation/test_r02_tracking_qualification.py,,9b371a6405c9d6134743ffda161c3245ee5b634d,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/tracking_compare.py,85d6380403da682149528655ef8838b2693d4dcd,2c024aaab2f709b7792e93d7edd1c8de7a0b6e80,different,reference_only,Historical claims retained in source branch; new evidence recorded separately
+oria-htc/validation/ui_probe.py,9556f7e8f954809e49e82a215c803d4decfcc448,9556f7e8f954809e49e82a215c803d4decfcc448,identical,keep_main,Identical bytes
+oria-htc/validation/update_delivery_manifest.py,6d1ffc746afe2ac88d7a13bb00ee8777f992d364,6d1ffc746afe2ac88d7a13bb00ee8777f992d364,identical,keep_main,Identical bytes
+oria-htc/validation/user-scene-0548b68a/AUDIT.md,e5422d95652c48760ddb5ef773539bc14ad07279,e5422d95652c48760ddb5ef773539bc14ad07279,identical,keep_main,Identical bytes
+oria-htc/validation/user-scene-0548b68a/frames_auditees.csv,95f61ac69c409c406c2fb9cc856506b7469484bf,95f61ac69c409c406c2fb9cc856506b7469484bf,identical,keep_main,Identical bytes
+oria-htc/validation/user-scene-0548b68a/ml_audit.py,4006a130d11da0cc7e5b1122715d9a910c2f7382,4006a130d11da0cc7e5b1122715d9a910c2f7382,identical,keep_main,Identical bytes
+oria-htc/validation/user-scene-0548b68a/ml_summary.md,1bc4d20d66b6a4ddf26a8ef16dbaebca6661853d,1bc4d20d66b6a4ddf26a8ef16dbaebca6661853d,identical,keep_main,Identical bytes
+oria-htc/validation/user-scene-0548b68a/policy_adapter.kt,927ff27fa380f78680c7b10bb393cda096f4d0a5,927ff27fa380f78680c7b10bb393cda096f4d0a5,identical,keep_main,Identical bytes
+oria-htc/validation/user-scene-0548b68a/policy_audit.py,b7271821838ab028d8cdcb66dae756a5f15c207c,b7271821838ab028d8cdcb66dae756a5f15c207c,identical,keep_main,Identical bytes
+oria-htc/validation/user-scene-0548b68a/policy_summary.md,78bf1b6ad5a217f1030c90a416b61cb8adcfb979,78bf1b6ad5a217f1030c90a416b61cb8adcfb979,identical,keep_main,Identical bytes
+oria-htc/validation/user-scene-0548b68a/visual_first_half.md,28000f62973caeeb1a7c7cd53f9951997bf0742b,28000f62973caeeb1a7c7cd53f9951997bf0742b,identical,keep_main,Identical bytes
+oria-htc/validation/user-scene-0548b68a/visual_second_half.md,85476cb5c22168d70bdfeca5f5a4e4bdc2c931c6,85476cb5c22168d70bdfeca5f5a4e4bdc2c931c6,identical,keep_main,Identical bytes
+oria-htc/validation/validate_depth_model.py,,24eba36e859994ef23946390ead6c80ea263749e,rayan_only,reference_only,Historical claims retained in source branch; new evidence recorded separately
+release/NOTES.md,5daea85d53f8ac8a8ba987494ddacb44cd590c23,5daea85d53f8ac8a8ba987494ddacb44cd590c23,identical,keep_main,Identical bytes
+release/SHA256SUMS,efbb8d90933f0b274f9f632df6203750b24d6394,efbb8d90933f0b274f9f632df6203750b24d6394,identical,keep_main,Identical bytes
+release/oria-silmo-validation.json,76bdfcd3405d408742de8674b70b62d796c2940e,76bdfcd3405d408742de8674b70b62d796c2940e,identical,keep_main,Identical bytes

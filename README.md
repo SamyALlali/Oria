@@ -4,13 +4,19 @@ Prototype du hackathon SILMO pour HTC VIVE Eagle : la caméra des lunettes trans
 
 Le prototype reprend notre modèle YOLO et des politiques portées depuis une base Swift. Le package autorisé reste `com.htc.vive.eagle.hackathon.starter`.
 
-**Nouveau dans Oria Lab : Obstacles · expérimental.** Segmentation et relief relatif recherchent des régions non couvertes par YOLO, inspectables image par image. Prototype local sur Mac, sans distance métrique ni annonce automatique sur HTC. **164 images analysées et 128 tests Python réussis** ; [résultats et limites](oria-htc/validation/OBSTACLES_LAB_20260927.md), [préparation des modèles](oria-htc/surface-ml/README.md).
+**Travaux antérieurs dans Oria Lab : Obstacles · expérimental.** Segmentation et relief relatif recherchent des régions non couvertes par YOLO, inspectables image par image. Ce rapport concerne le volet Mac silencieux, sans distance métrique. La profondeur Android expérimentale ajoutée ensuite est conservée dans1.8. **164 images analysées et 128 tests Python réussis** ; [résultats et limites](oria-htc/validation/OBSTACLES_LAB_20260927.md), [préparation des modèles](oria-htc/surface-ml/README.md).
 
-## Interface 1.5 et version installée — 27 septembre
+## Candidat sélectif sur la branche fusion — 27 septembre
 
-**Le candidat 1.5-accessibility est compilé, pas encore installé.** Accueil simplifié, grandes commandes, thème clair/sombre contrasté et contrôles nommés pour TalkBack ; Oria Lab reprend le même style. Trois agents ont assuré réalisation et revue ; 83 tests JVM passent. Le rendu agrandi et le parcours TalkBack restent à vérifier sur HTC. [Livraison 1.5 et limites](oria-htc/validation/ACCESSIBILITY_DELIVERY_20260927.md).
+**1.8-fusion-preview** ajoute une navigation réelle ou simulée, une voie audio prioritaire pour les dangers, la dictée du téléphone et des protections de confidentialité. La base est **main b650dad (1.7-unified)** : modèles, deux analyses parallèles, façade HTC, accueil accessible et fonctionnement en veille conservés. Ce candidat ne modifie pas main.
 
-**Dernière version installée : 1.4-night sur CN46V3M00284.** Vidéo et trois positions vocales 70/30 confirmées avec l’utilisateur. Le mode poche, pour lequel une coupure possible a été signalée, reste à retester. [Recette physique 1.4](oria-htc/validation/LIVE_20260927_V14.md).
+**200 tests JVM et 176 tests Python passent.** [Comparaison, décisions, recette HTC et limites](oria-htc/validation/FUSION_REVIEW.md). Le moteur Rayan est intégré en diagnostic ; il ne remplace pas nos décisions vocales. La navigation GPS est limitée au premier plan, la transcription mains libres des lunettes n’est pas revendiquée, et les obstacles restent expérimentaux.
+
+## Historique de l’interface 1.5 — 27 septembre
+
+**À la livraison 1.5, le candidat était compilé et non encore installé.** Accueil simplifié, grandes commandes, thème clair/sombre contrasté et contrôles nommés pour TalkBack ; Oria Lab reprend le même style. Trois agents ont assuré réalisation et revue ; 83 tests JVM passent. Le rendu agrandi et le parcours TalkBack restent à vérifier sur HTC. [Livraison 1.5 et limites](oria-htc/validation/ACCESSIBILITY_DELIVERY_20260927.md).
+
+**Validation historique : 1.4-night sur CN46V3M00284.** Vidéo et trois positions vocales 70/30 confirmées avec l’utilisateur. Le mode poche, pour lequel une coupure possible a été signalée, reste à retester. [Recette physique 1.4](oria-htc/validation/LIVE_20260927_V14.md).
 
 ## Travaux de nuit antérieurs
 

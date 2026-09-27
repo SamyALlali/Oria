@@ -16,7 +16,7 @@ Le mode **Surfaces + relief · comparaison** conserve le parcours antérieur, av
 
 ## Lancer le lecteur
 
-Double-cliquer **Lancer Oria Lab.command**, puis importer le ZIP de capture v1 ou saisir le chemin du dossier qui contient `manifest.json`. Le lanceur utilise l’environnement existant `ml/.venv`, choisit un port disponible et ouvre le navigateur. Garder son terminal ouvert ; Ctrl+C ferme le serveur. Rien n’est téléchargé à l’ouverture.
+Double-cliquer **Lancer Oria Lab.command**, puis importer le ZIP de capture v1 ou v2 compatible ou saisir le chemin du dossier qui contient `manifest.json`. Le lanceur utilise l’environnement existant `ml/.venv`, choisit un port disponible et ouvre le navigateur. Garder son terminal ouvert ; Ctrl+C ferme le serveur. Rien n’est téléchargé à l’ouverture.
 
 En ligne de commande, depuis `oria-htc/` :
 
@@ -134,3 +134,8 @@ Si les métadonnées et analyses sont fiables et que **seule une PNG manque ou e
 Les événements vocaux sont rattachés uniquement à leur identité vidéo explicite et à un intervalle d’horloge certain. Un callback sans session, ambigu ou issu de l’ancienne session ne se retrouve pas sur la suivante. La dernière fenêtre se termine à l’heure de fin enregistrée, sans ajouter artificiellement une seconde. Les fichiers sources ne sont jamais réécrits. Si un index change après son ouverture, ou si une PNG change après sa vérification, la lecture refuse de réutiliser la jointure ou l’image en cache.
 
 Les tests utilisent les 11 captures synthétiques partagées de `../fixtures/capture-integrity/` et vérifient leurs empreintes avant/après. Ils couvrent aussi l’admission/refus des jobs, l’export du diagnostic de couverture visuelle, l’absence d’attribution audio à une autre session, les erreurs UTF-8/UTF-16/NaN/`1e309`, les entiers excessifs, la frontière de 2 Mio hors LF, les chemins trop longs et les modifications après indexation. Les mesures de parité et de recette sur capture réelle sont consignées séparément par l’orchestrateur ; ces fixtures ne prouvent aucun comportement du SDK HTC.
+
+
+## Compatibilité sélective fusion
+
+Le lecteur accepte les versions entières 1 et 2 du manifeste, refuse les valeurs booléennes et les champs de version contradictoires. L’import reste une copie immuable ; le téléphone continue d’écrire v1. Cela ne transforme pas le replay existant en rejeu complet de navigation/voix/profondeur : [périmètre précis](../validation/FUSION_REVIEW.md). Redémarrer le serveur pour charger cette mise à jour Python, après avoir exporté les rapports temporaires utiles.
