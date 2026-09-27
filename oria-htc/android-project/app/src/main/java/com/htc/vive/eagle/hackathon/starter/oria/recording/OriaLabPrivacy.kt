@@ -107,7 +107,7 @@ object OriaLabPrivacy {
                     else -> out[key] = when (value) {
                         is Map<*, *> -> map(value, depth + 1, false, manifest = when {
                             metadata && key == "modelManifest" -> ManifestContext.MODEL
-                            manifest == ManifestContext.MODEL && key == "output_contract" -> ManifestContext.OUTPUT_CONTRACT
+                            manifest == ManifestContext.MODEL && key == "output" -> ManifestContext.OUTPUT_CONTRACT
                             else -> ManifestContext.NONE
                         })
                         else -> copy(value, depth + 1)

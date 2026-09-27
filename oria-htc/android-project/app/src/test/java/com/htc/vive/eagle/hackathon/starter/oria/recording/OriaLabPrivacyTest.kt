@@ -115,14 +115,14 @@ class OriaLabPrivacyTest {
 
     @Test fun onlyReviewedManifestCoordinateVocabularySurvivesAndNoPrivateCoordinatePathIsExempt() {
         val contract = mapOf("coordinates" to "letterboxed input pixels", "extra_nms" to false)
-        val metadata = mapOf("modelManifest" to mapOf("output_contract" to contract))
+        val metadata = mapOf("modelManifest" to mapOf("output" to contract))
         assertEquals(metadata, OriaLabPrivacy.sanitizeMetadata(metadata))
         assertEquals(metadata, OriaLabPrivacy.sanitizeMetadata(OriaLabPrivacy.sanitizeMetadata(metadata)))
 
         for (coordinate in listOf<Any>(secret, listOf(48.7, 2.1), mapOf("latitude" to 48.7))) {
-            val input = mapOf("modelManifest" to mapOf("output_contract" to mapOf("coordinates" to coordinate)))
+            val input = mapOf("modelManifest" to mapOf("output" to mapOf("coordinates" to coordinate)))
             val model = OriaLabPrivacy.sanitizeMetadata(input)["modelManifest"] as Map<*, *>
-            assertFalse((model["output_contract"] as Map<*, *>).containsKey("coordinates"))
+            assertFalse((model["output"] as Map<*, *>).containsKey("coordinates"))
         }
         val misplaced = mapOf("modelManifest" to mapOf("other" to contract, "coordinates" to "letterboxed input pixels"),
             "navigation" to contract)
@@ -131,10 +131,10 @@ class OriaLabPrivacyTest {
         assertFalse(((filtered["modelManifest"] as Map<*, *>)["other"] as Map<*, *>).containsKey("coordinates"))
         assertFalse((filtered["navigation"] as Map<*, *>).containsKey("coordinates"))
         val eventModel = OriaLabPrivacy.sanitizeEvent(metadata)["modelManifest"] as Map<*, *>
-        assertFalse((eventModel["output_contract"] as Map<*, *>).containsKey("coordinates"))
-        val guarded = mapOf("modelManifest" to mapOf("output_contract" to (contract + ("type" to "navigation_begin"))))
+        assertFalse((eventModel["output"] as Map<*, *>).containsKey("coordinates"))
+        val guarded = mapOf("modelManifest" to mapOf("output" to (contract + ("type" to "navigation_begin"))))
         val guardedModel = OriaLabPrivacy.sanitizeMetadata(guarded)["modelManifest"] as Map<*, *>
-        assertFalse((guardedModel["output_contract"] as Map<*, *>).containsKey("coordinates"))
+        assertFalse((guardedModel["output"] as Map<*, *>).containsKey("coordinates"))
     }
 
     @Test fun malformedOrOverlyDeepStructuresFailWithoutReflectingTheirValues() {
